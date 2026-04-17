@@ -1,0 +1,111 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+// 根项目已通过 Spring Boot 插件将 dependency-management 加载到 classpath，直接 apply 即可
+apply plugin: 'io.spring.dependency-management'
+
+group = 'club.beenest.cas'
+version = '1.0.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.6"
+    }
+}
+
+dependencies {
+    // Spring Security CAS（原生 CAS 协议支持）
+    api 'org.springframework.security:spring-security-cas'
+
+    // Apereo CAS Client（TicketValidator、SingleSignOutFilter）
+    api 'org.apereo.cas.client:cas-client-core'
+
+    // Spring Boot
+    api 'org.springframework.boot:spring-boot-starter'
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-security'
+
+    // 缓存支持
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+    // 配置属性元数据生成
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            // 将 BOM 解析的版本号写入 pom，确保 Maven 消费方能获取传递依赖
+            pom {
+                withXml {
+                    def depMgr = project.dependencyManagement
+                    if (depMgr != null) {
+                        def pomNode = asNode()
+                        def deps = pomNode.dependencies?.dependency
+                        deps?.each { dep ->
+                            def groupId = dep.groupId?.text()
+                            def artifactId = dep.artifactId?.text()
+                            if (!dep.version?.text()) {
+                                def resolved = configurations.compileClasspath.resolvedConfiguration
+                                    .resolvedArtifacts.find { it.moduleVersion.id.group == groupId && it.moduleVersion.id.name == artifactId }
+                                if (resolved) {
+                                    dep.appendNode('version', resolved.moduleVersion.id.version)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 使用 Spring Dependency Management 插件的 resolvedVersions
+afterEvaluate {
+    publishing {
+        publications {
+            mavenJava {
+                pom.withXml {
+                    def managedDeps = project.dependencyManagement.managedVersions
+                    asNode().dependencies.dependency.each { dep ->
+                        if (!dep.version?.text()) {
+                            def key = "${dep.groupId.text()}:${dep.artifactId.text()}"
+                            if (managedDeps[key]) {
+                                dep.appendNode('version', managedDeps[key])
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+tasks.withType(GenerateModuleMetadata).configureEach {
+    suppressedValidationErrors.add('dependencies-without-versions')
+}
+
+tasks.test {
+    useJUnitPlatform()
+}

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.mapper.RiskRuleMapper">
+
+    <resultMap id="BaseResultMap" type="club.beenest.payment.object.entity.RiskRule">
+        <id column="id" property="id" />
+        <result column="rule_code" property="ruleCode" />
+        <result column="rule_name" property="ruleName" />
+        <result column="rule_type" property="ruleType" />
+        <result column="threshold" property="threshold" />
+        <result column="time_window" property="timeWindow" />
+        <result column="action" property="action" />
+        <result column="is_enable" property="isEnable" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <insert id="insert" parameterType="club.beenest.payment.object.entity.RiskRule" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_payment_risk_rule (
+            rule_code, rule_name, rule_type, threshold, time_window, action, is_enable, create_time, update_time
+        ) VALUES (
+            #{ruleCode}, #{ruleName}, #{ruleType}, #{threshold}, #{timeWindow}, #{action}, #{isEnable}, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="update" parameterType="club.beenest.payment.object.entity.RiskRule">
+        UPDATE ds_payment_risk_rule
+        SET
+            rule_name = #{ruleName},
+            rule_type = #{ruleType},
+            threshold = #{threshold},
+            time_window = #{timeWindow},
+            action = #{action},
+            is_enable = #{isEnable},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM ds_payment_risk_rule WHERE id = #{id}
+    </delete>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM ds_payment_risk_rule ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByCode" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT * FROM ds_payment_risk_rule WHERE rule_code = #{ruleCode}
+    </select>
+
+</mapper>

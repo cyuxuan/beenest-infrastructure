@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.mapper.WalletIntegrityLogMapper">
+
+    <insert id="insert" parameterType="club.beenest.payment.object.entity.WalletIntegrityLog"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_wallet_integrity_log (
+            wallet_no, customer_no, expected_balance, actual_balance,
+            expected_frozen, actual_frozen, hash_valid, status, detail, create_time
+        ) VALUES (
+            #{walletNo}, #{customerNo}, #{expectedBalance}, #{actualBalance},
+            #{expectedFrozeBalance}, #{actualFrozeBalance}, #{hashValid}, #{status}, #{detail}, #{createTime}
+        )
+    </insert>
+
+    <select id="countUnresolvedByWalletNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_wallet_integrity_log
+        WHERE wallet_no = #{walletNo}
+          AND status = 'DETECTED'
+    </select>
+
+</mapper>

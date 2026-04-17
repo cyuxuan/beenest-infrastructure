@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.apereo.cas.beenest.mapper.CasSyncStrategyMapper">
+
+    <select id="selectByServiceId" resultType="org.apereo.cas.beenest.entity.CasSyncStrategy">
+        SELECT id, service_id, push_enabled, push_url, push_secret, push_events,
+               pull_enabled, max_retries, retry_interval, created_time, updated_time
+        FROM cas_sync_strategy WHERE service_id = #{serviceId}
+    </select>
+
+    <select id="selectPushEnabled" resultType="org.apereo.cas.beenest.entity.CasSyncStrategy">
+        SELECT id, service_id, push_enabled, push_url, push_secret, push_events,
+               pull_enabled, max_retries, retry_interval, created_time, updated_time
+        FROM cas_sync_strategy WHERE push_enabled = true
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO cas_sync_strategy (service_id, push_enabled, push_url, push_secret, push_events,
+                                        pull_enabled, max_retries, retry_interval)
+        VALUES (#{serviceId}, #{pushEnabled}, #{pushUrl}, #{pushSecret}, #{pushEvents},
+                #{pullEnabled}, #{maxRetries}, #{retryInterval})
+    </insert>
+
+    <update id="updateByServiceId">
+        UPDATE cas_sync_strategy
+        <set>
+            <if test="pushEnabled != null">push_enabled = #{pushEnabled},</if>
+            <if test="pushUrl != null">push_url = #{pushUrl},</if>
+            <if test="pushSecret != null">push_secret = #{pushSecret},</if>
+            <if test="pushEvents != null">push_events = #{pushEvents},</if>
+            <if test="pullEnabled != null">pull_enabled = #{pullEnabled},</if>
+            <if test="maxRetries != null">max_retries = #{maxRetries},</if>
+            <if test="retryInterval != null">retry_interval = #{retryInterval},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE service_id = #{serviceId}
+    </update>
+
+</mapper>

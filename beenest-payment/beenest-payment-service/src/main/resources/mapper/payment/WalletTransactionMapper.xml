@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.mapper.WalletTransactionMapper">
+
+    <!-- Result Map -->
+    <resultMap id="BaseResultMap" type="club.beenest.payment.object.entity.WalletTransaction">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="transaction_no" property="transactionNo" jdbcType="VARCHAR"/>
+        <result column="wallet_no" property="walletNo" jdbcType="VARCHAR"/>
+        <result column="customer_no" property="customerNo" jdbcType="VARCHAR"/>
+        <result column="customerName" property="customerName" jdbcType="VARCHAR"/>
+        <result column="customerPhone" property="customerPhone" jdbcType="VARCHAR"/>
+        <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="transaction_type" property="transactionType" jdbcType="VARCHAR"/>
+        <result column="amount" property="amount" jdbcType="BIGINT"/>
+        <result column="before_balance" property="beforeBalance" jdbcType="BIGINT"/>
+        <result column="after_balance" property="afterBalance" jdbcType="BIGINT"/>
+        <result column="description" property="description" jdbcType="VARCHAR"/>
+        <result column="reference_no" property="referenceNo" jdbcType="VARCHAR"/>
+        <result column="reference_type" property="referenceType" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="remark" property="remark" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!-- Base Column List -->
+    <sql id="Base_Column_List">
+        id, transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+        before_balance, after_balance, description, reference_no, reference_type,
+        status, remark, create_time
+    </sql>
+
+    <!-- 根据主键ID查询 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet_transaction
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据交易流水号查询 -->
+    <select id="selectByTransactionNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet_transaction
+        WHERE transaction_no = #{transactionNo}
+    </select>
+
+    <!-- 插入交易流水记录 -->
+    <insert id="insert" parameterType="club.beenest.payment.object.entity.WalletTransaction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_wallet_transaction (
+            transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+            before_balance, after_balance, description, reference_no, reference_type,
+            status, remark, create_time
+        ) VALUES (
+            #{transactionNo}, #{walletNo}, #{customerNo}, #{bizType}, #{transactionType}, #{amount},
+            #{beforeBalance}, #{afterBalance}, #{description}, #{referenceNo}, #{referenceType},
+            #{status}, #{remark}, #{createTime}
+        )
+    </insert>
+
+    <!-- 批量插入交易流水记录 -->
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO ds_wallet_transaction (
+            transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+            before_balance, after_balance, description, reference_no, reference_type,
+            status, remark, create_time
+        ) VALUES
+        <foreach collection="transactions" item="item" separator=",">
+            (
+                #{item.transactionNo}, #{item.walletNo}, #{item.customerNo}, #{item.bizType},
+                #{item.transactionType}, #{item.amount}, #{item.beforeBalance},
+                #{item.afterBalance}, #{item.description}, #{item.referenceNo},
+                #{item.referenceType}, #{item.status}, #{item.remark}, #{item.createTime}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 分页查询用户交易历史 -->
+    <select id="selectByCustomerNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet_transaction
+        WHERE customer_no = #{customerNo}
+          AND status = 'SUCCESS'
+        <if test="transactionType != null and transactionType != ''">
+          AND transaction_type = #{transactionType}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 分页查询钱包交易历史 -->
+    <select id="selectByWalletNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet_transaction
+        WHERE wallet_no = #{walletNo}
+        <if test="transactionType != null and transactionType != ''">
+          AND transaction_type = #{transactionType}
+        </if>
+        <if test="status != null and status != ''">
+          AND status = #{status}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 按时间范围查询交易记录 -->
+    <select id="selectByTimeRange" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet_transaction
+        WHERE create_time BETWEEN #{startTime} AND #{endTime}
+        <if test="customerNo != null and customerNo != ''">
+          AND customer_no = #{customerNo}
+        </if>
+        <if test="transactionType != null and transactionType != ''">
+          AND transaction_type = #{transactionType}
+        </if>
+        <if test="status != null and status != ''">
+          AND status = #{status}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 根据关联单号查询交易记录 -->
+    <select id="selectByReferenceNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet_transaction
+        WHERE reference_no = #{referenceNo}
+        <if test="referenceType != null and referenceType != ''">
+          AND reference_type = #{referenceType}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 统计用户交易金额 -->
+    <select id="statisticsByCustomerNo" resultMap="BaseResultMap">
+        SELECT 
+            transaction_type,
+            SUM(amount) as amount,
+            COUNT(*) as id
+        FROM ds_wallet_transaction
+        WHERE customer_no = #{customerNo}
+          AND status = 'SUCCESS'
+        <if test="startTime != null">
+          AND create_time &gt;= #{startTime}
+        </if>
+        <if test="endTime != null">
+          AND create_time &lt;= #{endTime}
+        </if>
+        GROUP BY transaction_type
+        ORDER BY transaction_type
+    </select>
+
+    <!-- 检查交易流水号是否存在 -->
+    <select id="countByTransactionNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_wallet_transaction
+        WHERE transaction_no = #{transactionNo}
+    </select>
+
+    <!-- 根据关联单号检查交易是否存在（幂等性检查） -->
+    <select id="countByReferenceNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_wallet_transaction
+        WHERE reference_no = #{referenceNo}
+          AND reference_no IS NOT NULL
+          AND reference_no != ''
+    </select>
+
+    <!-- 更新交易状态 -->
+    <update id="updateStatus">
+        UPDATE ds_wallet_transaction
+        SET status = #{status}
+        <if test="remark != null and remark != ''">
+            , remark = #{remark}
+        </if>
+        WHERE transaction_no = #{transactionNo}
+    </update>
+
+    <!-- 根据查询条件分页查询交易记录 -->
+    <select id="selectByQuery" resultMap="BaseResultMap">
+        SELECT t.*
+        FROM ds_wallet_transaction t
+        <where>
+            <if test="transactionNo != null and transactionNo != ''">
+                AND t.transaction_no = #{transactionNo}
+            </if>
+            <if test="type != null and type != ''">
+                AND t.transaction_type = #{type}
+            </if>
+            <if test="startTime != null and startTime != ''">
+                AND t.create_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND t.create_time &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC, t.id DESC
+    </select>
+
+    <!-- 查询指定钱包所有成功交易金额之和（对账用） -->
+    <select id="selectSumAmountByWalletNo" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM ds_wallet_transaction
+        WHERE wallet_no = #{walletNo}
+          AND status = 'SUCCESS'
+    </select>
+
+</mapper>

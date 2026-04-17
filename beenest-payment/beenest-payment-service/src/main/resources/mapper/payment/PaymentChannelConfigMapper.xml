@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.mapper.PaymentChannelConfigMapper">
+
+    <resultMap id="BaseResultMap" type="club.beenest.payment.object.entity.PaymentChannelConfig">
+        <id column="id" property="id" />
+        <result column="channel_name" property="channelName" />
+        <result column="channel_code" property="channelCode" />
+        <result column="app_id" property="appId" />
+        <result column="merchant_id" property="merchantId" />
+        <result column="public_key" property="publicKey" />
+        <result column="private_key" property="privateKey" />
+        <result column="notify_url" property="notifyUrl" />
+        <result column="is_enable" property="isEnable" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <insert id="insert" parameterType="club.beenest.payment.object.entity.PaymentChannelConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_payment_channel_config (
+            channel_name, channel_code, app_id, merchant_id, public_key, private_key,
+            notify_url, is_enable, create_time, update_time
+        ) VALUES (
+            #{channelName}, #{channelCode}, #{appId}, #{merchantId}, #{publicKey}, #{privateKey},
+            #{notifyUrl}, #{isEnable}, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="update" parameterType="club.beenest.payment.object.entity.PaymentChannelConfig">
+        UPDATE ds_payment_channel_config
+        SET
+            channel_name = #{channelName},
+            app_id = #{appId},
+            merchant_id = #{merchantId},
+            public_key = #{publicKey},
+            private_key = #{privateKey},
+            notify_url = #{notifyUrl},
+            is_enable = #{isEnable},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectByChannelCode" resultMap="BaseResultMap">
+        SELECT * FROM ds_payment_channel_config WHERE channel_code = #{channelCode}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM ds_payment_channel_config ORDER BY create_time DESC
+    </select>
+
+</mapper>

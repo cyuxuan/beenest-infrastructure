@@ -1,0 +1,6 @@
+org.apereo.cas.beenest.config.BeenestServiceConfiguration
+org.apereo.cas.beenest.config.BeenestCasAuthenticationConfiguration
+org.apereo.cas.beenest.config.BeenestMyBatisConfiguration
+org.apereo.cas.beenest.config.WxMaConfiguration
+org.apereo.cas.beenest.config.CasOverlayOverrideConfiguration
+org.apereo.cas.beenest.config.SmsSecurityConfig

@@ -1,0 +1,44 @@
+# ============================================================
+# 开发环境配置
+# ============================================================
+
+cas:
+  server:
+    name: http://localhost:8081
+    prefix: ${cas.server.name}/cas
+
+  tgc:
+    secure: false
+
+  ticket:
+    registry:
+      redis:
+        host: ${REDIS_HOST:localhost}
+        port: ${REDIS_PORT:6379}
+        database: 1
+        enable-redis-search: false
+
+  # service-registry JPA 配置继承自 application.yml，无需重复
+  # Docker 环境通过环境变量 CAS_SERVICE_REGISTRY_JPA_* 覆盖
+
+spring:
+  # datasource 配置继承自 application.yml，无需重复
+  # Docker 环境通过环境变量 SPRING_DATASOURCE_* 覆盖
+  data:
+    redis:
+      database: 1
+  thymeleaf:
+    cache: false
+
+server:
+  port: 8081
+  ssl:
+    enabled: false
+
+logging:
+  level:
+    org.apereo.cas: TRACE
+    org.apereo.cas.beenest: TRACE
+    org.springframework.security: DEBUG
+    org.springframework.web: TRACE
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: TRACE

@@ -1,0 +1,180 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: beenest-payment
+  profiles:
+    include:
+      - secret
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        enabled: ${NACOS_ENABLED:true}
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:localhost:8080}
+        port: ${SENTINEL_PORT:8720}
+      eager: true
+    openfeign:
+      sentinel:
+        enabled: true
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/beenest?currentSchema=beenest_payment}
+    username: ${PAYMENT_DB_USER:postgres}
+    password: ${PAYMENT_DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: auto
+        prefetch: 10
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 2000
+          multiplier: 2
+          max-interval: 10000
+
+mybatis:
+  mapper-locations: classpath:mapper/payment/*.xml
+  type-aliases-package: club.beenest.payment.object.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+pagehelper:
+  helper-dialect: postgresql
+  reasonable: true
+
+# Sa-Token 配置
+sa-token:
+  token-name: Authorization
+  timeout: 86400
+  is-concurrent: true
+  is-share: true
+  is-read-cookie: false
+  is-read-header: true
+  token-style: uuid
+
+# 支付配置（敏感信息通过环境变量或 application-secret.yml 注入）
+payment:
+  wallet:
+    hash-secret: ${WALLET_HASH_SECRET:}
+  internal:
+    token: ${INTERNAL_TOKEN:}
+    sign-secret: ${INTERNAL_SIGN_SECRET:}
+    allowed-networks: 127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  mq:
+    sign-secret: ${MQ_SIGN_SECRET:}
+  callback:
+    allowed-ips: ${CALLBACK_ALLOWED_IPS:}
+  # 第三方支付 SDK 配置由 application-secret.yml 或环境变量提供
+  wechat:
+    enabled: ${WECHAT_ENABLED:true}
+    app-id: ${WECHAT_APP_ID:}
+    mch-id: ${WECHAT_MCH_ID:}
+    api-v3-key: ${WECHAT_API_V3_KEY:}
+    serial-no: ${WECHAT_SERIAL_NO:}
+    private-key-path: ${WECHAT_PRIVATE_KEY_PATH:classpath:cert/apiclient_key.pem}
+    public-key-path: ${WECHAT_PUBLIC_KEY_PATH:classpath:cert/pub_key.pem}
+    public-key-id: ${WECHAT_PUBLIC_KEY_ID:}
+    notify-url: ${WECHAT_NOTIFY_URL:}
+    refund-notify-url: ${WECHAT_REFUND_NOTIFY_URL:}
+  alipay:
+    enabled: ${ALIPAY_ENABLED:true}
+    app-id: ${ALIPAY_APP_ID:}
+    private-key: ${ALIPAY_PRIVATE_KEY:}
+    alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
+    gateway-url: https://openapi.alipay.com/gateway.do
+    sign-type: RSA2
+    charset: UTF-8
+    format: json
+    notify-url: ${ALIPAY_NOTIFY_URL:}
+  douyin:
+    enabled: ${DOUYIN_ENABLED:true}
+    app-id: ${DOUYIN_APP_ID:}
+    app-secret: ${DOUYIN_APP_SECRET:}
+    mch-id: ${DOUYIN_MCH_ID:}
+    payment-key: ${DOUYIN_PAYMENT_KEY:}
+    notify-url: ${DOUYIN_NOTIFY_URL:}
+  common:
+    order-expire-minutes: 30
+    payment-timeout-seconds: 300
+    callback-retry-times: 3
+    sandbox: false
+    refund-sync-enabled: true
+    refund-sync-delay-ms: 30000
+    refund-sync-initial-delay-ms: 15000
+    refund-sync-batch-size: 20
+
+# 提现配置（敏感信息通过环境变量或 application-secret.yml 注入）
+withdraw:
+  wechat:
+    enabled: ${WITHDRAW_WECHAT_ENABLED:false}
+    app-id: ${WECHAT_APP_ID:}
+    mch-id: ${WECHAT_MCH_ID:}
+    api-v3-key: ${WECHAT_API_V3_KEY:}
+    serial-no: ${WECHAT_SERIAL_NO:}
+    private-key-path: ${WECHAT_PRIVATE_KEY_PATH:classpath:cert/apiclient_key.pem}
+    fee-amount: 200
+    min-amount: 10000
+    max-amount: 5000000
+    transfer-scene-id: "1000"
+    daily-total-limit: 10000000
+    daily-user-limit: 2000000
+    daily-count-limit: 3
+    hourly-count-limit: 1
+  alipay:
+    enabled: ${WITHDRAW_ALIPAY_ENABLED:false}
+    app-id: ${ALIPAY_APP_ID:}
+    private-key: ${ALIPAY_PRIVATE_KEY:}
+    alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
+    fee-amount: 200
+    min-amount: 10000
+    max-amount: 5000000
+    daily-total-limit: 10000000
+    daily-user-limit: 2000000
+  douyin:
+    enabled: ${WITHDRAW_DOUYIN_ENABLED:false}
+    app-id: ${DOUYIN_APP_ID:}
+    app-secret: ${DOUYIN_APP_SECRET:}
+    merchant-id: ${DOUYIN_MCH_ID:}
+    fee-amount: 200
+    min-amount: 10000
+    max-amount: 5000000
+    daily-total-limit: 10000000
+    daily-user-limit: 2000000
+
+# 日志
+logging:
+  level:
+    club.beenest.payment: INFO
+    club.beenest.payment.mapper: DEBUG
+
+# Swagger
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html

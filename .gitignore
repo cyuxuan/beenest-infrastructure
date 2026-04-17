@@ -1,0 +1,45 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Claude Code
+.claude/
+.codex/
+
+# Build artifacts
+build/
+target/
+bin/
+out/
+*.class
+*.war
+*.jar
+*.ear
+
+# Logs
+*.log
+log/
+
+# Temp files
+tmp/
+*.tmp
+*.bak
+
+# Sensitive configs
+**/application-secret.yml
+**/application-secret.yaml
+**/application-secret.properties
+
+# Payment certificates
+**/cert/*.pem
+**/cert/*.p12
+**/cert/*.key

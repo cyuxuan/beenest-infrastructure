@@ -1,0 +1,226 @@
+services:
+  # ======================== 中间件 ========================
+
+  postgres:
+    image: imresamu/postgis-arm64:16-3.4-alpine
+    container_name: beenest-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # 初始化脚本：创建数据库 + schema
+      # schema 列表：drone_system, beenest_payment, beenest_cas
+      - ./infra/postgres/00-create-databases.sh:/docker-entrypoint-initdb.d/00-create-databases.sh
+      - ./infra/postgres/01-schema-drone-system.sql:/tmp/sql/01-schema-drone-system.sql
+      - ./infra/postgres/02-schema-beenest-payment.sql:/tmp/sql/02-schema-beenest-payment.sql
+      - ./infra/postgres/03-schema-beenest-cas.sql:/tmp/sql/03-schema-beenest-cas.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - beenest-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: beenest-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - beenest-net
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: drone-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - beenest-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: beenest-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - beenest-net
+
+  nacos:
+    image: nacos/nacos-server:v2.4.3-slim
+    container_name: beenest-nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+      JVM_XMS: 256m
+      JVM_XMX: 512m
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    volumes:
+      - nacos-data:/home/nacos/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/v1/console/health/readiness"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - beenest-net
+
+  # ======================== 基础服务 ========================
+
+  # ---------- CAS 统一认证中心（端口 8081） ----------
+  beenest-cas:
+    image: eclipse-temurin:21-jre-jammy
+    container_name: beenest-cas
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      # 数据源（beenest 数据库，beenest_cas schema）
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/beenest?currentSchema=beenest_cas
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      # Redis（database 1，用于 CAS ticket registry）
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # 覆盖 CAS service-registry JPA 数据源
+      CAS_SERVICE_REGISTRY_JPA_URL: jdbc:postgresql://postgres:5432/beenest?currentSchema=beenest_cas
+      CAS_SERVICE_REGISTRY_JPA_USER: postgres
+      CAS_SERVICE_REGISTRY_JPA_PASSWORD: postgres
+      # 覆盖 Redis 配置
+      CAS_TICKET_REGISTRY_REDIS_HOST: redis
+      CAS_TICKET_REGISTRY_REDIS_PORT: 6379
+      # CAS TGC Cookie 加密密钥
+      TGC_ENCRYPTION_KEY: ${TGC_ENCRYPTION_KEY:-kQwI6WE9y9670A9mH9pG9s9265P8Y914}
+      TGC_SIGNING_KEY: ${TGC_SIGNING_KEY:-kQwI6WE9y9670A9mH9pG9s9265P8Y914kQwI6WE9y9670A9mH9pG9s9265P8Y914}
+      # 票据注册表加密密钥（必须固定，否则重启后无法解密已有 TGT）
+      TICKET_ENCRYPTION_KEY: ${TICKET_ENCRYPTION_KEY:-zQwI6WE9y9670A9mH9pG9s9265P8Y914}
+      TICKET_SIGNING_KEY: ${TICKET_SIGNING_KEY:-zQwI6WE9y9670A9mH9pG9s9265P8Y914zQwI6WE9y9670A9mH9pG9s9265P8Y914}
+      # Token 有效期配置
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-604800}
+      REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-31536000}
+      # 小程序配置
+      WECHAT_APPID: wxb825c278b136da28
+      WECHAT_SECRET: c9f7a58d0db509d2b93893e512bc21bc
+      DOUYIN_APPID: ${DOUYIN_APPID:-}
+      DOUYIN_SECRET: ${DOUYIN_SECRET:-}
+      ALIPAY_APPID: ${ALIPAY_APPID:-}
+      ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY:-}
+      ALIPAY_PUBLIC_KEY: ${ALIPAY_PUBLIC_KEY:-}
+      # 短信配置
+      SMS_PROVIDER: ${SMS_PROVIDER:-aliyun}
+      SMS_ACCESS_KEY: ${SMS_ACCESS_KEY:-}
+      SMS_SECRET_KEY: ${SMS_SECRET_KEY:-}
+      # 用户同步签名密钥（需与客户端 CAS_SIGN_KEY 一致）
+      CAS_SYNC_SIGN_KEY: ${CAS_SIGN_KEY:-kQwI6WE9y9670A9mH9pG9s9265P8Y914}
+      # Flyway：schema 由 postgres initdb 脚本创建，需要 baseline
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      # JVM
+      JAVA_OPTS: -Xms256m -Xmx512m
+      # 远程调试开关（设置为非空值即开启 JDWP，端口 5007）
+      DEBUG_BEENEST_CAS: ${DEBUG_BEENEST_CAS:-}
+    ports:
+      - "8081:8081"
+      - "5007:5007"  # 远程调试端口
+    volumes:
+      - ./beenest-cas/build/libs/cas.war:/app/app.war
+      - beenest-cas-logs:/app/logs
+    working_dir: /app
+    entrypoint: ["sh", "-c", "java $$JAVA_OPTS $${DEBUG_BEENEST_CAS:+-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007} -jar /app/app.war"]
+    networks:
+      - beenest-net
+
+  # ---------- 支付微服务（端口 8082） ----------
+  beenest-payment:
+    image: eclipse-temurin:21-jre-jammy
+    container_name: beenest-payment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      PAYMENT_DB_URL: jdbc:postgresql://postgres:5432/beenest?currentSchema=beenest_payment
+      PAYMENT_DB_USER: postgres
+      PAYMENT_DB_PASSWORD: postgres
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_ADDR: nacos:8848
+      # CAS Client（指向 beenest-cas）
+      CAS_SERVER_URL: http://beenest-cas:8081/cas
+      CAS_SIGN_KEY: ${CAS_SIGN_KEY:-kQwI6WE9y9670A9mH9pG9s9265P8Y914}
+      JAVA_OPTS: -Xms256m -Xmx512m
+    ports:
+      - "8082:8082"
+      - "5006:5006"  # 远程调试端口
+    volumes:
+      - ./beenest-payment/beenest-payment-service/target/beenest-payment-service-0.0.1-SNAPSHOT.jar:/app/app.jar
+      - beenest-payment-logs:/app/logs
+    working_dir: /app
+    entrypoint: ["sh", "-c", "java $$JAVA_OPTS $${DEBUG_BEENEST_PAYMENT:+-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006} -jar /app/app.jar"]
+    networks:
+      - beenest-net
+
+networks:
+  beenest-net:
+    external: true
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  minio-data:
+  nacos-data:
+  beenest-cas-logs:
+  beenest-payment-logs:

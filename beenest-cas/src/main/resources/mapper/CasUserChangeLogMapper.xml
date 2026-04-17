@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.apereo.cas.beenest.mapper.CasUserChangeLogMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO cas_user_change_log (user_id, change_type, old_data, new_data, synced)
+        VALUES (#{userId}, #{changeType}, #{oldData}, #{newData}, #{synced})
+    </insert>
+
+    <select id="selectUnsynced" resultType="org.apereo.cas.beenest.entity.CasUserChangeLog">
+        SELECT id, user_id, change_type, old_data, new_data, synced, created_time
+        FROM cas_user_change_log
+        WHERE synced = false
+        <if test="since != null">
+            AND created_time >= #{since}
+        </if>
+        ORDER BY created_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markSynced">
+        UPDATE cas_user_change_log SET synced = true
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+</mapper>
