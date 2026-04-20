@@ -156,8 +156,14 @@ services:
       SMS_SECRET_KEY: ${SMS_SECRET_KEY:-}
       # 用户同步签名密钥（需与客户端 CAS_SIGN_KEY 一致）
       CAS_SYNC_SIGN_KEY: ${CAS_SIGN_KEY:?请设置 CAS_SIGN_KEY}
+      CAS_TOKEN_VALIDATION_SECRET: ${CAS_TOKEN_VALIDATION_SECRET:-beenest-cas-token-secret}
       # Flyway：schema 由 postgres initdb 脚本创建，需要 baseline
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      # 日志级别（需要调试时改为 TRACE/DEBUG，无需重新打包）
+      LOG_LEVEL_CAS: ${LOG_LEVEL_CAS:-INFO}
+      LOG_LEVEL_BEENEST: ${LOG_LEVEL_BEENEST:-INFO}
+      LOG_LEVEL_SPRING_SECURITY: ${LOG_LEVEL_SPRING_SECURITY:-INFO}
+      LOG_LEVEL_SPRING_WEB: ${LOG_LEVEL_SPRING_WEB:-INFO}
       # JVM
       JAVA_OPTS: -Xms256m -Xmx512m
       # 远程调试开关（设置为非空值即开启 JDWP，端口 5007）
@@ -200,6 +206,7 @@ services:
       # CAS Client（指向 beenest-cas）
       CAS_SERVER_URL: http://beenest-cas:8081/cas
       CAS_SIGN_KEY: ${CAS_SIGN_KEY:?请设置 CAS_SIGN_KEY}
+      CAS_CLIENT_TOKEN_VALIDATION_SECRET: ${CAS_TOKEN_VALIDATION_SECRET:-beenest-cas-token-secret}
       JAVA_OPTS: -Xms256m -Xmx512m
     ports:
       - "8082:8082"

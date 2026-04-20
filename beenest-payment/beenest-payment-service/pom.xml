@@ -21,6 +21,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- CAS 资源服务认证 -->
+        <dependency>
+            <groupId>club.beenest.cas</groupId>
+            <artifactId>beenest-cas-client-resource-server-starter</artifactId>
+            <version>${beenest-cas.version}</version>
+        </dependency>
+
         <!-- TODO: Phase 3 will remove these drone-common dependencies -->
         <dependency>
             <groupId>club.beenest</groupId>
@@ -30,11 +37,6 @@
         <dependency>
             <groupId>club.beenest</groupId>
             <artifactId>drone-cache</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>club.beenest</groupId>
-            <artifactId>drone-security</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
 
@@ -111,13 +113,6 @@
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-        </dependency>
-
-        <!-- Sa-Token -->
-        <dependency>
-            <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-spring-boot3-starter</artifactId>
-            <version>${sa-token.version}</version>
         </dependency>
 
         <!-- Swagger -->

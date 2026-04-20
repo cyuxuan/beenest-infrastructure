@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Import;
 @Import({
     CasDefaultUserDetailsConfiguration.class,
     CasCoreConfiguration.class,
+    CasAuthenticationConfigurerConfiguration.class,
     CasDefaultSecurityConfiguration.class,
     CasBusinessLoginProxyConfiguration.class,
     CasProxyConfiguration.class,

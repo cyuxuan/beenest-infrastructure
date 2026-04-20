@@ -4,6 +4,7 @@ import org.apereo.cas.beenest.authn.credential.AppTokenCredential;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.exception.BusinessException;
 import org.apereo.cas.beenest.common.response.R;
+import org.apereo.cas.beenest.common.util.CasAttributeUtils;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.AppLoginRequestDTO;
 import org.apereo.cas.beenest.dto.AppLogoutRequestDTO;
@@ -297,7 +298,7 @@ public class AppLoginController {
         data.setRefreshToken(refreshToken);
         data.setExpiresIn(tokenTtlProperties.getAccessTokenTtlSeconds());
         data.setUserId(principal.getId());
-        data.setAttributes(principal.getAttributes());
+        data.setAttributes(CasAttributeUtils.flattenAttributes(principal.getAttributes()));
         return data;
     }
 

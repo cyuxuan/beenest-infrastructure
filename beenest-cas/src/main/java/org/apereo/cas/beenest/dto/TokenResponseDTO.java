@@ -15,5 +15,5 @@ public class TokenResponseDTO {
     private String refreshToken;
     private Long expiresIn;
     private String userId;
-    private Map<String, ?> attributes;
+    private Map<String, Object> attributes;
 }

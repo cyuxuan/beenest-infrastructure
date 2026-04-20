@@ -7,10 +7,12 @@ import org.apereo.cas.ticket.TicketGrantingTicket;
 import org.apereo.cas.ticket.registry.TicketRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.Mockito.mock;
@@ -35,7 +37,11 @@ class TokenValidationControllerTest {
         when(tgt.getAuthentication()).thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(principal);
         when(principal.getId()).thenReturn("U1001");
-        when(principal.getAttributes()).thenReturn(Map.of("userId", java.util.List.of("U1001")));
+        when(principal.getAttributes()).thenReturn(Map.of(
+                "userId", List.of("U1001"),
+                "nickname", List.of("测试用户"),
+                "roles", List.of("ADMIN", "AUDITOR")
+        ));
 
         TokenValidationController controller = new TokenValidationController(ticketRegistry);
         ReflectionTestUtils.setField(controller, "validationSecret", "secret");
@@ -46,10 +52,26 @@ class TokenValidationControllerTest {
 
     @Test
     void rejectsMissingSharedSecret() throws Exception {
-        mockMvc.perform(post("/cas/token/validate")
+        mockMvc.perform(post("/token/validate")
+                        .accept(MediaType.APPLICATION_JSON)
                         .param("accessToken", "TGT-1"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("未授权访问"));
+    }
+
+    @Test
+    void shouldFlattenSingleValueAttributesAndKeepMultiValueAttributes() throws Exception {
+        mockMvc.perform(post("/token/validate")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .param("accessToken", "TGT-1")
+                        .header("X-CAS-Token-Secret", "secret"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value("U1001"))
+                .andExpect(jsonPath("$.data.attributes.userId").value("U1001"))
+                .andExpect(jsonPath("$.data.attributes.nickname").value("测试用户"))
+                .andExpect(jsonPath("$.data.attributes.roles[0]").value("ADMIN"))
+                .andExpect(jsonPath("$.data.attributes.roles[1]").value("AUDITOR"));
     }
 }

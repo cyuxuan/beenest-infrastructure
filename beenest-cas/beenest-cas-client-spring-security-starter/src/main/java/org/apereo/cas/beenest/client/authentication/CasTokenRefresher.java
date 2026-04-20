@@ -2,6 +2,7 @@ package org.apereo.cas.beenest.client.authentication;
 
 import org.apereo.cas.beenest.client.config.CasSecurityProperties;
 import org.apereo.cas.beenest.client.session.CasUserSession;
+import org.apereo.cas.beenest.client.util.RequestSignatureUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -31,11 +33,19 @@ public class CasTokenRefresher {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CasTokenRefresher(CasSecurityProperties properties) {
+        this(properties, buildRestTemplate(properties));
+    }
+
+    CasTokenRefresher(CasSecurityProperties properties, RestTemplate restTemplate) {
         this.properties = properties;
+        this.restTemplate = restTemplate;
+    }
+
+    private static RestTemplate buildRestTemplate(CasSecurityProperties properties) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(properties.getTokenAuth().getRefreshTimeoutMs());
         factory.setReadTimeout(properties.getTokenAuth().getRefreshTimeoutMs());
-        this.restTemplate = new RestTemplate(factory);
+        return new RestTemplate(factory);
     }
 
     /**
@@ -50,10 +60,13 @@ public class CasTokenRefresher {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            Map<String, String> body = new HashMap<>();
-            body.put("refreshToken", refreshToken);
+            Map<String, String> bodyMap = new HashMap<>();
+            bodyMap.put("refreshToken", refreshToken);
+            String bodyJson = objectMapper.writeValueAsString(bodyMap);
 
-            HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
+            appendSignatureHeaders(headers, bodyJson);
+
+            HttpEntity<String> request = new HttpEntity<>(bodyJson, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
             return parseResponse(response.getBody());
@@ -61,6 +74,24 @@ public class CasTokenRefresher {
             LOGGER.warn("Token 刷新请求失败: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 附加业务系统签名头，满足 CAS Server 的 CasServiceCredentialFilter 校验要求。
+     */
+    private void appendSignatureHeaders(HttpHeaders headers, String body) {
+        String serviceId = properties.getServiceId();
+        String signKey = properties.getSignKey();
+        if (!StringUtils.hasText(serviceId) || !StringUtils.hasText(signKey)) {
+            return;
+        }
+        String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
+        String nonce = RequestSignatureUtils.generateNonce();
+        String signature = RequestSignatureUtils.sign(timestamp, nonce, body != null ? body : "", signKey);
+        headers.set("X-CAS-Service-Id", serviceId);
+        headers.set("X-CAS-Timestamp", timestamp);
+        headers.set("X-CAS-Nonce", nonce);
+        headers.set("X-CAS-Signature", signature);
     }
 
     /**

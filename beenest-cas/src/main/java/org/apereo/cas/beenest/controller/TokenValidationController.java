@@ -3,6 +3,7 @@ package org.apereo.cas.beenest.controller;
 import org.apereo.cas.beenest.common.response.R;
 import org.apereo.cas.beenest.dto.TokenValidationResponseDTO;
 import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.util.CasAttributeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -73,7 +74,7 @@ public class TokenValidationController {
 
             TokenValidationResponseDTO data = new TokenValidationResponseDTO();
             data.setUserId(principal.getId());
-            data.setAttributes(principal.getAttributes());
+            data.setAttributes(CasAttributeUtils.flattenAttributes(principal.getAttributes()));
 
             return R.ok(data);
         } catch (Exception e) {

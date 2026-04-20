@@ -31,6 +31,9 @@ public class CasSecurityProperties {
     /** CAS Server 签名密钥（用于 Webhook 签名验证和拉取 API 请求签名） */
     private String signKey;
 
+    /** TGT 校验接口共享密钥（用于 /token/validate 内部调用鉴权） */
+    private String tokenValidationSecret;
+
     /** 不需要认证的 URL 模式（逗号分隔，用于默认 SecurityFilterChain 的 permitAll 配置） */
     private String ignorePattern;
 
@@ -42,6 +45,9 @@ public class CasSecurityProperties {
 
     /** 是否使用 Session 存储认证状态 */
     private boolean useSession = true;
+
+    /** Starter 运行模式 */
+    private CasMode mode = CasMode.LOGIN_GATEWAY;
 
     /** CAS 登录回调路径（Spring Security CasAuthenticationFilter 监听） */
     private String loginPath = "/login/cas";
@@ -85,7 +91,7 @@ public class CasSecurityProperties {
     @Data
     public static class BusinessLoginProxyConfig {
         /** 是否启用业务系统登录代理 */
-        private boolean enabled = true;
+        private boolean enabled = false;
         /** 业务系统对外暴露的登录代理前缀 */
         private String basePath = "/cas";
     }
@@ -108,9 +114,29 @@ public class CasSecurityProperties {
         /** 是否启用无感 Token 刷新（需客户端同时传递 X-Refresh-Token） */
         private boolean autoRefreshEnabled = true;
         /** CAS Server refresh 端点路径（相对于 serverUrl） */
-        private String refreshEndpoint = "/cas/app/refresh";
+        private String refreshEndpoint = "/app/refresh";
         /** refresh 请求超时（毫秒） */
         private int refreshTimeoutMs = 5000;
+        /** 权限版本属性名，用于识别授权缓存是否过期 */
+        private String authorityVersionAttribute = "permissionVersion";
+    }
+
+    /**
+     * 判断是否为资源服务模式。
+     *
+     * @return true 表示资源服务模式
+     */
+    public boolean isResourceServerMode() {
+        return mode != null && mode.isResourceServer();
+    }
+
+    /**
+     * 判断是否为登录网关模式。
+     *
+     * @return true 表示登录网关模式
+     */
+    public boolean isLoginGatewayMode() {
+        return mode == null || mode.isLoginGateway();
     }
 
     /**

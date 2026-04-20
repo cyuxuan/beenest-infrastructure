@@ -18,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
  */
 @Configuration
 @ConditionalOnProperty(prefix = "cas.client", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "cas.client", name = "mode", havingValue = "login-gateway", matchIfMissing = true)
 public class CasBusinessLoginProxyConfiguration {
 
     /**
@@ -26,7 +27,7 @@ public class CasBusinessLoginProxyConfiguration {
      * @return RestTemplate
      */
     @Bean
-    @ConditionalOnProperty(prefix = "cas.client.business-login-proxy", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "cas.client.business-login-proxy", name = "enabled", havingValue = "true")
     public RestTemplate casBusinessLoginProxyRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
@@ -42,7 +43,7 @@ public class CasBusinessLoginProxyConfiguration {
      * @return 代理服务
      */
     @Bean
-    @ConditionalOnProperty(prefix = "cas.client.business-login-proxy", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "cas.client.business-login-proxy", name = "enabled", havingValue = "true")
     public CasBusinessLoginProxyService casBusinessLoginProxyService(
             CasSecurityProperties properties,
             RestTemplate restTemplate) {
@@ -56,7 +57,7 @@ public class CasBusinessLoginProxyConfiguration {
      * @return 控制器
      */
     @Bean
-    @ConditionalOnProperty(prefix = "cas.client.business-login-proxy", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "cas.client.business-login-proxy", name = "enabled", havingValue = "true")
     public CasBusinessLoginProxyController casBusinessLoginProxyController(
             CasBusinessLoginProxyService proxyService,
             ObjectProvider<BearerTokenCache> bearerTokenCacheProvider,

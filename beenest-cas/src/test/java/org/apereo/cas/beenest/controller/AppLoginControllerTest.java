@@ -19,6 +19,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,11 @@ class AppLoginControllerTest {
 
         Principal principal = mock(Principal.class);
         when(principal.getId()).thenReturn("U10001");
-        when(principal.getAttributes()).thenReturn(Map.of("loginType", java.util.List.of("APP")));
+        when(principal.getAttributes()).thenReturn(Map.of(
+                "loginType", List.of("APP"),
+                "nickname", List.of("Alice"),
+                "firstLogin", List.of(false)
+        ));
 
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(principal);
@@ -84,7 +89,10 @@ class AppLoginControllerTest {
         assertThat(data.getRefreshToken()).isNotBlank();
         assertThat(data.getUserId()).isEqualTo("U10001");
         assertThat(data.getExpiresIn()).isEqualTo(3600);
-        assertThat(data.getAttributes()).containsKey("loginType");
+        assertThat(data.getAttributes())
+                .containsEntry("loginType", "APP")
+                .containsEntry("nickname", "Alice")
+                .containsEntry("firstLogin", false);
         org.mockito.Mockito.verify(appAccessService).autoGrantOnRegister("U10001", 10001L);
     }
 

@@ -36,6 +36,10 @@ import java.util.UUID;
 @Transactional(transactionManager = "beenestTransactionManager")
 public class UserIdentityService {
 
+    private static final java.util.Set<String> INVALID_NICKNAMES = java.util.Set.of(
+            "未登录", "null", "undefined", "nil", "游客", "微信用户", "抖音用户", "支付宝用户"
+    );
+
     /**
      * 用户查找或注册结果。
      *
@@ -62,6 +66,8 @@ public class UserIdentityService {
      */
     public UserIdentityResult findOrRegisterByWechatResult(String openid, String unionid,
                                                            String phone, String userType, String nickname) {
+        String sanitizedNickname = sanitizeNickname(nickname);
+
         // 1. 查找用户（优先级：unionid > openid）
         UnifiedUserDO user = null;
         boolean firstLogin = false;
@@ -94,11 +100,13 @@ public class UserIdentityService {
 
         // 3. 自动注册（带并发保护）
         if (user == null) {
-            user = createWechatUser(openid, unionid, phone, userType, nickname);
+            user = createWechatUser(openid, unionid, phone, userType, sanitizedNickname);
             userSyncService.recordChange(user.getUserId(), "CREATE", null, user);
             autoGrantDefaultServices(user.getUserId());
             firstLogin = true;
             LOGGER.info("微信自动注册: userId={}", user.getUserId());
+        } else if (tryRefreshNickname(user, sanitizedNickname)) {
+            userMapper.updateByUserId(user);
         }
 
         return new UserIdentityResult(user, firstLogin);
@@ -117,6 +125,8 @@ public class UserIdentityService {
      */
     public UserIdentityResult findOrRegisterByDouyinResult(String openid, String unionid,
                                                            String phone, String userType, String nickname) {
+        String sanitizedNickname = sanitizeNickname(nickname);
+
         UnifiedUserDO user = null;
         boolean firstLogin = false;
         if (StringUtils.isNotBlank(unionid)) {
@@ -145,11 +155,13 @@ public class UserIdentityService {
             }
         }
         if (user == null) {
-            user = createDouyinUser(openid, unionid, userType, nickname);
+            user = createDouyinUser(openid, unionid, userType, sanitizedNickname);
             userSyncService.recordChange(user.getUserId(), "CREATE", null, user);
             autoGrantDefaultServices(user.getUserId());
             firstLogin = true;
             LOGGER.info("抖音自动注册: userId={}", user.getUserId());
+        } else if (tryRefreshNickname(user, sanitizedNickname)) {
+            userMapper.updateByUserId(user);
         }
         return new UserIdentityResult(user, firstLogin);
     }
@@ -167,6 +179,8 @@ public class UserIdentityService {
      */
     public UserIdentityResult findOrRegisterByAlipayResult(String alipayUid, String phone,
                                                            String userType, String nickname) {
+        String sanitizedNickname = sanitizeNickname(nickname);
+
         UnifiedUserDO user = null;
         boolean firstLogin = false;
         if (StringUtils.isNotBlank(alipayUid)) {
@@ -184,11 +198,13 @@ public class UserIdentityService {
             }
         }
         if (user == null) {
-            user = createAlipayUser(alipayUid, userType, nickname);
+            user = createAlipayUser(alipayUid, userType, sanitizedNickname);
             userSyncService.recordChange(user.getUserId(), "CREATE", null, user);
             autoGrantDefaultServices(user.getUserId());
             firstLogin = true;
             LOGGER.info("支付宝自动注册: userId={}", user.getUserId());
+        } else if (tryRefreshNickname(user, sanitizedNickname)) {
+            userMapper.updateByUserId(user);
         }
         return new UserIdentityResult(user, firstLogin);
     }
@@ -264,6 +280,31 @@ public class UserIdentityService {
             LOGGER.error("并发注册但无法合并，抛出异常", e);
             throw new BusinessException(500, "注册失败，请重试");
         }
+    }
+
+    /**
+     * 清洗客户端上传的昵称，过滤占位文案和无意义值。
+     */
+    private String sanitizeNickname(String nickname) {
+        String normalized = StringUtils.trimToNull(nickname);
+        if (normalized == null) {
+            return null;
+        }
+        return INVALID_NICKNAMES.contains(normalized) ? null : normalized;
+    }
+
+    /**
+     * 当库内昵称为空或占位值时，用本次登录携带的有效昵称补写。
+     */
+    private boolean tryRefreshNickname(UnifiedUserDO user, String incomingNickname) {
+        if (user == null || incomingNickname == null) {
+            return false;
+        }
+        if (sanitizeNickname(user.getNickname()) != null) {
+            return false;
+        }
+        user.setNickname(incomingNickname);
+        return true;
     }
 
     private UnifiedUserDO createWechatUser(String openid, String unionid, String phone,

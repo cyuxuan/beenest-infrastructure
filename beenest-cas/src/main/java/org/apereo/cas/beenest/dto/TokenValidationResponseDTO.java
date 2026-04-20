@@ -11,5 +11,5 @@ import java.util.Map;
 public class TokenValidationResponseDTO {
 
     private String userId;
-    private Map<String, ?> attributes;
+    private Map<String, Object> attributes;
 }

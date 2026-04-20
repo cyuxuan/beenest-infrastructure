@@ -23,13 +23,13 @@ import club.beenest.payment.service.IWalletService;
 import club.beenest.payment.service.IWithdrawService;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageInfo;
-import cn.dev33.satoken.annotation.SaCheckRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -54,7 +54,7 @@ import java.util.Map;
 @Tag(name = "支付管理后台", description = "支付管理后台API接口")
 @RestController
 @RequestMapping("/api/admin/payment")
-@SaCheckRole("admin")
+@PreAuthorize("hasRole('ADMIN')")
 @Validated
 @Slf4j
 public class PaymentAdminController {

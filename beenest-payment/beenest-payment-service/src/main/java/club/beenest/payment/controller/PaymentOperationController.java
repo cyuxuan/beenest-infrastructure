@@ -8,12 +8,12 @@ import club.beenest.payment.object.entity.PaymentEvent;
 import club.beenest.payment.object.entity.ReconciliationTask;
 import club.beenest.payment.service.IPaymentEventService;
 import club.beenest.payment.service.IReconciliationService;
-import cn.dev33.satoken.annotation.SaCheckRole;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageInfo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +36,7 @@ import java.util.Map;
 @Tag(name = "支付运维管理", description = "对账、事件日志等API")
 @RestController
 @RequestMapping("/api/admin/payment")
-@SaCheckRole("admin")
+@PreAuthorize("hasRole('ADMIN')")
 @Validated
 public class PaymentOperationController {
 

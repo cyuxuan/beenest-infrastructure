@@ -124,7 +124,22 @@ class MiniAppLoginControllerTest {
 
         @Test
         void shouldIssueTokenSuccessfully() throws Throwable {
-            stubSuccessfulAuth("U10001", "WECHAT");
+            Principal principal = mock(Principal.class);
+            when(principal.getId()).thenReturn("U10001");
+            when(principal.getAttributes()).thenReturn(Map.of(
+                    "loginType", List.of("WECHAT"),
+                    "nickname", List.of("微信用户"),
+                    "firstLogin", List.of(false)
+            ));
+
+            Authentication authentication = mock(Authentication.class);
+            when(authentication.getPrincipal()).thenReturn(principal);
+
+            AuthenticationResult authResult = mock(AuthenticationResult.class);
+            when(authResult.getAuthentication()).thenReturn(authentication);
+            when(authSupport.finalizeAuthenticationTransaction(any(Credential.class))).thenReturn(authResult);
+
+            stubTgtCreation("TGT-TEST");
 
             MockHttpServletRequest request = stubRequest();
             request.addHeader(CasConstant.BUSINESS_SERVICE_ID_HEADER, "20001");
@@ -143,7 +158,10 @@ class MiniAppLoginControllerTest {
             assertThat(data.getRefreshToken()).isNotBlank();
             assertThat(data.getUserId()).isEqualTo("U10001");
             assertThat(data.getExpiresIn()).isEqualTo(3600);
-            assertThat(data.getAttributes()).containsKey("loginType");
+            assertThat(data.getAttributes())
+                    .containsEntry("loginType", "WECHAT")
+                    .containsEntry("nickname", "微信用户")
+                    .containsEntry("firstLogin", false);
 
             verify(appAccessService).autoGrantOnRegister("U10001", 20001L);
             verify(ticketRegistry).addTicket(any(TicketGrantingTicket.class));

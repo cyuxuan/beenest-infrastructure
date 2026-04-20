@@ -323,7 +323,7 @@ public class CasOverlayOverrideConfiguration {
     @Order(1)
     public SecurityFilterChain casApiSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher("/miniapp/**", "/app/**")
+                .securityMatcher("/miniapp/**", "/app/**", "/token/**")
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .build();

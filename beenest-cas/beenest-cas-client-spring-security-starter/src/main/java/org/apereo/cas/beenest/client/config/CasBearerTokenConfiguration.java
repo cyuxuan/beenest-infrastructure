@@ -2,7 +2,9 @@ package org.apereo.cas.beenest.client.config;
 
 import org.apereo.cas.beenest.client.authentication.*;
 import org.apereo.cas.beenest.client.cache.BearerTokenCache;
+import org.apereo.cas.beenest.client.cache.BearerAuthorityVersionService;
 import org.apereo.cas.beenest.client.cache.BearerTokenRevocationService;
+import org.apereo.cas.beenest.client.sync.BearerAuthorityChangeListener;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -37,6 +39,20 @@ public class CasBearerTokenConfiguration {
     }
 
     @Bean
+    public BearerAuthorityVersionService bearerAuthorityVersionService(
+            ObjectProvider<CacheManager> cacheManagerProvider) {
+        return new BearerAuthorityVersionService(cacheManagerProvider.getIfAvailable());
+    }
+
+    @Bean
+    public BearerAuthorityChangeListener bearerAuthorityChangeListener(
+            CasSecurityProperties properties,
+            BearerTokenCache bearerTokenCache,
+            BearerAuthorityVersionService authorityVersionService) {
+        return new BearerAuthorityChangeListener(properties, bearerTokenCache, authorityVersionService);
+    }
+
+    @Bean
     public CasTgtValidator casTgtValidator(CasSecurityProperties properties) {
         return new CasTgtValidator(properties);
     }
@@ -53,9 +69,10 @@ public class CasBearerTokenConfiguration {
             BearerTokenCache tokenCache,
             BearerTokenRevocationService revocationService,
             CasUserDetailsService userDetailsService,
-            CasTokenRefresher tokenRefresher) {
+            CasTokenRefresher tokenRefresher,
+            BearerAuthorityVersionService authorityVersionService) {
         return new CasBearerTokenAuthenticationProvider(
-            tgtValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher);
+            tgtValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, authorityVersionService);
     }
 
     /**

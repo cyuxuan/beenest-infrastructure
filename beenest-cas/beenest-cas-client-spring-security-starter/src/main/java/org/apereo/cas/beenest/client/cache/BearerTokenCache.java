@@ -1,5 +1,6 @@
 package org.apereo.cas.beenest.client.cache;
 
+import org.apereo.cas.beenest.client.details.CasUserDetails;
 import org.apereo.cas.beenest.client.session.CasUserSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
@@ -61,12 +62,44 @@ public class BearerTokenCache {
     }
 
     /**
+     * 获取缓存的用户详情信息。
+     * <p>
+     * 命中后可直接复用已解析的权限，避免再次调用业务系统权限加载器。
+     *
+     * @param token accessToken (TGT ID)
+     * @return 缓存的 CasUserDetails，未命中或已过期返回 null
+     */
+    public CasUserDetails getUserDetails(String token) {
+        java.util.concurrent.atomic.AtomicReference<CasUserDetails> result = new java.util.concurrent.atomic.AtomicReference<>(null);
+        cache.computeIfPresent(token, (key, entry) -> {
+            if (System.currentTimeMillis() - entry.timestamp > ttlMillis) {
+                removeTokenFromUserIndex(key, entry);
+                return null;
+            }
+            result.set(entry.userDetails);
+            return entry;
+        });
+        return result.get();
+    }
+
+    /**
      * 缓存用户会话信息
      *
      * @param token   accessToken (TGT ID)
      * @param session 用户会话信息
      */
     public void put(String token, CasUserSession session) {
+        put(token, session, null);
+    }
+
+    /**
+     * 缓存用户会话和用户详情信息。
+     *
+     * @param token       accessToken (TGT ID)
+     * @param session     用户会话信息
+     * @param userDetails 用户详情（含权限）
+     */
+    public void put(String token, CasUserSession session, CasUserDetails userDetails) {
         if (cache.size() >= maxSize) {
             cleanup();
         }
@@ -75,7 +108,7 @@ public class BearerTokenCache {
             LOGGER.warn("BearerTokenCache 已满 (size={}), 跳过缓存", cache.size());
             return;
         }
-        CacheEntry entry = new CacheEntry(session, System.currentTimeMillis());
+        CacheEntry entry = new CacheEntry(session, userDetails, System.currentTimeMillis());
         cache.put(token, entry);
         if (session.getUserId() != null && !session.getUserId().isBlank()) {
             userIdToTokens.computeIfAbsent(session.getUserId(), k -> ConcurrentHashMap.newKeySet()).add(token);
@@ -188,5 +221,5 @@ public class BearerTokenCache {
     /**
      * 缓存条目
      */
-    private record CacheEntry(CasUserSession session, long timestamp) {}
+    private record CacheEntry(CasUserSession session, CasUserDetails userDetails, long timestamp) {}
 }

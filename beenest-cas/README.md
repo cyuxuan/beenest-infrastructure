@@ -10,7 +10,13 @@ WAR Overlay Type: `cas-overlay`
 
 # Beenest 统一登录接入
 
-`beenest-cas-client-spring-security-starter` 用于让业务系统零代码接入 Beenest CAS 统一登录，支持：
+`beenest-cas-client-spring-security-starter` 是底层兼容包，适合继续维护已有接入。
+新服务建议优先使用下面两个场景化 starter：
+
+- `club.beenest.cas:beenest-cas-client-login-gateway-starter`
+- `club.beenest.cas:beenest-cas-client-resource-server-starter`
+
+它们分别对应登录网关和资源服务两种场景。底层能力仍然由 CAS 客户端统一提供，支持：
 
 - Web 端 CAS 单点登录
 - 小程序 / App Bearer Token 登录
@@ -18,54 +24,50 @@ WAR Overlay Type: `cas-overlay`
 - 用户同步回调 / 拉取
 - 登录代理转发到 CAS
 
-业务系统只需要引入 starter 并配置 `cas.client.*`，即可获得统一登录能力。
+业务系统只需要引入对应场景的 starter 并配置 `cas.client.*`，即可获得统一登录能力。
 
 ## 0. 3 分钟接入
 
-如果你只想先跑通，先照着下面做：
+先选服务类型，再套模板：
 
-1. 在业务系统里引入 `club.beenest.cas:beenest-cas-client-spring-security-starter`
-2. 把下面配置写进 `application.yml`
+1. `login-gateway`
+适合网关、BFF、用户直连的 Web/API 入口。
+这类服务可以暴露 `/login/cas`、`/cas/**` 登录代理、SLO 回调。
 
-```yaml
-cas:
-  client:
-    enabled: true
-    server-url: https://sso.beenest.club/cas
-    client-host-url: https://drone.beenest.club
-    service-id: 10001
-    sign-key: your-service-sign-key
-    redirect-login: true
-    use-session: true
+2. `resource-server`
+适合普通业务 API 服务。
+这类服务只负责校验用户 Token、恢复用户上下文、执行权限判定，不暴露登录入口。
 
-    business-login-proxy:
-      enabled: true
-      base-path: /cas
+3. `internal-service`
+适合纯内部微服务。
+通常不建议接 CAS 用户登录体系，而是使用服务自己的内部认证，例如 `mTLS`、内部 JWT、`client_credentials` 或静态 Token + HMAC。
 
-    token-auth:
-      enabled: true
-      auto-refresh-enabled: true
-      validate-cache-ttl-seconds: 300
-      validate-cache-max-size: 10000
-      access-token-revocation-ttl-seconds: 604800
-      refresh-token-revocation-ttl-seconds: 31536000
+如果你只想先跑通，建议按下面两套模板直接选一种。
 
-    slo:
-      enabled: true
-      callback-path: /cas/callback
-```
+### 模块选择建议
 
-3. 如果你是多实例部署，再加上 Redis Cache 配置
-4. 业务代码里直接使用 `CasSecurityUtils.getCurrentUserId()` 取当前用户
-
-跑通后，再继续看后面的登录代理、Bearer Token 和 SLO 细节。
+| 场景 | 推荐模块 |
+| --- | --- |
+| 登录网关 / BFF / 用户入口 | `club.beenest.cas:beenest-cas-client-login-gateway-starter` |
+| 普通业务资源服务 | `club.beenest.cas:beenest-cas-client-resource-server-starter` |
+| 老项目兼容 / 平滑迁移 | `club.beenest.cas:beenest-cas-client-spring-security-starter` |
 
 ## 1. 推荐接入方式
 
+### 方案 A：Login Gateway
+
+适用场景：
+
+- 浏览器端单点登录入口
+- 小程序 / App 登录代理入口
+- 需要承接 CAS SLO 回调
+- 需要对外暴露 `/cas/**` 登录代理
+
 ```yaml
 cas:
   client:
     enabled: true
+    mode: login-gateway
     server-url: https://sso.beenest.club/cas
     client-host-url: https://drone.beenest.club
     service-id: 10001
@@ -84,6 +86,7 @@ cas:
       validate-cache-max-size: 10000
       access-token-revocation-ttl-seconds: 604800
       refresh-token-revocation-ttl-seconds: 31536000
+      authority-version-attribute: permissionVersion
 
     slo:
       enabled: true
@@ -94,6 +97,70 @@ cas:
       webhook-path: /cas/sync/webhook
       pull-enabled: false
 ```
+
+### 方案 B：Resource Server
+
+适用场景：
+
+- 普通业务微服务
+- 只需要 Bearer Token 鉴权
+- 不需要 Web CAS 跳转登录
+- 不应该对外暴露 `/cas/**` 登录代理
+
+默认行为：
+
+- `401 JSON`
+- `STATELESS`
+- 不暴露登录代理
+- 不做浏览器跳转登录
+
+```yaml
+cas:
+  client:
+    enabled: true
+    mode: resource-server
+    server-url: https://sso.beenest.club/cas
+    client-host-url: https://drone-api.beenest.club
+    service-id: 20001
+    sign-key: your-service-sign-key
+    token-validation-secret: your-token-validation-secret
+    redirect-login: false
+    use-session: false
+
+    business-login-proxy:
+      enabled: false
+
+    token-auth:
+      enabled: true
+      auto-refresh-enabled: true
+      validate-cache-ttl-seconds: 300
+      validate-cache-max-size: 10000
+      access-token-revocation-ttl-seconds: 604800
+      refresh-token-revocation-ttl-seconds: 31536000
+      authority-version-attribute: permissionVersion
+
+    slo:
+      enabled: false
+
+    sync:
+      enabled: true
+      webhook-path: /cas/sync/webhook
+      pull-enabled: false
+```
+
+### 方案 C：Internal Service
+
+适用场景：
+
+- 纯内部微服务
+- 不直接面向终端用户
+- 只接受网关或其他服务调用
+
+推荐做法：
+
+- 不引入 `beenest-cas-client-spring-security-starter`
+- 使用内部服务认证
+- 如果只是调用支付、结算、风控等内部接口，优先延续你们现在这种 `/internal/** + Token/HMAC/IP 白名单` 的模型
 
 ## 2. 配置说明
 
@@ -107,15 +174,22 @@ cas:
 
 ### 常用项
 
-- `cas.client.business-login-proxy.enabled`：是否启用业务系统登录代理
+- `cas.client.mode`：运行模式，`login-gateway` 表示登录网关，`resource-server` 表示纯资源服务
+- `cas.client.business-login-proxy.enabled`：是否启用业务系统登录代理，默认 `false`
 - `cas.client.business-login-proxy.base-path`：代理前缀，默认 `/cas`
 - `cas.client.token-auth.enabled`：是否启用小程序 / App Bearer Token 认证
+- `cas.client.token-auth.authority-version-attribute`：权限版本字段名，默认 `permissionVersion`
 - `cas.client.slo.enabled`：是否启用单点登出
 - `cas.client.sync.enabled`：是否启用用户同步
 - `cas.client.token-auth.access-token-revocation-ttl-seconds`：accessToken 撤销态保留时间
 - `cas.client.token-auth.refresh-token-revocation-ttl-seconds`：refreshToken 撤销态保留时间
 
 ## 3. 业务系统登录代理
+
+仅当满足以下条件时，业务系统才会暴露登录代理端点：
+
+- `cas.client.mode=login-gateway`
+- `cas.client.business-login-proxy.enabled=true`
 
 当 `cas.client.business-login-proxy.base-path=/cas` 时，业务系统会对外暴露下面这些代理接口：
 
@@ -127,6 +201,8 @@ cas:
 - `POST /cas/miniapp/refresh`
 
 这些接口由 starter 接收后，再转发到 CAS Server，对业务系统来说不需要手写转发代码。
+
+`resource-server` 模式下默认不会暴露这些登录入口，且默认使用 `401 JSON + STATELESS` 的资源服务安全策略。
 
 ### 请求头
 
@@ -279,35 +355,17 @@ public class CacheConfig {
 
 ### 业务系统接入模板
 
-如果你想要一份可以直接起步的业务系统配置，可以参考下面这套最小模板：
+接入模板请优先使用本文开头的两套模式化模板：
+
+1. `Login Gateway` 模板
+适合统一登录入口、网关、BFF。
+
+2. `Resource Server` 模板
+适合普通业务服务，只负责 Bearer 鉴权和权限控制。
+
+如果你的服务需要多实例共享注销态和权限版本，额外补上 Redis Cache 配置即可：
 
 ```yaml
-cas:
-  client:
-    enabled: true
-    server-url: https://sso.beenest.club/cas
-    client-host-url: https://drone.beenest.club
-    service-id: 10001
-    sign-key: your-service-sign-key
-    redirect-login: true
-    use-session: true
-
-    business-login-proxy:
-      enabled: true
-      base-path: /cas
-
-    token-auth:
-      enabled: true
-      auto-refresh-enabled: true
-      validate-cache-ttl-seconds: 300
-      validate-cache-max-size: 10000
-      access-token-revocation-ttl-seconds: 604800
-      refresh-token-revocation-ttl-seconds: 31536000
-
-    slo:
-      enabled: true
-      callback-path: /cas/callback
-
 spring:
   cache:
     type: redis
@@ -328,17 +386,18 @@ public class CacheConfig {
                 .withCacheConfiguration("casBearerAccessTokenRevocations",
                         RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofDays(7)))
                 .withCacheConfiguration("casBearerRefreshTokenRevocations",
-                        RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofDays(365)));
+                        RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofDays(365)))
+                .withCacheConfiguration("casBearerAuthorityVersions",
+                        RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofDays(7)));
     }
 }
 ```
 
-这套模板的效果是：
+这样可以同时让下面三类信息在多节点之间共享：
 
-1. 业务系统不需要自己写 CAS 登录页转发逻辑。
-2. 小程序 / App 的登录和刷新都能走 starter。
-3. 单点登出时，本地 session、bearer 缓存和共享撤销态都会一起处理。
-4. 多实例环境下，注销事件可以通过 Redis Cache 自动同步到其他节点。
+1. accessToken 撤销态
+2. refreshToken 撤销态
+3. 用户权限版本
 
 ## 7. 用户同步
 
@@ -357,7 +416,7 @@ public class CacheConfig {
 
 业务系统接入 starter 后，一般不需要自己再写登录过滤器。你只需要：
 
-1. 引入 `club.beenest.cas:beenest-cas-client-spring-security-starter`
+1. 引入 `club.beenest.cas:beenest-cas-client-login-gateway-starter` 或 `club.beenest.cas:beenest-cas-client-resource-server-starter`
 2. 配置 `cas.client.*`
 3. 将需要鉴权的接口交给 Spring Security
 4. 在业务代码里从 `CasSecurityUtils` 读取当前用户
@@ -365,12 +424,12 @@ public class CacheConfig {
 ## 9. 常见注意点
 
 - 如果业务系统本身已经设置了 `server.servlet.context-path=/cas`，不要再把 `business-login-proxy.base-path` 配成 `/cas`，否则路径会叠加。
-- 小程序请求如果出现 404，优先检查业务系统是否真的启用了 `cas.client.enabled=true` 和 `business-login-proxy.enabled=true`。
+- 小程序请求如果出现 404，优先检查业务系统是否真的启用了 `cas.client.enabled=true`、`cas.client.mode=login-gateway` 和 `cas.client.business-login-proxy.enabled=true`。
 - 如果 SLO 到了但业务系统没有失效，通常是：
   - 业务系统没注册成功的 `HttpSession`
   - `cas.client.slo.enabled=false`
   - 多实例环境下没有共享失效状态
-- Bearer Token 认证默认会先查本地缓存，再必要时远程 CAS 校验。若你要强制每次远程验证，可以把缓存 TTL 调小，但会增加 CAS 压力。
+- Bearer Token 认证默认会先查本地缓存，再必要时远程 CAS 校验；缓存命中时会直接复用已解析的用户权限，避免每个请求都重复触发业务权限加载。若你要强制更快收敛权限变更，可以把缓存 TTL 调小，但会增加 CAS 和业务权限源压力。
 - 如果你希望多实例场景下的 logout 更快生效，建议业务系统接一个共享的 `CacheManager`，starter 会自动把撤销态写进去。
 
 # Build

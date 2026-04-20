@@ -27,9 +27,9 @@ import org.springframework.security.web.util.matcher.RequestHeaderRequestMatcher
 public class CasAuthenticationConfigurer
         extends SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> {
 
-    private final CasAuthenticationFilter casFilter;
-    private final CasAuthenticationProvider casProvider;
-    private final CasAuthenticationEntryPoint entryPoint;
+    private final CasAuthenticationFilter casFilter; // nullable
+    private final CasAuthenticationProvider casProvider; // nullable
+    private final CasAuthenticationEntryPoint entryPoint; // nullable
     private final CasBearerTokenAuthenticationFilter bearerTokenFilter; // nullable
     private final CasBearerTokenAuthenticationProvider bearerTokenProvider; // nullable
     
@@ -49,7 +49,9 @@ public class CasAuthenticationConfigurer
     @Override
     public void init(HttpSecurity http) {
         // 1. 注册 CasAuthenticationProvider（init 阶段，AuthenticationManager 构建前）
-        http.authenticationProvider(casProvider);
+        if (casProvider != null) {
+            http.authenticationProvider(casProvider);
+        }
 
         // 2. 如果 Bearer Token 启用，注册 BearerTokenAuthenticationProvider
         if (bearerTokenProvider != null) {
@@ -57,18 +59,22 @@ public class CasAuthenticationConfigurer
             LOGGER.info("CAS Bearer Token 认证已启用");
         }
 
-        LOGGER.info("CAS AuthenticationProvider 已注册");
+        if (casProvider != null) {
+            LOGGER.info("CAS AuthenticationProvider 已注册");
+        }
     }
 
     @Override
     public void configure(HttpSecurity http) throws Exception {
         // 1. 设置 CasAuthenticationEntryPoint（仅浏览器请求触发重定向）
-        http.exceptionHandling(ex -> ex
-            .defaultAuthenticationEntryPointFor(
-                entryPoint,
-                new RequestHeaderRequestMatcher("Accept", "text/html")
-            )
-        );
+        if (entryPoint != null) {
+            http.exceptionHandling(ex -> ex
+                .defaultAuthenticationEntryPointFor(
+                    entryPoint,
+                    new RequestHeaderRequestMatcher("Accept", "text/html")
+                )
+            );
+        }
 
         // 2. 添加 CasBearerTokenAuthenticationFilter（在 CAS_FILTER 之前）
         if (bearerTokenFilter != null) {
@@ -77,11 +83,13 @@ public class CasAuthenticationConfigurer
 
         // 3. 添加 CasAuthenticationFilter 到 CAS_FILTER 位置
         //    设置 AuthenticationManager（Spring Security 要求 Filter 必须有）
-        AuthenticationManager authenticationManager = http.getSharedObject(AuthenticationManager.class);
-        if (authenticationManager != null) {
-            casFilter.setAuthenticationManager(authenticationManager);
+        if (casFilter != null) {
+            AuthenticationManager authenticationManager = http.getSharedObject(AuthenticationManager.class);
+            if (authenticationManager != null) {
+                casFilter.setAuthenticationManager(authenticationManager);
+            }
+            http.addFilter(casFilter);
         }
-        http.addFilter(casFilter);
 
         LOGGER.info("CAS Filter Chain 已配置");
     }

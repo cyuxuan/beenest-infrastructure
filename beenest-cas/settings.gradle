@@ -4,3 +4,5 @@ plugins {
 rootProject.name = 'cas'
 
 include 'beenest-cas-client-spring-security-starter'
+include 'beenest-cas-client-login-gateway-starter'
+include 'beenest-cas-client-resource-server-starter'

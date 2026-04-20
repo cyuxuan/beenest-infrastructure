@@ -65,15 +65,26 @@ pagehelper:
   helper-dialect: postgresql
   reasonable: true
 
-# Sa-Token 配置
-sa-token:
-  token-name: Authorization
-  timeout: 86400
-  is-concurrent: true
-  is-share: true
-  is-read-cookie: false
-  is-read-header: true
-  token-style: uuid
+# CAS 资源服务认证配置
+cas:
+  client:
+    enabled: true
+    mode: resource-server
+    server-url: ${CAS_SERVER_URL:https://localhost:8443/cas}
+    client-host-url: ${PAYMENT_CLIENT_HOST_URL:http://localhost:8082}
+    service-id: ${CAS_SERVICE_ID:beenest-payment}
+    redirect-login: false
+    use-session: false
+    ignore-pattern: /internal/**,/api/wallet/payment/callback/**,/api/wallet/payment/refund/callback/**,/v3/api-docs/**,/v3/api-docs/swagger-config,/swagger-ui/**,/swagger-ui.html,/webjars/**
+    token-auth:
+      enabled: true
+      authority-version-attribute: permissionVersion
+    business-login-proxy:
+      enabled: false
+    slo:
+      enabled: false
+    sync:
+      enabled: false
 
 # 支付配置（敏感信息通过环境变量或 application-secret.yml 注入）
 payment:

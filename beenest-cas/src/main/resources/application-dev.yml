@@ -37,8 +37,8 @@ server:
 
 logging:
   level:
-    org.apereo.cas: TRACE
-    org.apereo.cas.beenest: TRACE
-    org.springframework.security: DEBUG
-    org.springframework.web: TRACE
-    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: TRACE
+    org.apereo.cas: ${LOG_LEVEL_CAS:-INFO}
+    org.apereo.cas.beenest: ${LOG_LEVEL_BEENEST:-INFO}
+    org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:-INFO}
+    org.springframework.web: ${LOG_LEVEL_SPRING_WEB:-INFO}
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: ${LOG_LEVEL_SPRING_WEB:-INFO}

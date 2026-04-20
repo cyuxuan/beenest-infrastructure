@@ -2,11 +2,14 @@ package org.apereo.cas.beenest.client.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * 默认 SecurityFilterChain（零代码模式）
@@ -29,6 +32,7 @@ public class CasDefaultSecurityConfiguration {
             CasAuthenticationConfigurer casConfigurer,
             CasSecurityProperties properties) throws Exception {
         String businessProxyBasePath = normalizeBasePath(properties.getBusinessLoginProxy().getBasePath());
+        boolean exposeLoginEndpoints = shouldExposeLoginEndpoints(properties);
 
         http
             .authorizeHttpRequests(auth -> {
@@ -37,28 +41,106 @@ public class CasDefaultSecurityConfiguration {
                     String[] patterns = properties.getIgnorePattern().split(",");
                     auth.requestMatchers(patterns).permitAll();
                 }
-                if (properties.getBusinessLoginProxy().isEnabled()) {
+                if (properties.getBusinessLoginProxy().isEnabled() && exposeLoginEndpoints) {
                     auth.requestMatchers(businessProxyBasePath + "/**").permitAll();
                 }
                 // CAS 内部路径始终放行
-                auth.requestMatchers(
-                    properties.getLoginPath() + "/**",
-                    properties.getSlo().getCallbackPath(),
-                    properties.getSync().getWebhookPath()
-                ).permitAll();
+                if (exposeLoginEndpoints) {
+                    auth.requestMatchers(
+                        properties.getLoginPath() + "/**",
+                        properties.getSlo().getCallbackPath(),
+                        properties.getSync().getWebhookPath()
+                    ).permitAll();
+                } else if (properties.getSync().isEnabled()) {
+                    auth.requestMatchers(properties.getSync().getWebhookPath()).permitAll();
+                }
                 auth.anyRequest().authenticated();
             })
             .with(casConfigurer, c -> {})
             .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .sessionCreationPolicy(resolveSessionCreationPolicy(properties)))
             .csrf(csrf -> csrf.ignoringRequestMatchers(
-                businessProxyBasePath + "/**",
-                properties.getLoginPath() + "/**",
-                properties.getSlo().getCallbackPath(),
-                properties.getSync().getWebhookPath()
+                buildCsrfIgnoreMatchers(properties, businessProxyBasePath, exposeLoginEndpoints)
             ));
 
+        if (!shouldEnableLoginRedirect(properties)) {
+            http.exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                response.setStatus(401);
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.getWriter().write("{\"code\":401,\"message\":\"未认证或登录已失效\",\"data\":null}");
+            }));
+        }
+
         return http.build();
+    }
+
+    /**
+     * 解析当前模式下的 Session 创建策略。
+     *
+     * @param properties Starter 配置
+     * @return SessionCreationPolicy
+     */
+    SessionCreationPolicy resolveSessionCreationPolicy(CasSecurityProperties properties) {
+        if (isResourceServerMode(properties)) {
+            return SessionCreationPolicy.STATELESS;
+        }
+        return properties.isUseSession() ? SessionCreationPolicy.IF_REQUIRED : SessionCreationPolicy.STATELESS;
+    }
+
+    /**
+     * 当前模式是否允许启用登录跳转。
+     *
+     * @param properties Starter 配置
+     * @return true 表示允许跳转到 CAS 登录页
+     */
+    boolean shouldEnableLoginRedirect(CasSecurityProperties properties) {
+        return !isResourceServerMode(properties) && properties.isRedirectLogin();
+    }
+
+    /**
+     * 当前模式是否应暴露登录相关端点。
+     *
+     * @param properties Starter 配置
+     * @return true 表示需要保留登录入口、SLO 回调等端点
+     */
+    boolean shouldExposeLoginEndpoints(CasSecurityProperties properties) {
+        return !isResourceServerMode(properties);
+    }
+
+    /**
+     * 构建 CSRF 忽略路径列表。
+     *
+     * @param properties Starter 配置
+     * @param businessProxyBasePath 登录代理基础路径
+     * @param exposeLoginEndpoints 是否暴露登录端点
+     * @return 忽略路径数组
+     */
+    private String[] buildCsrfIgnoreMatchers(CasSecurityProperties properties,
+                                             String businessProxyBasePath,
+                                             boolean exposeLoginEndpoints) {
+        java.util.List<String> matchers = new java.util.ArrayList<>();
+        if (properties.getBusinessLoginProxy().isEnabled() && exposeLoginEndpoints) {
+            matchers.add(businessProxyBasePath + "/**");
+        }
+        if (exposeLoginEndpoints) {
+            matchers.add(properties.getLoginPath() + "/**");
+            matchers.add(properties.getSlo().getCallbackPath());
+        }
+        if (properties.getSync().isEnabled()) {
+            matchers.add(properties.getSync().getWebhookPath());
+        }
+        return matchers.toArray(String[]::new);
+    }
+
+    /**
+     * 判断当前是否为资源服务模式。
+     *
+     * @param properties Starter 配置
+     * @return true 表示 resource-server
+     */
+    private boolean isResourceServerMode(CasSecurityProperties properties) {
+        return properties != null && properties.isResourceServerMode();
     }
 
     /**

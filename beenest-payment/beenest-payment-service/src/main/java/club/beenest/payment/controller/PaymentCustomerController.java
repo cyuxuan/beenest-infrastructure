@@ -2,9 +2,9 @@ package club.beenest.payment.controller;
 
 import club.beenest.payment.common.Response;
 import club.beenest.payment.common.annotation.LogAudit;
+import club.beenest.payment.common.utils.AuthUtils;
 import club.beenest.payment.object.dto.OrderPaymentRequestDTO;
 import club.beenest.payment.service.IPaymentService;
-import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ public class PaymentCustomerController {
     @PostMapping("/create-order-payment")
     @LogAudit(module = "客户支付", operation = "创建订单支付")
     public Response<Map<String, Object>> createOrderPayment(@Valid @RequestBody OrderPaymentRequestDTO request) {
-        String customerNo = StpUtil.getLoginIdAsString();
+        String customerNo = AuthUtils.requireCurrentUserId();
         Map<String, Object> result = paymentService.createOrderPayment(customerNo, request);
         return Response.success(result);
     }
@@ -44,7 +44,7 @@ public class PaymentCustomerController {
     @Operation(summary = "查询支付状态", description = "查询订单的支付状态，用于前端轮询")
     @GetMapping("/query-status/{orderNo}")
     public Response<Map<String, Object>> queryPaymentStatus(@PathVariable String orderNo) {
-        String customerNo = StpUtil.getLoginIdAsString();
+        String customerNo = AuthUtils.requireCurrentUserId();
         Map<String, Object> result = paymentService.queryPaymentStatus(customerNo, orderNo);
         return Response.success(result);
     }
@@ -53,7 +53,7 @@ public class PaymentCustomerController {
     @PostMapping("/cancel/{orderNo}")
     @LogAudit(module = "客户支付", operation = "取消支付订单")
     public Response<Boolean> cancelPaymentOrder(@PathVariable String orderNo) {
-        String customerNo = StpUtil.getLoginIdAsString();
+        String customerNo = AuthUtils.requireCurrentUserId();
         boolean result = paymentService.cancelRechargeOrder(customerNo, orderNo);
         return Response.success(result);
     }

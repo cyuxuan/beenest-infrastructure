@@ -1,6 +1,7 @@
 package org.apereo.cas.beenest.client.authentication;
 
 import org.apereo.cas.beenest.client.cache.BearerTokenCache;
+import org.apereo.cas.beenest.client.cache.BearerAuthorityVersionService;
 import org.apereo.cas.beenest.client.cache.BearerTokenRevocationService;
 import org.apereo.cas.beenest.client.config.CasSecurityProperties;
 import org.apereo.cas.beenest.client.details.CasUserDetails;
@@ -14,6 +15,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +43,7 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
     private final BearerTokenRevocationService revocationService;
     private final CasUserDetailsService userDetailsService;
     private final CasTokenRefresher tokenRefresher;
+    private final BearerAuthorityVersionService authorityVersionService;
 
     public CasBearerTokenAuthenticationProvider(CasTgtValidator tgtValidator,
                                                  CasSecurityProperties properties,
@@ -48,12 +51,23 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
                                                  BearerTokenRevocationService revocationService,
                                                  CasUserDetailsService userDetailsService,
                                                  CasTokenRefresher tokenRefresher) {
+        this(tgtValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, null);
+    }
+
+    public CasBearerTokenAuthenticationProvider(CasTgtValidator tgtValidator,
+                                                 CasSecurityProperties properties,
+                                                 BearerTokenCache tokenCache,
+                                                 BearerTokenRevocationService revocationService,
+                                                 CasUserDetailsService userDetailsService,
+                                                 CasTokenRefresher tokenRefresher,
+                                                 BearerAuthorityVersionService authorityVersionService) {
         this.tgtValidator = tgtValidator;
         this.properties = properties;
         this.tokenCache = tokenCache;
         this.revocationService = revocationService;
         this.userDetailsService = userDetailsService;
         this.tokenRefresher = tokenRefresher;
+        this.authorityVersionService = authorityVersionService;
     }
 
     @Override
@@ -76,20 +90,29 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         if (tokenCache != null) {
             CasUserSession cached = tokenCache.get(accessToken);
             if (cached != null) {
+                String cachedVersion = resolveAuthorityVersion(cached);
+                if (authorityVersionService != null
+                        && authorityVersionService.isVersionStale(cached.getUserId(), cachedVersion)) {
+                    LOGGER.debug("Bearer Token 权限版本已过期，准备重新校验: userId={}, token={}",
+                            cached.getUserId(), accessToken);
+                    tokenCache.remove(accessToken);
+                } else {
                 LOGGER.debug("Bearer Token 缓存命中");
-                return buildAuthenticatedToken(accessToken, null, cached);
+                CasUserDetails cachedUserDetails = tokenCache.getUserDetails(accessToken);
+                if (cachedUserDetails != null) {
+                    return buildAuthenticatedToken(accessToken, null, cached, cachedUserDetails);
+                }
+                return buildAuthenticatedToken(accessToken, null, cached, null);
+                }
             }
         }
 
         // 2. 远程验证 TGT
         CasUserSession session = tgtValidator.validate(accessToken);
         if (session != null) {
-            // TGT 有效，缓存并返回
-            if (tokenCache != null) {
-                session.setAuthTime(System.currentTimeMillis());
-                tokenCache.put(accessToken, session);
-            }
-            return buildAuthenticatedToken(accessToken, null, session);
+            // TGT 有效，构建认证结果并缓存
+            session.setAuthTime(System.currentTimeMillis());
+            return buildAuthenticatedToken(accessToken, null, session, null);
         }
 
         // 3. TGT 过期 — 尝试无感刷新
@@ -124,16 +147,14 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         LOGGER.info("Token 自动刷新成功: userId={}", result.getSession().getUserId());
 
         // 缓存新的 accessToken
-        if (tokenCache != null) {
-            result.getSession().setAuthTime(System.currentTimeMillis());
-            tokenCache.put(result.getNewAccessToken(), result.getSession());
-        }
+        result.getSession().setAuthTime(System.currentTimeMillis());
 
         // 构建已认证 Token，携带新的 refreshToken（供 Filter 写入响应头）
         return buildAuthenticatedToken(
                 result.getNewAccessToken(),
                 result.getNewRefreshToken(),
-                result.getSession());
+                result.getSession(),
+                null);
     }
 
     /**
@@ -144,24 +165,37 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
      * @param session         用户会话信息
      */
     private Authentication buildAuthenticatedToken(String accessToken, String newRefreshToken,
-                                                     CasUserSession session) {
-        // 构建 Assertion（CasUserDetailsService 需要从 Assertion 中获取属性）
-        Map<String, Object> attributes = new HashMap<>();
-        if (session.getAttributes() != null) {
-            attributes.putAll(session.getAttributes());
+                                                     CasUserSession session,
+                                                     CasUserDetails cachedUserDetails) {
+        CasUserDetails casUserDetails = cachedUserDetails;
+
+        if (casUserDetails == null) {
+            // 1. 构建 Assertion（CasUserDetailsService 需要从 Assertion 中获取属性）
+            Map<String, Object> attributes = new HashMap<>();
+            if (session.getAttributes() != null) {
+                attributes.putAll(session.getAttributes());
+            }
+            AttributePrincipal principal = new AttributePrincipalImpl(session.getUserId(), attributes);
+            Assertion assertion = new AssertionImpl(principal, attributes);
+
+            // 2. 委托给 CasUserDetailsService 加载权限
+            UserDetails userDetails = userDetailsService.loadUserByCasAssertion(session.getUserId(), assertion);
+
+            // 3. 统一转换为 CasUserDetails，确保后续缓存结构稳定
+            if (userDetails instanceof CasUserDetails cud) {
+                casUserDetails = cud;
+            } else {
+                casUserDetails = new CasUserDetails(session, new ArrayList<>(userDetails.getAuthorities()));
+            }
         }
-        AttributePrincipal principal = new AttributePrincipalImpl(session.getUserId(), attributes);
-        Assertion assertion = new AssertionImpl(principal, attributes);
 
-        // 委托给 CasUserDetailsService 加载权限
-        UserDetails userDetails = userDetailsService.loadUserByCasAssertion(session.getUserId(), assertion);
-
-        // 构建 CasUserDetails
-        CasUserDetails casUserDetails;
-        if (userDetails instanceof CasUserDetails cud) {
-            casUserDetails = cud;
-        } else {
-            casUserDetails = new CasUserDetails(session, new ArrayList<>(userDetails.getAuthorities()));
+        // 4. 回填本地缓存，后续同 token 请求可直接复用权限
+        if (tokenCache != null) {
+            tokenCache.put(accessToken, session, casUserDetails);
+        }
+        String currentVersion = resolveAuthorityVersion(casUserDetails.getCasUserSession());
+        if (authorityVersionService != null && StringUtils.hasText(currentVersion)) {
+            authorityVersionService.updateUserVersion(casUserDetails.getUserId(), currentVersion);
         }
 
         // 使用三参数构造函数，携带新的 refreshToken（如果有）
@@ -169,6 +203,24 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             return new CasBearerTokenAuthenticationToken(accessToken, newRefreshToken, casUserDetails);
         }
         return new CasBearerTokenAuthenticationToken(accessToken, casUserDetails);
+    }
+
+    /**
+     * 从会话属性中提取权限版本。
+     *
+     * @param session 用户会话
+     * @return 权限版本，未配置或不存在时返回 null
+     */
+    private String resolveAuthorityVersion(CasUserSession session) {
+        if (session == null || session.getAttributes() == null || session.getAttributes().isEmpty()) {
+            return null;
+        }
+        String attributeKey = properties.getTokenAuth().getAuthorityVersionAttribute();
+        if (!StringUtils.hasText(attributeKey)) {
+            return null;
+        }
+        String value = session.getAttributes().get(attributeKey);
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     @Override

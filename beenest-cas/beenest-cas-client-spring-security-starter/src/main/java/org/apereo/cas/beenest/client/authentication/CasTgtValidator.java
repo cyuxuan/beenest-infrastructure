@@ -4,7 +4,6 @@ import org.apereo.cas.beenest.client.config.CasSecurityProperties;
 import org.apereo.cas.beenest.client.session.CasUserSession;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -24,12 +23,20 @@ import java.util.Map;
  * 用于 APP/小程序的 Bearer Token 认证场景。
  */
 @Slf4j
-@RequiredArgsConstructor
 public class CasTgtValidator {
 
     private final CasSecurityProperties properties;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public CasTgtValidator(CasSecurityProperties properties) {
+        this(properties, new RestTemplate());
+    }
+
+    CasTgtValidator(CasSecurityProperties properties, RestTemplate restTemplate) {
+        this.properties = properties;
+        this.restTemplate = restTemplate;
+    }
 
     /**
      * 验证 accessToken (TGT) 有效性
@@ -43,6 +50,9 @@ public class CasTgtValidator {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            if (properties.getTokenValidationSecret() != null && !properties.getTokenValidationSecret().isBlank()) {
+                headers.set("X-CAS-Token-Secret", properties.getTokenValidationSecret());
+            }
             MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
             body.add("accessToken", accessToken);
 

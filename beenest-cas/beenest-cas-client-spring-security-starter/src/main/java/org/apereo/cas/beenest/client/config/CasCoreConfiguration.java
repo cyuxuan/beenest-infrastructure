@@ -1,14 +1,10 @@
 package org.apereo.cas.beenest.client.config;
 
 import org.apereo.cas.beenest.client.authentication.CasUserDetailsService;
-import org.apereo.cas.beenest.client.session.ActiveSessionRegistry;
-import org.apereo.cas.beenest.client.session.CasLoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apereo.cas.client.validation.Cas20ServiceTicketValidator;
 import org.apereo.cas.client.validation.TicketValidator;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -16,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.cas.ServiceProperties;
 import org.springframework.security.cas.authentication.CasAuthenticationProvider;
 import org.springframework.security.cas.web.CasAuthenticationEntryPoint;
-import org.springframework.security.cas.web.CasAuthenticationFilter;
 
 /**
  * CAS 核心组件配置
@@ -33,6 +28,7 @@ import org.springframework.security.cas.web.CasAuthenticationFilter;
 @Slf4j
 @Configuration
 @ConditionalOnProperty(prefix = "cas.client", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "cas.client", name = "mode", havingValue = "login-gateway", matchIfMissing = true)
 @RequiredArgsConstructor
 public class CasCoreConfiguration {
 
@@ -89,34 +85,4 @@ public class CasCoreConfiguration {
         return provider;
     }
 
-    /**
-     * CasAuthenticationConfigurer — DSL 配置器
-     * <p>
-     * 注入所有 CAS 组件，业务系统通过 http.with(configurer, c -> {}) 引入。
-     * <p>
-     * CasAuthenticationFilter 在此处内部创建，不注册为独立 Bean。
-     * 原因：CasAuthenticationFilter.afterPropertiesSet() 要求 authenticationManager 不为 null，
-     * 而 AuthenticationManager 只在 SecurityFilterChain 构建时才可用。
-     * 如果注册为 Bean，Servlet 容器初始化时会触发 afterPropertiesSet 检查导致启动失败。
-     */
-    @Bean
-    public CasAuthenticationConfigurer casAuthenticationConfigurer(
-            ServiceProperties serviceProperties,
-            CasAuthenticationProvider casProvider,
-            CasAuthenticationEntryPoint entryPoint,
-            ObjectProvider<ActiveSessionRegistry> activeSessionRegistryProvider,
-            @Autowired(required = false) org.apereo.cas.beenest.client.authentication.CasBearerTokenAuthenticationFilter bearerTokenFilter,
-            @Autowired(required = false) org.apereo.cas.beenest.client.authentication.CasBearerTokenAuthenticationProvider bearerTokenProvider) {
-        CasAuthenticationFilter casFilter = new CasAuthenticationFilter();
-        casFilter.setFilterProcessesUrl(properties.getLoginPath());
-        casFilter.setServiceProperties(serviceProperties);
-
-        ActiveSessionRegistry activeSessionRegistry = activeSessionRegistryProvider.getIfAvailable();
-        if (activeSessionRegistry != null) {
-            casFilter.setAuthenticationSuccessHandler(new CasLoginSuccessHandler(activeSessionRegistry));
-        }
-        return new CasAuthenticationConfigurer(
-            casFilter, casProvider, entryPoint,
-            bearerTokenFilter, bearerTokenProvider, properties);
-    }
 }

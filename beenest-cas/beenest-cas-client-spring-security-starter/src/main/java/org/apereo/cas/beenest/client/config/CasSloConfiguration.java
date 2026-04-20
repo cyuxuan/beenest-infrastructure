@@ -20,6 +20,8 @@ import org.springframework.context.annotation.Configuration;
  * 维护 ST→SessionId 和 userId→SessionList 映射，供 SLO 和用户同步使用。
  */
 @Configuration
+@ConditionalOnProperty(prefix = "cas.client", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "cas.client", name = "mode", havingValue = "login-gateway", matchIfMissing = true)
 @ConditionalOnProperty(prefix = "cas.client.slo", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class CasSloConfiguration {
 
