@@ -36,11 +36,12 @@ cas:
             key: ${TICKET_ENCRYPTION_KEY:changeme-changeme-changeme}
           signing:
             key: ${TICKET_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+    # 追踪子票据，确保登出时能一并清理 descendant tickets
+    track-descendant-tickets: true
     # TGT 配置
     tgt:
-      core:
-        enable-locking: false
-      time-to-kill-in-seconds: 7200
+      primary:
+        time-to-kill-in-seconds: 7200
       remember-me:
         enabled: true
         time-to-kill-in-seconds: 2592000
@@ -62,13 +63,6 @@ cas:
   # SLO 配置
   logout:
     follow-service-redirects: true
-    remove-descendant-tickets: true
-
-  # 认证配置
-  authn:
-    policy:
-      source:
-        required: true
 
 # ============================================================
 # Spring Boot 配置

@@ -4,11 +4,11 @@ import org.apereo.cas.beenest.client.authentication.*;
 import org.apereo.cas.beenest.client.cache.BearerTokenCache;
 import org.apereo.cas.beenest.client.cache.BearerTokenRevocationService;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.cache.CacheManager;
-import org.springframework.security.authentication.AuthenticationManager;
 
 /**
  * Bearer Token 条件配置
@@ -60,15 +60,29 @@ public class CasBearerTokenConfiguration {
 
     /**
      * 注意：CasBearerTokenAuthenticationFilter 需要 AuthenticationManager，
-     * 但在配置阶段 AuthenticationManager 尚未构建。
-     * 解决方案：通过 ApplicationContext 延迟获取。
+     * 但在 Spring Security 6/Boot 3 中不一定以 Bean 形式暴露。
+     * 解决方案：优先使用已注册的 AuthenticationManager，
+     * 若未暴露，则从 AuthenticationConfiguration 动态获取。
      */
     @Bean
     public CasBearerTokenAuthenticationFilter casBearerTokenAuthenticationFilter(
-            org.springframework.context.ApplicationContext applicationContext) {
-        // 延迟获取 AuthenticationManager，避免循环依赖
+            AuthenticationConfiguration authenticationConfiguration,
+            ObjectProvider<CasBearerTokenAuthenticationProvider> authenticationProviderProvider,
+            ObjectProvider<org.springframework.security.authentication.AuthenticationManager> authenticationManagerProvider) {
         return new CasBearerTokenAuthenticationFilter(
-            authentication -> applicationContext.getBean(AuthenticationManager.class).authenticate(authentication)
+            () -> authenticationProviderProvider.getIfAvailable(),
+            () -> {
+            org.springframework.security.authentication.AuthenticationManager authenticationManager =
+                    authenticationManagerProvider.getIfAvailable();
+            if (authenticationManager != null) {
+                return authenticationManager;
+            }
+            try {
+                return authenticationConfiguration.getAuthenticationManager();
+            } catch (Exception e) {
+                return null;
+            }
+            }
         );
     }
 }

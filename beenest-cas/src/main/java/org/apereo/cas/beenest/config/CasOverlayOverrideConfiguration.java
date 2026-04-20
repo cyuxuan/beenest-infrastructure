@@ -5,9 +5,24 @@ import org.apereo.cas.beenest.authn.handler.AppTokenAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.DouyinMiniAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.SmsOtpAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.WechatMiniAuthenticationHandler;
+import org.apereo.cas.beenest.controller.AppLoginController;
+import org.apereo.cas.beenest.controller.CasServiceAdminController;
+import org.apereo.cas.beenest.controller.CasUserAdminController;
+import org.apereo.cas.beenest.controller.MiniAppLoginController;
+import org.apereo.cas.beenest.controller.SmsController;
+import org.apereo.cas.beenest.controller.SyncStrategyController;
+import org.apereo.cas.beenest.controller.TokenValidationController;
+import org.apereo.cas.beenest.controller.UserSyncController;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.authn.strategy.BeenestAccessStrategy;
 import org.apereo.cas.beenest.service.UserIdentityService;
+import org.apereo.cas.beenest.service.AuthAuditService;
+import org.apereo.cas.beenest.service.AppAccessService;
+import org.apereo.cas.beenest.service.CasServiceAdminService;
+import org.apereo.cas.beenest.service.SmsService;
+import org.apereo.cas.beenest.service.SyncStrategyService;
+import org.apereo.cas.beenest.service.UserAdminService;
+import org.apereo.cas.beenest.service.UserSyncService;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
 import org.apereo.cas.authentication.AuthenticationHandler;
@@ -153,6 +168,147 @@ public class CasOverlayOverrideConfiguration {
             plan.registerAuthenticationHandler(smsOtpAuthenticationHandler);
             plan.registerAuthenticationHandler(appTokenAuthenticationHandler);
         };
+    }
+
+    // ===== REST 控制器注册 =====
+
+    /**
+     * 注册小程序登录控制器。
+     *
+     * @param authenticationSystemSupport 认证系统支持
+     * @param ticketRegistry 票据仓库
+     * @param defaultTicketFactory 默认票据工厂
+     * @param auditService 审计服务
+     * @param appAccessService 应用访问控制服务
+     * @param redisTemplate Redis 模板
+     * @param tokenTtlProperties Token 生命周期配置
+     * @return 小程序登录控制器
+     */
+    @Bean
+    public MiniAppLoginController miniAppLoginController(
+            final org.apereo.cas.authentication.AuthenticationSystemSupport authenticationSystemSupport,
+            final org.apereo.cas.ticket.registry.TicketRegistry ticketRegistry,
+            final org.apereo.cas.ticket.factory.DefaultTicketFactory defaultTicketFactory,
+            final AuthAuditService auditService,
+            final AppAccessService appAccessService,
+            final StringRedisTemplate redisTemplate,
+            final TokenTtlProperties tokenTtlProperties) {
+        return new MiniAppLoginController(
+                authenticationSystemSupport,
+                ticketRegistry,
+                defaultTicketFactory,
+                auditService,
+                appAccessService,
+                redisTemplate,
+                tokenTtlProperties);
+    }
+
+    /**
+     * 注册 APP 登录控制器。
+     *
+     * @param authenticationSystemSupport 认证系统支持
+     * @param ticketRegistry 票据仓库
+     * @param defaultTicketFactory 默认票据工厂
+     * @param redisTemplate Redis 模板
+     * @param auditService 审计服务
+     * @param appAccessService 应用访问控制服务
+     * @param tokenTtlProperties Token 生命周期配置
+     * @return APP 登录控制器
+     */
+    @Bean
+    public AppLoginController appLoginController(
+            final org.apereo.cas.authentication.AuthenticationSystemSupport authenticationSystemSupport,
+            final org.apereo.cas.ticket.registry.TicketRegistry ticketRegistry,
+            final org.apereo.cas.ticket.factory.DefaultTicketFactory defaultTicketFactory,
+            final StringRedisTemplate redisTemplate,
+            final AuthAuditService auditService,
+            final AppAccessService appAccessService,
+            final TokenTtlProperties tokenTtlProperties) {
+        return new AppLoginController(
+                authenticationSystemSupport,
+                ticketRegistry,
+                defaultTicketFactory,
+                redisTemplate,
+                auditService,
+                appAccessService,
+                tokenTtlProperties);
+    }
+
+    /**
+     * 注册 Token 校验控制器。
+     *
+     * @param ticketRegistry 票据仓库
+     * @return Token 校验控制器
+     */
+    @Bean
+    public TokenValidationController tokenValidationController(
+            final org.apereo.cas.ticket.registry.TicketRegistry ticketRegistry) {
+        return new TokenValidationController(ticketRegistry);
+    }
+
+    /**
+     * 注册用户同步控制器。
+     *
+     * @param userMapper 用户映射器
+     * @param userSyncService 用户同步服务
+     * @param redisTemplate Redis 模板
+     * @return 用户同步控制器
+     */
+    @Bean
+    public UserSyncController userSyncController(
+            final UnifiedUserMapper userMapper,
+            final UserSyncService userSyncService,
+            final StringRedisTemplate redisTemplate) {
+        return new UserSyncController(userMapper, userSyncService, redisTemplate);
+    }
+
+    /**
+     * 注册用户管理控制器。
+     *
+     * @param userAdminService 用户管理服务
+     * @param appAccessService 应用访问控制服务
+     * @return 用户管理控制器
+     */
+    @Bean
+    public CasUserAdminController casUserAdminController(
+            final UserAdminService userAdminService,
+            final AppAccessService appAccessService) {
+        return new CasUserAdminController(userAdminService, appAccessService);
+    }
+
+    /**
+     * 注册服务管理控制器。
+     *
+     * @param serviceAdminService 服务管理服务
+     * @return 服务管理控制器
+     */
+    @Bean
+    public CasServiceAdminController casServiceAdminController(
+            final CasServiceAdminService serviceAdminService) {
+        return new CasServiceAdminController(serviceAdminService);
+    }
+
+    /**
+     * 注册短信控制器。
+     *
+     * @param smsService 短信服务
+     * @return 短信控制器
+     */
+    @Bean
+    public SmsController smsController(final SmsService smsService) {
+        return new SmsController(smsService);
+    }
+
+    /**
+     * 注册同步策略控制器。
+     *
+     * @param syncStrategyService 同步策略服务
+     * @return 同步策略控制器
+     */
+    @Bean
+    public SyncStrategyController syncStrategyController(
+            final SyncStrategyService syncStrategyService) {
+        return new SyncStrategyController(syncStrategyService);
     }
 
     // ===== API 路径安全：禁用 CSRF =====

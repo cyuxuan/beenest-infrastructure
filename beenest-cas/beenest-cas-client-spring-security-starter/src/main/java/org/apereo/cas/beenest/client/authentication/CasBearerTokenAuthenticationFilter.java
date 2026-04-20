@@ -13,6 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 
 /**
  * Bearer Token 认证过滤器
@@ -47,10 +48,13 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
     private static final String NEW_REFRESH_TOKEN_HEADER = "X-New-Refresh-Token";
     private static final String TOKEN_REFRESHED_HEADER = "X-Token-Refreshed";
 
-    private final AuthenticationManager authenticationManager;
+    private final Supplier<CasBearerTokenAuthenticationProvider> authenticationProviderSupplier;
+    private final Supplier<AuthenticationManager> authenticationManagerSupplier;
 
-    public CasBearerTokenAuthenticationFilter(AuthenticationManager authenticationManager) {
-        this.authenticationManager = authenticationManager;
+    public CasBearerTokenAuthenticationFilter(Supplier<CasBearerTokenAuthenticationProvider> authenticationProviderSupplier,
+                                              Supplier<AuthenticationManager> authenticationManagerSupplier) {
+        this.authenticationProviderSupplier = authenticationProviderSupplier;
+        this.authenticationManagerSupplier = authenticationManagerSupplier;
     }
 
     @Override
@@ -77,21 +81,31 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
 
         // 验证 Token
         try {
-            CasBearerTokenAuthenticationToken authToken =
-                    new CasBearerTokenAuthenticationToken(bearerToken, refreshToken);
-            Authentication result = authenticationManager.authenticate(authToken);
-            SecurityContextHolder.getContext().setAuthentication(result);
-
-            // 如果发生了 Token 刷新，将新 token 写入响应头
-            if (result instanceof CasBearerTokenAuthenticationToken casToken
-                    && casToken.getRefreshToken() != null) {
-                response.setHeader(NEW_ACCESS_TOKEN_HEADER, casToken.getAccessToken());
-                response.setHeader(NEW_REFRESH_TOKEN_HEADER, casToken.getRefreshToken());
-                response.setHeader(TOKEN_REFRESHED_HEADER, "true");
-                LOGGER.debug("Token 已自动刷新并写入响应头: userId={}",
+            CasBearerTokenAuthenticationProvider authenticationProvider = resolveAuthenticationProvider();
+            if (authenticationProvider != null) {
+                Authentication result = authenticationProvider.authenticate(
+                        new CasBearerTokenAuthenticationToken(bearerToken, refreshToken));
+                SecurityContextHolder.getContext().setAuthentication(result);
+                writeRefreshHeadersIfNeeded(response, result);
+                LOGGER.debug("Bearer Token 认证成功: userId={}",
                         result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
+                filterChain.doFilter(request, response);
+                return;
             }
 
+            AuthenticationManager authenticationManager = resolveAuthenticationManager();
+            if (authenticationManager == null) {
+                LOGGER.warn("CAS Bearer Token 过滤器无法获取 AuthenticationManager");
+                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":503,\"message\":\"Bearer 认证组件未初始化\",\"data\":null}");
+                return;
+            }
+
+            Authentication result = authenticationManager.authenticate(
+                    new CasBearerTokenAuthenticationToken(bearerToken, refreshToken));
+            SecurityContextHolder.getContext().setAuthentication(result);
+            writeRefreshHeadersIfNeeded(response, result);
             LOGGER.debug("Bearer Token 认证成功: userId={}",
                     result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
         } catch (AuthenticationException e) {
@@ -104,9 +118,52 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
                     "{\"code\":401,\"message\":\"%s\",\"data\":null}", message);
             response.getWriter().write(jsonResponse);
             return; // 不继续 Filter Chain
+        } catch (RuntimeException e) {
+            // 某些 Spring Security 代理/适配层可能把认证异常包装成运行时异常，
+            // 这里统一收敛为 503，避免把内部实现细节泄露给客户端。
+            LOGGER.error("Bearer Token 认证组件异常", e);
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":503,\"message\":\"Bearer 认证组件异常，请稍后重试\",\"data\":null}");
+            return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 写入自动刷新后的响应头。
+     *
+     * @param response HTTP 响应
+     * @param result 认证结果
+     */
+    private void writeRefreshHeadersIfNeeded(HttpServletResponse response, Authentication result) {
+        if (result instanceof CasBearerTokenAuthenticationToken casToken
+                && casToken.getRefreshToken() != null) {
+            response.setHeader(NEW_ACCESS_TOKEN_HEADER, casToken.getAccessToken());
+            response.setHeader(NEW_REFRESH_TOKEN_HEADER, casToken.getRefreshToken());
+            response.setHeader(TOKEN_REFRESHED_HEADER, "true");
+            LOGGER.debug("Token 已自动刷新并写入响应头: userId={}",
+                    result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
+        }
+    }
+
+    /**
+     * 解析 bearer 认证提供者。
+     *
+     * @return provider，不存在则返回 null
+     */
+    private CasBearerTokenAuthenticationProvider resolveAuthenticationProvider() {
+        return authenticationProviderSupplier != null ? authenticationProviderSupplier.get() : null;
+    }
+
+    /**
+     * 解析 AuthenticationManager。
+     *
+     * @return AuthenticationManager，若当前上下文尚未初始化则返回 null
+     */
+    private AuthenticationManager resolveAuthenticationManager() {
+        return authenticationManagerSupplier != null ? authenticationManagerSupplier.get() : null;
     }
 
     /**

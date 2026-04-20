@@ -16,7 +16,6 @@ import org.apereo.cas.authentication.credential.UsernamePasswordCredential;
 import org.apereo.cas.authentication.principal.Principal;
 import org.apereo.cas.authentication.principal.PrincipalFactory;
 import org.apereo.cas.authentication.principal.Service;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import javax.security.auth.login.FailedLoginException;
@@ -46,14 +45,8 @@ public class SmsOtpAuthenticationHandler implements AuthenticationHandler {
         String phone = smsCredential.getPhone();
         String otpCode = smsCredential.getOtpCode();
 
-        LOGGER.info("SMS authentication request received: credentialClass={}, phone={}",
-                credential.getClass().getName(), phone);
-        LOGGER.info("SMS redis server info: {}",
-                redisTemplate.execute((RedisCallback<String>) connection ->
-                        connection.serverCommands().info("server").toString()));
-        LOGGER.info("SMS redis keyspace info: {}",
-                redisTemplate.execute((RedisCallback<String>) connection ->
-                        connection.serverCommands().info("keyspace").toString()));
+        LOGGER.debug("SMS authentication request received: credentialClass={}",
+                credential.getClass().getName());
 
         if (StringUtils.isBlank(phone) || StringUtils.isBlank(otpCode)) {
             throw new FailedLoginException("手机号和验证码不能为空");
@@ -73,14 +66,14 @@ public class SmsOtpAuthenticationHandler implements AuthenticationHandler {
         // 2. 从 Redis 获取验证码
         String redisKey = CasConstant.REDIS_SMS_OTP_PREFIX + phone;
         String storedCode = redisTemplate.opsForValue().get(redisKey);
-        LOGGER.info("SMS otp lookup: redisKey={}, hit={}", redisKey, storedCode != null);
+        LOGGER.debug("SMS otp lookup: hit={}", storedCode != null);
 
         if (storedCode == null) {
             throw new FailedLoginException("验证码已过期，请重新获取");
         }
 
         if (!otpCode.equals(storedCode)) {
-            LOGGER.info("SMS otp mismatch: phone={}, provided={}, stored={}", phone, otpCode, storedCode);
+            LOGGER.info("SMS otp mismatch: phone={}", phone);
             // 验证失败，递增失败计数
             long ttl = redisTemplate.getExpire(failKey, TimeUnit.SECONDS);
             if (ttl > 0) {

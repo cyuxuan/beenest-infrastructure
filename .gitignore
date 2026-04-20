@@ -38,6 +38,8 @@ tmp/
 **/application-secret.yml
 **/application-secret.yaml
 **/application-secret.properties
+.env
+.env.*
 
 # Payment certificates
 **/cert/*.pem
