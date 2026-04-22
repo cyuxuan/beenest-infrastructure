@@ -1,9 +1,13 @@
 package club.beenest.payment.paymentorder.service;
 
+import club.beenest.payment.paymentorder.dto.BatchSyncResultDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
+import club.beenest.payment.paymentorder.dto.OrderPaymentResultDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
+import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
 import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundSyncResultDTO;
 import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.entity.Refund;
 import com.github.pagehelper.Page;
@@ -11,7 +15,6 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 支付服务接口
@@ -95,7 +98,7 @@ public interface IPaymentService {
      * @throws IllegalArgumentException 如果参数无效
      * @throws RuntimeException 如果创建订单失败或调用支付API失败
      */
-    Map<String, Object> createRechargeOrder(String customerNo, RechargeRequestDTO rechargeRequest);
+    OrderPaymentResultDTO createRechargeOrder(String customerNo, RechargeRequestDTO rechargeRequest);
 
     /**
      * 处理支付回调
@@ -172,7 +175,7 @@ public interface IPaymentService {
      * @throws IllegalArgumentException 如果订单号为空
      * @throws RuntimeException 如果查询失败
      */
-    Map<String, Object> queryPaymentStatus(String customerNo, String orderNo);
+    PaymentStatusDTO queryPaymentStatus(String customerNo, String orderNo);
 
     /**
      * 管理端查询支付状态（不做用户归属校验）
@@ -180,7 +183,7 @@ public interface IPaymentService {
      * @param orderNo 订单号
      * @return 支付状态
      */
-    Map<String, Object> queryPaymentStatusForAdmin(String orderNo);
+    PaymentStatusDTO queryPaymentStatusForAdmin(String orderNo);
 
     /**
      * 取消充值订单
@@ -219,7 +222,7 @@ public interface IPaymentService {
      * @param request 订单支付请求参数
      * @return 支付参数（orderNo, paymentParams, expireTime等）
      */
-    Map<String, Object> createOrderPayment(String customerNo, OrderPaymentRequestDTO request);
+    OrderPaymentResultDTO createOrderPayment(String customerNo, OrderPaymentRequestDTO request);
 
     /**
      * 查询充值订单
@@ -265,7 +268,7 @@ public interface IPaymentService {
      * @param refundNo 退款单号
      * @return 同步后的退款状态
      */
-    Map<String, Object> syncRefundStatus(String refundNo);
+    RefundSyncResultDTO syncRefundStatus(String refundNo);
 
     /**
      * 批量同步处理中退款状态
@@ -273,7 +276,7 @@ public interface IPaymentService {
      * @param limit 本次处理数量上限
      * @return 同步结果
      */
-    Map<String, Object> syncProcessingRefunds(int limit);
+    BatchSyncResultDTO syncProcessingRefunds(int limit);
 
     /**
      * 审核退款

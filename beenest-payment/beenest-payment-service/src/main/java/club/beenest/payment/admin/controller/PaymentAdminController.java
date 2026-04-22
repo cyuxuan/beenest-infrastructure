@@ -3,10 +3,13 @@ package club.beenest.payment.admin.controller;
 import club.beenest.payment.common.Response;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.utils.CsvExportUtils;
+import club.beenest.payment.paymentorder.dto.BatchSyncResultDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
+import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
 import club.beenest.payment.paymentorder.dto.RefundApplyDTO;
 import club.beenest.payment.paymentorder.dto.RefundAuditDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundSyncResultDTO;
 import club.beenest.payment.shared.domain.entity.PaymentChannelConfig;
 import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.entity.Refund;
@@ -33,7 +36,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 支付管理后台控制器（订单+退款+配置）
@@ -65,7 +67,7 @@ public class PaymentAdminController {
     @Operation(summary = "同步订单状态", description = "主动同步第三方支付订单状态")
     @PostMapping("/orders/{orderNo}/sync")
     @LogAudit(module = "支付管理", operation = "同步订单状态")
-    public Response<Map<String, Object>> syncOrder(@PathVariable String orderNo) {
+    public Response<PaymentStatusDTO> syncOrder(@PathVariable String orderNo) {
         return Response.success(paymentService.queryPaymentStatusForAdmin(orderNo));
     }
 
@@ -119,14 +121,14 @@ public class PaymentAdminController {
     @Operation(summary = "同步退款状态", description = "主动同步第三方退款状态")
     @PostMapping("/refunds/{refundNo}/sync")
     @LogAudit(module = "支付管理", operation = "同步退款状态")
-    public Response<Map<String, Object>> syncRefund(@PathVariable String refundNo) {
+    public Response<RefundSyncResultDTO> syncRefund(@PathVariable String refundNo) {
         return Response.success(paymentService.syncRefundStatus(refundNo));
     }
 
     @Operation(summary = "批量同步处理中退款", description = "批量同步第三方处理中退款状态")
     @PostMapping("/refunds/sync-processing")
     @LogAudit(module = "支付管理", operation = "批量同步处理中退款")
-    public Response<Map<String, Object>> syncProcessingRefunds(
+    public Response<BatchSyncResultDTO> syncProcessingRefunds(
             @RequestParam(defaultValue = "20") int limit) {
         return Response.success(paymentService.syncProcessingRefunds(limit));
     }

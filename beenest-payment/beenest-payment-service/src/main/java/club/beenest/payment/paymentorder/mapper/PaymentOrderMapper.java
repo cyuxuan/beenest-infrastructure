@@ -439,8 +439,7 @@ public interface PaymentOrderMapper {
      * @param limit 批量处理限制数量，防止一次更新过多数据
      * @return 影响的行数，等于更新的订单数量
      */
-    int batchUpdateExpiredOrders(@Param("currentTime") LocalDateTime currentTime,
-                                 @Param("limit") Integer limit);
+    int batchUpdateExpiredOrders(@Param("orderNos") List<String> orderNos);
     /**
      * 根据时间范围和平台查询订单
      *
@@ -461,4 +460,13 @@ public interface PaymentOrderMapper {
      * @return 按创建时间升序排列的支付订单列表
      */
     List<PaymentOrder> selectSuccessfulByBizNo(@Param("bizNo") String bizNo);
+
+    /**
+     * 根据订单号加行锁查询支付订单（退款并发安全）
+     * 配合 SELECT ... FOR UPDATE 防止并发退款超额
+     *
+     * @param orderNo 订单号
+     * @return 支付订单实体，带行锁
+     */
+    PaymentOrder selectByOrderNoForUpdate(@Param("orderNo") String orderNo);
 }

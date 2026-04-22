@@ -12,6 +12,7 @@ import club.beenest.payment.paymentorder.domain.enums.PaymentEventType;
 import club.beenest.payment.paymentorder.domain.enums.PaymentOrderStatus;
 import club.beenest.payment.paymentorder.domain.enums.RefundStatus;
 import club.beenest.payment.wallet.domain.enums.WalletTransactionType;
+import club.beenest.payment.util.MapValueUtils;
 import club.beenest.payment.util.PaymentValidateUtils;
 import club.beenest.payment.common.exception.BusinessException;
 import club.beenest.payment.paymentorder.mq.producer.PaymentEventProducer;
@@ -22,10 +23,14 @@ import club.beenest.payment.paymentorder.mapper.PaymentEventMapper;
 import club.beenest.payment.paymentorder.mapper.PaymentOrderMapper;
 import club.beenest.payment.paymentorder.mapper.RefundMapper;
 
+import club.beenest.payment.paymentorder.dto.BatchSyncResultDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
+import club.beenest.payment.paymentorder.dto.OrderPaymentResultDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
+import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
 import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundSyncResultDTO;
 import club.beenest.payment.paymentorder.domain.entity.PaymentEvent;
 import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.entity.Refund;
@@ -165,7 +170,7 @@ public class PaymentServiceImpl implements IPaymentService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     @LogAudit(module = "支付管理", operation = "创建充值订单")
-    public Map<String, Object> createRechargeOrder(String customerNo, RechargeRequestDTO rechargeRequest) {
+    public OrderPaymentResultDTO createRechargeOrder(String customerNo, RechargeRequestDTO rechargeRequest) {
         log.info("创建充值订单 - customerNo: {}, amount: {}, platform: {}",
                 customerNo, rechargeRequest.getAmount(), rechargeRequest.getPlatform());
 
@@ -204,22 +209,16 @@ public class PaymentServiceImpl implements IPaymentService {
             Map<String, Object> paymentParams = paymentStrategy.createPayment(paymentOrder);
 
             // 7. 更新订单支付参数
-            try {
-                String paymentParamsJson = objectMapper.writeValueAsString(paymentParams);
-                paymentOrder.setPaymentParams(paymentParamsJson);
-                paymentOrderMapper.updateByOrderNo(paymentOrder);
-            } catch (Exception e) {
-                log.warn("保存支付参数失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
-            }
+            savePaymentParamsSafely(paymentOrder, paymentParams);
 
             // 8. 构建返回结果
-            Map<String, Object> result = new HashMap<>();
-            result.put("orderNo", orderNo);
-            result.put("amount", rechargeRequest.getAmount());
-            result.put("platform", rechargeRequest.getPlatform());
-            result.put("platformName", paymentStrategy.getPlatformName());
-            result.put("expireTime", paymentOrder.getExpireTime());
-            result.put("paymentParams", paymentParams);
+            OrderPaymentResultDTO result = new OrderPaymentResultDTO()
+                    .setOrderNo(orderNo)
+                    .setAmount(rechargeRequest.getAmount())
+                    .setPlatform(rechargeRequest.getPlatform())
+                    .setPlatformName(paymentStrategy.getPlatformName())
+                    .setExpireTime(paymentOrder.getExpireTime())
+                    .setPaymentParams(paymentParams);
 
             log.info("充值订单创建完成 - orderNo: {}", orderNo);
             return result;
@@ -291,7 +290,7 @@ public class PaymentServiceImpl implements IPaymentService {
             String orderNo = (String) parsedData.get("orderNo");
             String transactionNo = (String) parsedData.get("transactionNo");
             Long paidAmount = (Long) parsedData.get("amount");
-            String paidStatus = stringValue(parsedData.get("status"));
+            String paidStatus = MapValueUtils.stringValue(parsedData.get("status"));
 
             event.setOrderNo(orderNo);
 
@@ -303,8 +302,8 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 5. 查询订单
-            PaymentOrder paymentOrder = paymentOrderMapper.selectByOrderNo(orderNo);
+            // 5. 查询订单（加行锁防止并发回调重复处理）
+            PaymentOrder paymentOrder = paymentOrderMapper.selectByOrderNoForUpdate(orderNo);
             if (paymentOrder == null) {
                 log.error("订单不存在 - orderNo: {}", orderNo);
                 event.setStatusEnum(PaymentEventStatus.FAILED);
@@ -410,13 +409,15 @@ public class PaymentServiceImpl implements IPaymentService {
             Map<String, String> callbackData = parseCallbackData(request);
             PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(platform);
             if (!paymentStrategy.verifyRefundCallback(callbackData)) {
-                log.error("退款回调签名验证失败 - platform: {}", platform);
-                return false;
+                // 【安全关键】签名验证失败时记录告警，但返回 true 让 Controller 返回 SUCCESS 给第三方
+                // 避免 微信/支付宝 因收到非 SUCCESS 响应而无限重试造成大量无效请求
+                log.error("【安全告警】退款回调签名验证失败，已忽略并返回SUCCESS - platform: {}", platform);
+                return true;
             }
 
             Map<String, Object> parsedData = paymentStrategy.parseRefundCallback(callbackData);
-            String refundNo = stringValue(parsedData.get("refundNo"));
-            String refundId = stringValue(parsedData.get("refundId"));
+            String refundNo = MapValueUtils.stringValue(parsedData.get("refundNo"));
+            String refundId = MapValueUtils.stringValue(parsedData.get("refundId"));
             if (!StringUtils.hasText(refundNo)) {
                 log.warn("退款回调缺少退款单号，尝试按第三方退款单号匹配 - platform: {}, refundId: {}", platform, refundId);
             }
@@ -434,14 +435,15 @@ public class PaymentServiceImpl implements IPaymentService {
                 return true;
             }
 
-            PaymentOrder order = paymentOrderMapper.selectByOrderNo(refund.getOrderNo());
+            // 加行锁防止退款回调与主动同步并发冲突
+            PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(refund.getOrderNo());
             if (order == null) {
                 log.error("退款原支付订单不存在 - refundNo: {}, orderNo: {}", refundNo, refund.getOrderNo());
                 return false;
             }
 
             applyRefundSyncResult(order, refund, parsedData, PaymentConstants.CALLBACK_SOURCE);
-            refund.setAuditRemark(firstNonBlank(refund.getAuditRemark(), "渠道退款回调更新"));
+            refund.setAuditRemark(MapValueUtils.firstNonBlank(refund.getAuditRemark(), "渠道退款回调更新"));
             refundMapper.update(refund);
             return true;
         } catch (Exception e) {
@@ -452,14 +454,14 @@ public class PaymentServiceImpl implements IPaymentService {
 
     /**
      * 查询订单支付状态
-     * 
+     *
      * <p>
-     * 使用策略模式，根据支付平台选择对应的支付策略查询状态。
+     * 不使用 @Transactional，避免在事务内执行第三方网络调用导致长时间持有数据库连接。
+     * 补偿查询结果通过独立的同步方法（带事务）写入。
      * </p>
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Map<String, Object> queryPaymentStatus(String customerNo, String orderNo) {
+    public PaymentStatusDTO queryPaymentStatus(String customerNo, String orderNo) {
         log.info("查询订单支付状态 - orderNo: {}", orderNo);
 
         try {
@@ -468,7 +470,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 throw new IllegalArgumentException("订单号不能为空");
             }
 
-            // 2. 查询本地订单
+            // 2. 查询本地订单（无事务，普通读）
             PaymentOrder paymentOrder = paymentOrderMapper.selectByOrderNo(orderNo);
             if (paymentOrder == null) {
                 throw new IllegalArgumentException("订单不存在");
@@ -478,27 +480,27 @@ public class PaymentServiceImpl implements IPaymentService {
             }
 
             // 3. 构建返回结果
-            Map<String, Object> result = new HashMap<>();
-            result.put("orderNo", orderNo);
-            result.put("status", paymentOrder.getStatus());
-            result.put("amount", paymentOrder.getAmount());
-            result.put("platform", paymentOrder.getPlatform());
-            result.put("createTime", paymentOrder.getCreateTime());
-            result.put("paidTime", paymentOrder.getPaidTime());
-            result.put("expireTime", paymentOrder.getExpireTime());
-            result.put("bizNo", paymentOrder.getBizNo());
+            PaymentStatusDTO result = new PaymentStatusDTO()
+                    .setOrderNo(orderNo)
+                    .setStatus(paymentOrder.getStatus())
+                    .setAmount(paymentOrder.getAmount())
+                    .setPlatform(paymentOrder.getPlatform())
+                    .setCreateTime(paymentOrder.getCreateTime())
+                    .setPaidTime(paymentOrder.getPaidTime())
+                    .setExpireTime(paymentOrder.getExpireTime())
+                    .setBizNo(paymentOrder.getBizNo());
 
             // 4. 对待支付订单主动向支付渠道补偿查询，兜住回调丢失场景
+            //    第三方网络调用在事务外执行，避免长时间持有数据库连接
             if (paymentOrder.isPending()) {
                 try {
                     PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
                     Map<String, Object> platformStatus = paymentStrategy.queryPayment(paymentOrder);
                     if (platformStatus != null) {
-                        syncPaymentOrderFromQuery(paymentOrder, platformStatus);
+                        syncPaymentOrderFromQuerySafe(paymentOrder, platformStatus);
                         paymentOrder = paymentOrderMapper.selectByOrderNo(orderNo);
-                        result.put("status", paymentOrder.getStatus());
-                        result.put("paidTime", paymentOrder.getPaidTime());
-                        result.putAll(platformStatus);
+                        result.setStatus(paymentOrder.getStatus());
+                        result.setPaidTime(paymentOrder.getPaidTime());
                     }
                 } catch (Exception e) {
                     log.warn("查询支付平台状态失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
@@ -518,7 +520,7 @@ public class PaymentServiceImpl implements IPaymentService {
     }
 
     @Override
-    public Map<String, Object> queryPaymentStatusForAdmin(String orderNo) {
+    public PaymentStatusDTO queryPaymentStatusForAdmin(String orderNo) {
         return queryPaymentStatus(null, orderNo);
     }
 
@@ -601,7 +603,7 @@ public class PaymentServiceImpl implements IPaymentService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     @LogAudit(module = "客户支付", operation = "创建订单支付")
-    public Map<String, Object> createOrderPayment(String customerNo, OrderPaymentRequestDTO request) {
+    public OrderPaymentResultDTO createOrderPayment(String customerNo, OrderPaymentRequestDTO request) {
         log.info("创建订单支付 - customerNo: {}, bizNo: {}, amount: {}, payType: {}, paymentMethod: {}",
                 customerNo, request.getBizNo(), request.getAmount(), request.getPayType(), request.getDefaultPaymentMethod());
 
@@ -721,7 +723,7 @@ public class PaymentServiceImpl implements IPaymentService {
         throw new IllegalArgumentException("微信 JSAPI 支付缺少 openid，请重新微信授权登录");
     }
 
-    private Map<String, Object> handleExistingPendingOrder(PaymentOrder existingOrder, String backendPlatform,
+    private OrderPaymentResultDTO handleExistingPendingOrder(PaymentOrder existingOrder, String backendPlatform,
             String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount, String usedCouponNo, String bizNo) {
         String existingPlatform = existingOrder.getPlatform();
 
@@ -738,20 +740,10 @@ public class PaymentServiceImpl implements IPaymentService {
         PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(backendPlatform);
         Map<String, Object> paymentParams = getOrCreatePaymentParams(existingOrder, paymentStrategy);
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("orderNo", existingOrder.getOrderNo());
-        result.put("bizNo", bizNo);
-        result.put("amount", finalAmount);
-        result.put("originalAmount", baseAmount);
-        result.put("discountAmount", discountAmount);
-        result.put("platform", backendPlatform);
-        result.put("paymentMethod", existingOrder.getPaymentMethod());
-        result.put("platformName", paymentStrategy.getPlatformName());
-        result.put("expireTime", existingOrder.getExpireTime());
-        result.put("paymentParams", paymentParams);
-
         log.info("复用待支付订单 - orderNo: {}, bizNo: {}", existingOrder.getOrderNo(), bizNo);
-        return result;
+        return buildOrderPaymentResult(existingOrder.getOrderNo(), bizNo, finalAmount, baseAmount, discountAmount,
+                backendPlatform, existingOrder.getPaymentMethod(), paymentStrategy.getPlatformName(),
+                existingOrder.getExpireTime(), paymentParams);
     }
 
     private Map<String, Object> getOrCreatePaymentParams(PaymentOrder order, PaymentStrategy strategy) {
@@ -773,7 +765,7 @@ public class PaymentServiceImpl implements IPaymentService {
         return paymentParams;
     }
 
-    private Map<String, Object> createNewOrderPayment(String customerNo, String bizNo, String bizType,
+    private OrderPaymentResultDTO createNewOrderPayment(String customerNo, String bizNo, String bizType,
             String backendPlatform, String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount,
             String usedCouponNo, String openid) {
         String walletBizType = bizType != null ? bizType : BizTypeConstants.DRONE_ORDER;
@@ -807,38 +799,18 @@ public class PaymentServiceImpl implements IPaymentService {
             throw new BusinessException("创建支付订单失败");
         }
 
-        // 订单创建后无需发MQ，业务系统是调用方本身已知
-        // 支付成功/取消/过期时才发MQ通知
-
         String expireKey = PaymentRedisKeyConstants.buildPaymentOrderExpireKey(orderNo);
         stringRedisTemplate.opsForValue().set(expireKey, orderNo, java.time.Duration.ofMinutes(expireMinutes));
         log.info("设置支付订单过期Key - orderNo: {}, expireMinutes: {}", orderNo, expireMinutes);
 
         PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(backendPlatform);
         Map<String, Object> paymentParams = paymentStrategy.createPayment(paymentOrder);
-
-        try {
-            String paymentParamsJson = objectMapper.writeValueAsString(paymentParams);
-            paymentOrder.setPaymentParams(paymentParamsJson);
-            paymentOrderMapper.updateByOrderNo(paymentOrder);
-        } catch (Exception e) {
-            log.warn("保存支付参数失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
-        }
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("orderNo", orderNo);
-        result.put("bizNo", bizNo);
-        result.put("amount", finalAmount);
-        result.put("originalAmount", baseAmount);
-        result.put("discountAmount", discountAmount);
-        result.put("platform", backendPlatform);
-        result.put("paymentMethod", paymentOrder.getPaymentMethod());
-        result.put("platformName", paymentStrategy.getPlatformName());
-        result.put("expireTime", paymentOrder.getExpireTime());
-        result.put("paymentParams", paymentParams);
+        savePaymentParamsSafely(paymentOrder, paymentParams);
 
         log.info("订单支付创建完成 - orderNo: {}, bizNo: {}", orderNo, bizNo);
-        return result;
+        return buildOrderPaymentResult(orderNo, bizNo, finalAmount, baseAmount, discountAmount,
+                backendPlatform, paymentOrder.getPaymentMethod(), paymentStrategy.getPlatformName(),
+                paymentOrder.getExpireTime(), paymentParams);
     }
 
     /**
@@ -1059,8 +1031,8 @@ public class PaymentServiceImpl implements IPaymentService {
     public Refund applyRefund(String orderNo, Long amount, String reason) {
         log.info("申请退款（聚合贪心模式）- identifier: {}, amount: {}, reason: {}", orderNo, amount, reason);
 
-        // 1. 先尝试直接按 orderNo 精确匹配单笔退款（兼容旧逻辑）
-        PaymentOrder directOrder = paymentOrderMapper.selectByOrderNo(orderNo);
+        // 1. 先尝试直接按 orderNo 精确匹配单笔退款（兼容旧逻辑），加行锁防并发
+        PaymentOrder directOrder = paymentOrderMapper.selectByOrderNoForUpdate(orderNo);
         if (directOrder != null) {
             // 单笔支付订单，走原有逻辑
             loadRefundableOrder(orderNo, amount);
@@ -1168,7 +1140,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Map<String, Object> syncRefundStatus(String refundNo) {
+    public RefundSyncResultDTO syncRefundStatus(String refundNo) {
         if (!StringUtils.hasText(refundNo)) {
             throw new BusinessException("退款单号不能为空");
         }
@@ -1178,7 +1150,8 @@ public class PaymentServiceImpl implements IPaymentService {
             throw new BusinessException("退款单不存在");
         }
 
-        PaymentOrder order = paymentOrderMapper.selectByOrderNo(refund.getOrderNo());
+        // 加行锁防止退款同步与回调并发冲突
+        PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(refund.getOrderNo());
         if (order == null) {
             throw new BusinessException("原支付订单不存在");
         }
@@ -1188,7 +1161,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
 
         if (shouldResubmitRefundBeforeQuery(order, refund)) {
-            executeRefund(order, refund, PaymentConstants.MANUAL_SYNC_SOURCE, firstNonBlank(refund.getAuditRemark(), "补偿提交历史待处理退款"));
+            executeRefund(order, refund, PaymentConstants.MANUAL_SYNC_SOURCE, MapValueUtils.firstNonBlank(refund.getAuditRemark(), "补偿提交历史待处理退款"));
             return buildRefundSyncResult(refund, order, PaymentConstants.RESUBMIT_SOURCE);
         }
 
@@ -1201,7 +1174,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 log.warn("退款查询命中微信历史单，改为按商户退款单号补发 - refundNo: {}, error: {}",
                         refund.getRefundNo(), e.getMessage());
                 refund.setThirdPartyRefundNo(null);
-                executeRefund(order, refund, PaymentConstants.MANUAL_SYNC_SOURCE, firstNonBlank(refund.getAuditRemark(), "微信历史退款查询不存在，补偿重提"));
+                executeRefund(order, refund, PaymentConstants.MANUAL_SYNC_SOURCE, MapValueUtils.firstNonBlank(refund.getAuditRemark(), "微信历史退款查询不存在，补偿重提"));
                 return buildRefundSyncResult(refund, order, PaymentConstants.RESUBMIT_SOURCE);
             }
             throw e;
@@ -1212,7 +1185,7 @@ public class PaymentServiceImpl implements IPaymentService {
     }
 
     @Override
-    public Map<String, Object> syncProcessingRefunds(int limit) {
+    public BatchSyncResultDTO syncProcessingRefunds(int limit) {
         int effectiveLimit = Math.max(limit, 1);
         List<Refund> refunds = refundMapper.selectByStatusForSync(RefundStatus.PROCESSING.getCode(), effectiveLimit);
 
@@ -1220,9 +1193,8 @@ public class PaymentServiceImpl implements IPaymentService {
         int failedCount = 0;
         for (Refund refund : refunds) {
             try {
-                Map<String, Object> result = syncRefundStatus(refund.getRefundNo());
-                String status = stringValue(result.get("status"));
-                if (RefundStatus.SUCCESS.getCode().equals(status)) {
+                RefundSyncResultDTO result = syncRefundStatus(refund.getRefundNo());
+                if (RefundStatus.SUCCESS.getCode().equals(result.getStatus())) {
                     successCount++;
                 }
             } catch (Exception e) {
@@ -1231,12 +1203,11 @@ public class PaymentServiceImpl implements IPaymentService {
             }
         }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("requested", effectiveLimit);
-        result.put("scanned", refunds.size());
-        result.put("success", successCount);
-        result.put("failed", failedCount);
-        return result;
+        return new BatchSyncResultDTO()
+                .setRequested(effectiveLimit)
+                .setScanned(refunds.size())
+                .setSuccess(successCount)
+                .setFailed(failedCount);
     }
 
     @Override
@@ -1261,7 +1232,8 @@ public class PaymentServiceImpl implements IPaymentService {
         }
 
         if (nextStatus == RefundStatus.SUCCESS) {
-            PaymentOrder order = paymentOrderMapper.selectByOrderNo(refund.getOrderNo());
+            // 加行锁防止退款审核与退款回调并发
+            PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(refund.getOrderNo());
             if (order == null) {
                 throw new BusinessException("原支付订单不存在");
             }
@@ -1277,6 +1249,19 @@ public class PaymentServiceImpl implements IPaymentService {
         refundMapper.update(refund);
     }
 
+    /**
+     * 从第三方查询结果同步支付状态（安全包装，不向上抛异常）
+     * 供 queryPaymentStatus（无事务）调用，避免第三方查询异常影响整体查询
+     */
+    private void syncPaymentOrderFromQuerySafe(PaymentOrder paymentOrder, Map<String, Object> platformStatus) {
+        try {
+            syncPaymentOrderFromQuery(paymentOrder, platformStatus);
+        } catch (Exception e) {
+            // CAS 冲突或其他并发异常降级为 warn，不影响用户查询结果
+            log.warn("补偿同步支付状态失败（降级） - orderNo: {}, error: {}", paymentOrder.getOrderNo(), e.getMessage());
+        }
+    }
+
     private void syncPaymentOrderFromQuery(PaymentOrder paymentOrder, Map<String, Object> platformStatus) throws Exception {
         if (paymentOrder == null || platformStatus == null || !paymentOrder.isPending()) {
             return;
@@ -1288,11 +1273,11 @@ public class PaymentServiceImpl implements IPaymentService {
         }
 
         String callbackDataJson = objectMapper.writeValueAsString(platformStatus);
-        String transactionNo = stringValue(platformStatus.get("transactionId"));
+        String transactionNo = MapValueUtils.stringValue(platformStatus.get("transactionId"));
         if (!StringUtils.hasText(transactionNo)) {
-            transactionNo = stringValue(platformStatus.get("transactionNo"));
+            transactionNo = MapValueUtils.stringValue(platformStatus.get("transactionNo"));
         }
-        Long paidAmount = longValue(platformStatus.get("amount"));
+        Long paidAmount = MapValueUtils.longValue(platformStatus.get("amount"));
         if (paidAmount != null && !paidAmount.equals(paymentOrder.getAmount())) {
             throw new BusinessException("支付金额不匹配，拒绝补记支付状态");
         }
@@ -1359,7 +1344,8 @@ public class PaymentServiceImpl implements IPaymentService {
     }
 
     private PaymentOrder loadRefundableOrder(String orderNo, Long amount) {
-        PaymentOrder order = paymentOrderMapper.selectByOrderNo(orderNo);
+        // 使用 FOR UPDATE 行锁防止并发退款超额
+        PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(orderNo);
         if (order == null) {
             throw new BusinessException("订单不存在");
         }
@@ -1420,7 +1406,10 @@ public class PaymentServiceImpl implements IPaymentService {
             return;
         }
 
+        // 充值退款：先调用第三方退款接口，成功后再扣减用户余额
+        // 这样如果第三方退款失败，就不需要回滚本地余额操作
         if (!isOrderPlanPayment(order)) {
+            // 退款扣减余额
             BigDecimal refundAmountYuan = MoneyUtil.centsToYuan(refund.getAmount());
             boolean deductSuccess = walletService.deductBalance(order.getCustomerNo(), order.getBizType(), refundAmountYuan, "充值退款扣减",
                     WalletTransactionType.REFUND.getCode(), refund.getRefundNo());
@@ -1432,6 +1421,9 @@ public class PaymentServiceImpl implements IPaymentService {
         PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
         Map<String, Object> result = strategy.refund(order, refund.getAmount(), refund.getReason(), refund.getRefundNo());
         applyRefundSyncResult(order, refund, result, auditUser);
+
+        // 第三方退款失败且非计划订单时，回退已扣减的余额
+        // 使用独立的回退 referenceNo，避免与扣减记录冲突
         if (refund.getStatusEnum() == RefundStatus.FAILED && !isOrderPlanPayment(order)) {
             walletService.addBalance(
                     order.getCustomerNo(),
@@ -1439,7 +1431,7 @@ public class PaymentServiceImpl implements IPaymentService {
                     MoneyUtil.centsToYuan(refund.getAmount()),
                     "退款失败回退 - 退款单号：" + refund.getRefundNo(),
                     WalletTransactionType.REFUND.getCode(),
-                    refund.getRefundNo() + PaymentConstants.REFUND_ROLLBACK_SUFFIX);
+                    refund.getRefundNo() + "_ROLLBACK");
         }
         refund.setAuditRemark(auditRemark);
         refund.setUpdateTime(LocalDateTime.now());
@@ -1452,12 +1444,12 @@ public class PaymentServiceImpl implements IPaymentService {
 
     private void applyRefundSyncResult(PaymentOrder order, Refund refund, Map<String, Object> result, String auditUser) {
         RefundStatus mappedStatus = mapRefundStatus(order.getPlatform(), result);
-        String thirdPartyRefundNo = firstNonBlank(
-                stringValue(result.get("refundId")),
+        String thirdPartyRefundNo = MapValueUtils.firstNonBlank(
+                MapValueUtils.stringValue(result.get("refundId")),
                 refund.getThirdPartyRefundNo());
-        String channelStatus = firstNonBlank(
-                stringValue(result.get("channelStatus")),
-                stringValue(result.get("status")),
+        String channelStatus = MapValueUtils.firstNonBlank(
+                MapValueUtils.stringValue(result.get("channelStatus")),
+                MapValueUtils.stringValue(result.get("status")),
                 refund.getChannelStatus());
 
         // 使用领域方法执行状态转换（内含合法性校验）
@@ -1507,16 +1499,15 @@ public class PaymentServiceImpl implements IPaymentService {
         }
     }
 
-    private Map<String, Object> buildRefundSyncResult(Refund refund, PaymentOrder order, String source) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("refundNo", refund.getRefundNo());
-        result.put("orderNo", refund.getOrderNo());
-        result.put("platform", order.getPlatform());
-        result.put("status", refund.getStatus());
-        result.put("channelStatus", refund.getChannelStatus());
-        result.put("thirdPartyRefundNo", refund.getThirdPartyRefundNo());
-        result.put("source", source);
-        return result;
+    private RefundSyncResultDTO buildRefundSyncResult(Refund refund, PaymentOrder order, String source) {
+        return new RefundSyncResultDTO()
+                .setRefundNo(refund.getRefundNo())
+                .setOrderNo(refund.getOrderNo())
+                .setPlatform(order.getPlatform())
+                .setStatus(refund.getStatus())
+                .setChannelStatus(refund.getChannelStatus())
+                .setThirdPartyRefundNo(refund.getThirdPartyRefundNo())
+                .setSource(source);
     }
 
     private RefundStatus mapRefundStatus(String platform, Map<String, Object> result) {
@@ -1536,24 +1527,24 @@ public class PaymentServiceImpl implements IPaymentService {
 
     private String normalizeRefundStatus(String platform, Map<String, Object> result) {
         if (PaymentConstants.PLATFORM_ALIPAY.equalsIgnoreCase(platform)) {
-            String refundStatus = stringValue(result.get("status"));
+            String refundStatus = MapValueUtils.stringValue(result.get("status"));
             if (StringUtils.hasText(refundStatus)) {
                 return refundStatus.trim().toUpperCase();
             }
-            String fundChange = stringValue(result.get("fundChange"));
+            String fundChange = MapValueUtils.stringValue(result.get("fundChange"));
             if ("Y".equalsIgnoreCase(fundChange)) {
                 return PaymentConstants.REFUND_STATUS_REFUND_SUCCESS;
             }
-            String errorCode = stringValue(result.get("errorCode"));
+            String errorCode = MapValueUtils.stringValue(result.get("errorCode"));
             if (StringUtils.hasText(errorCode)) {
                 return PaymentConstants.REFUND_STATUS_FAILED;
             }
             return null;
         }
 
-        String channelStatus = firstNonBlank(
-                stringValue(result.get("channelStatus")),
-                stringValue(result.get("status")));
+        String channelStatus = MapValueUtils.firstNonBlank(
+                MapValueUtils.stringValue(result.get("channelStatus")),
+                MapValueUtils.stringValue(result.get("status")));
         if (!StringUtils.hasText(channelStatus)) {
             return null;
         }
@@ -1583,8 +1574,8 @@ public class PaymentServiceImpl implements IPaymentService {
         if (result == null) {
             return false;
         }
-        return StringUtils.hasText(stringValue(result.get("successTime")))
-                || StringUtils.hasText(stringValue(result.get("success_time")));
+        return StringUtils.hasText(MapValueUtils.stringValue(result.get("successTime")))
+                || StringUtils.hasText(MapValueUtils.stringValue(result.get("success_time")));
     }
 
     private String firstNonBlank(String... values) {
@@ -1599,6 +1590,38 @@ public class PaymentServiceImpl implements IPaymentService {
         return null;
     }
 
+    /**
+     * 保存支付参数到订单（安全写入，失败仅 warn 不影响主流程）
+     */
+    private void savePaymentParamsSafely(PaymentOrder order, Map<String, Object> paymentParams) {
+        try {
+            String paymentParamsJson = objectMapper.writeValueAsString(paymentParams);
+            order.setPaymentParams(paymentParamsJson);
+            paymentOrderMapper.updateByOrderNo(order);
+        } catch (Exception e) {
+            log.warn("保存支付参数失败 - orderNo: {}, error: {}", order.getOrderNo(), e.getMessage());
+        }
+    }
+
+    /**
+     * 构建订单支付结果 DTO（统一 createRechargeOrder / handleExistingPendingOrder / createNewOrderPayment 的返回结构）
+     */
+    private OrderPaymentResultDTO buildOrderPaymentResult(String orderNo, String bizNo, Long amount,
+            Long originalAmount, Long discountAmount, String platform, String paymentMethod,
+            String platformName, LocalDateTime expireTime, Map<String, Object> paymentParams) {
+        return new OrderPaymentResultDTO()
+                .setOrderNo(orderNo)
+                .setBizNo(bizNo)
+                .setAmount(amount)
+                .setOriginalAmount(originalAmount)
+                .setDiscountAmount(discountAmount)
+                .setPlatform(platform)
+                .setPaymentMethod(paymentMethod)
+                .setPlatformName(platformName)
+                .setExpireTime(expireTime)
+                .setPaymentParams(paymentParams);
+    }
+
     private void scheduleRefundStatusAutoSync(String refundNo, int attempt) {
         if (!StringUtils.hasText(refundNo) || attempt > PaymentRetryConstants.MAX_RETRY_ATTEMPTS) {
             return;
@@ -1606,9 +1629,8 @@ public class PaymentServiceImpl implements IPaymentService {
         long delaySeconds = PaymentRetryConstants.getDelaySeconds(attempt);
         paymentAsyncExecutor.schedule(() -> {
             try {
-                Map<String, Object> result = syncRefundStatus(refundNo);
-                String status = stringValue(result.get("status"));
-                if (RefundStatus.PROCESSING.getCode().equals(status)) {
+                RefundSyncResultDTO result = syncRefundStatus(refundNo);
+                if (RefundStatus.PROCESSING.getCode().equals(result.getStatus())) {
                     scheduleRefundStatusAutoSync(refundNo, attempt + 1);
                 }
             } catch (Exception e) {
@@ -1617,24 +1639,6 @@ public class PaymentServiceImpl implements IPaymentService {
                 scheduleRefundStatusAutoSync(refundNo, attempt + 1);
             }
         }, delaySeconds, TimeUnit.SECONDS);
-    }
-
-    private String stringValue(Object value) {
-        return value == null ? null : String.valueOf(value);
-    }
-
-    private Long longValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        try {
-            return Long.parseLong(String.valueOf(value));
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     private void safeMarkPaymentEventFailed(PaymentEvent event, Exception e) {

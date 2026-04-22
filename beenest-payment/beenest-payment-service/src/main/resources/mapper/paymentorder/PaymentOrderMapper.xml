@@ -249,11 +249,11 @@
         UPDATE ds_payment_order
         SET status = 'EXPIRED',
             update_time = CURRENT_TIMESTAMP
-        WHERE status = 'PENDING'
-          AND expire_time &lt; #{currentTime}
-        <if test="limit != null">
-        LIMIT #{limit}
-        </if>
+        WHERE order_no IN
+        <foreach collection="orderNos" item="orderNo" open="(" separator="," close=")">
+            #{orderNo}
+        </foreach>
+          AND status = 'PENDING'
     </update>
 
     <!-- 根据查询条件查询充值订单 -->
@@ -289,5 +289,13 @@
         FROM ds_payment_order
         WHERE platform = #{platform}
           AND create_time BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+    <!-- 根据订单号加行锁查询（退款并发安全） -->
+    <select id="selectByOrderNoForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE order_no = #{orderNo}
+        FOR UPDATE
     </select>
 </mapper>

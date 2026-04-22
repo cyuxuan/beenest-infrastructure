@@ -28,6 +28,7 @@ import com.github.pagehelper.PageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -707,6 +708,11 @@ public class WalletServiceImpl implements IWalletService {
                 log.warn("{}余额乐观锁冲突，重试中：用户={}, 当前重试次数={}",
                         opType == BalanceOperationType.ADD ? "增加" : "扣减", customerNo, retryCount + 1);
 
+            } catch (DuplicateKeyException dke) {
+                // 数据库 UNIQUE(reference_no) 约束命中，说明同一笔交易已由并发请求处理完成
+                log.info("{}余额幂等命中（DuplicateKey）：用户={}, 关联单号={}",
+                        opType == BalanceOperationType.ADD ? "增加" : "扣减", customerNo, referenceNo);
+                return opType == BalanceOperationType.ADD ? null : true;
             } catch (Exception e) {
                 log.error("{}余额异常：用户={}, 错误={}",
                         opType == BalanceOperationType.ADD ? "增加" : "扣减", customerNo, e.getMessage(), e);

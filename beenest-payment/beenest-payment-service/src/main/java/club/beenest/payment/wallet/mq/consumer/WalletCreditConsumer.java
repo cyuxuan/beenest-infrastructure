@@ -76,6 +76,10 @@ public class WalletCreditConsumer {
             log.error("钱包入账失败: customerNo={}, referenceNo={}, error={}",
                     message.getCustomerNo(), message.getReferenceNo(), e.getMessage(), e);
             throw e;
+        } catch (org.springframework.dao.DuplicateKeyException dke) {
+            // 数据库 UNIQUE(reference_no) 约束命中，并发入账已成功
+            log.info("钱包入账幂等命中（DuplicateKey），视为成功: referenceNo={}", message.getReferenceNo());
+            return;
         } catch (Exception e) {
             log.error("钱包入账失败: customerNo={}, referenceNo={}, error={}",
                     message.getCustomerNo(), message.getReferenceNo(), e.getMessage(), e);

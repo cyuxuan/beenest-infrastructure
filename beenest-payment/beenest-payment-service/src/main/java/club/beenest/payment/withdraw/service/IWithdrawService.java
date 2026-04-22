@@ -3,10 +3,9 @@ package club.beenest.payment.withdraw.service;
 import club.beenest.payment.withdraw.dto.WithdrawAuditDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawResultDTO;
 import club.beenest.payment.withdraw.domain.entity.WithdrawRequest;
 import com.github.pagehelper.Page;
-
-import java.util.Map;
 
 /**
  * 提现服务接口
@@ -96,7 +95,7 @@ public interface IWithdrawService {
      * @throws IllegalArgumentException 如果参数无效
      * @throws RuntimeException 如果创建申请失败
      */
-    Map<String, Object> createWithdrawRequest(String customerNo, WithdrawRequestDTO withdrawRequest);
+    WithdrawResultDTO createWithdrawRequest(String customerNo, WithdrawRequestDTO withdrawRequest);
 
     /**
      * 审核提现申请
@@ -209,7 +208,7 @@ public interface IWithdrawService {
      * @throws IllegalArgumentException 如果参数无效
      * @throws RuntimeException 如果查询失败
      */
-    Map<String, Object> getWithdrawRequestStatus(String customerNo, String requestNo);
+    WithdrawResultDTO getWithdrawRequestStatus(String customerNo, String requestNo);
 /**
      * 查询提现申请
      *

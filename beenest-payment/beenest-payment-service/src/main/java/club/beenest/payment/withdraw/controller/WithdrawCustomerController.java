@@ -4,6 +4,7 @@ import club.beenest.payment.common.Response;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.utils.AuthUtils;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
+import club.beenest.payment.withdraw.dto.WithdrawResultDTO;
 import club.beenest.payment.withdraw.service.IWithdrawService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,8 +17,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
 
 /**
  * 提现 C 端控制器
@@ -36,7 +35,7 @@ public class WithdrawCustomerController {
     @Operation(summary = "创建提现申请", description = "创建用户提现申请")
     @PostMapping("/withdraw")
     @LogAudit
-    public Response<Map<String, Object>> createWithdrawRequest(
+    public Response<WithdrawResultDTO> createWithdrawRequest(
             @Parameter(description = "提现请求参数") @Valid @RequestBody WithdrawRequestDTO withdrawRequest) {
         try {
             String customerNo = AuthUtils.requireCurrentUserId();
@@ -55,7 +54,7 @@ public class WithdrawCustomerController {
             if (!withdrawRequest.isValidAccountNumber()) {
                 return Response.fail(400, "账户号码格式不正确");
             }
-            Map<String, Object> withdrawInfo = withdrawService.createWithdrawRequest(customerNo, withdrawRequest);
+            WithdrawResultDTO withdrawInfo = withdrawService.createWithdrawRequest(customerNo, withdrawRequest);
             return Response.success(withdrawInfo);
         } catch (IllegalArgumentException e) {
             log.warn("创建提现申请参数错误：{}", e.getMessage());

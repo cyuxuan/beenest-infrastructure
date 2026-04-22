@@ -14,6 +14,7 @@ import club.beenest.payment.paymentorder.mq.producer.PaymentEventProducer;
 import club.beenest.payment.withdraw.dto.WithdrawAuditDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawResultDTO;
 import club.beenest.payment.wallet.domain.entity.Wallet;
 import club.beenest.payment.withdraw.domain.entity.WithdrawRequest;
 import club.beenest.payment.withdraw.domain.enums.WithdrawStatus;
@@ -79,7 +80,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
     @Transactional(rollbackFor = Exception.class)
     @LogAudit(module = "提现管理", operation = "创建提现申请")
     @RateLimiter(key = "withdraw:#{customerNo}", limit = 3, period = 86400)  // 每天3次
-    public Map<String, Object> createWithdrawRequest(String customerNo, WithdrawRequestDTO withdrawRequestDTO) {
+    public WithdrawResultDTO createWithdrawRequest(String customerNo, WithdrawRequestDTO withdrawRequestDTO) {
         log.info("创建提现申请 - customerNo: {}, amount: {}, platform: {}", 
                 customerNo, withdrawRequestDTO.getAmount(), withdrawRequestDTO.getWithdrawType());
         
@@ -193,13 +194,13 @@ public class WithdrawServiceImpl implements IWithdrawService {
             withdrawRequestMapper.insert(withdrawRequest);
 
             // 14. 返回申请信息
-            Map<String, Object> result = new HashMap<>();
-            result.put("requestNo", requestNo);
-            result.put("amount", withdrawRequestDTO.getAmount());
-            result.put("feeAmount", feeAmount);
-            result.put("actualAmount", actualAmount);
-            result.put("status", withdrawRequest.getStatus());
-            result.put("createTime", withdrawRequest.getCreateTime());
+            WithdrawResultDTO result = new WithdrawResultDTO()
+                    .setRequestNo(requestNo)
+                    .setAmount(withdrawRequestDTO.getAmount())
+                    .setFeeAmount(feeAmount)
+                    .setActualAmount(actualAmount)
+                    .setStatus(withdrawRequest.getStatus())
+                    .setCreateTime(withdrawRequest.getCreateTime());
             
             log.info("创建提现申请成功 - requestNo: {}", requestNo);
             return result;
@@ -460,31 +461,29 @@ public class WithdrawServiceImpl implements IWithdrawService {
     }
 
     @Override
-    public Map<String, Object> getWithdrawRequestStatus(String customerNo, String requestNo) {
+    public WithdrawResultDTO getWithdrawRequestStatus(String customerNo, String requestNo) {
         log.info("查询提现申请状态 - customerNo: {}, requestNo: {}", customerNo, requestNo);
-        
+
         try {
             WithdrawRequest withdrawRequest = withdrawRequestMapper.selectByRequestNo(requestNo);
             if (withdrawRequest == null) {
                 throw new BusinessException("提现申请不存在");
             }
-            
+
             if (!withdrawRequest.getCustomerNo().equals(customerNo)) {
                 throw new BusinessException("无权查询该申请");
             }
-            
-            Map<String, Object> result = new HashMap<>();
-            result.put("requestNo", withdrawRequest.getRequestNo());
-            result.put("amount", withdrawRequest.getAmount());
-            result.put("feeAmount", withdrawRequest.getFeeAmount());
-            result.put("actualAmount", withdrawRequest.getActualAmount());
-            result.put("platform", withdrawRequest.getPlatform());
-            result.put("status", withdrawRequest.getStatus());
-            result.put("createTime", withdrawRequest.getCreateTime());
-            result.put("auditTime", withdrawRequest.getAuditTime());
-            result.put("processTime", withdrawRequest.getProcessTime());
-            
-            return result;
+
+            return new WithdrawResultDTO()
+                    .setRequestNo(withdrawRequest.getRequestNo())
+                    .setAmount(withdrawRequest.getAmount())
+                    .setFeeAmount(withdrawRequest.getFeeAmount())
+                    .setActualAmount(withdrawRequest.getActualAmount())
+                    .setPlatform(withdrawRequest.getPlatform())
+                    .setStatus(withdrawRequest.getStatus())
+                    .setCreateTime(withdrawRequest.getCreateTime())
+                    .setAuditTime(withdrawRequest.getAuditTime())
+                    .setProcessTime(withdrawRequest.getProcessTime());
             
         } catch (BusinessException e) {
             throw e;

@@ -19,16 +19,26 @@ import java.util.List;
  * 第三方回调 IP 白名单过滤器
  * 仅对 /api/wallet/payment/callback/** 路径生效
  * 白名单配置在 application.yml: payment.callback.allowed-ips
+ *
+ * <p>安全设计：</p>
+ * <ul>
+ *   <li>默认不信任代理头（X-Forwarded-For / X-Real-IP），防止伪造绕过白名单</li>
+ *   <li>仅在 payment.callback.trust-proxy=true 时才读取代理头</li>
+ *   <li>白名单未配置时拒绝所有回调请求</li>
+ * </ul>
  */
 @Slf4j
 @Component
 public class CallbackIpWhitelistFilter extends OncePerRequestFilter {
 
     private final List<String> allowedIps;
+    private final boolean trustProxy;
 
     public CallbackIpWhitelistFilter(
-            @Value("${payment.callback.allowed-ips:}") List<String> allowedIps) {
+            @Value("${payment.callback.allowed-ips:}") List<String> allowedIps,
+            @Value("${payment.callback.trust-proxy:false}") boolean trustProxy) {
         this.allowedIps = allowedIps;
+        this.trustProxy = trustProxy;
     }
 
     @Override
@@ -116,14 +126,18 @@ public class CallbackIpWhitelistFilter extends OncePerRequestFilter {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            int index = ip.indexOf(',');
-            return index > 0 ? ip.substring(0, index).trim() : ip.trim();
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip.trim();
+        // 只在明确信任代理头时才读取 X-Forwarded-For / X-Real-IP
+        // 防止客户端伪造代理头绕过 IP 白名单
+        if (trustProxy) {
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                int index = ip.indexOf(',');
+                return index > 0 ? ip.substring(0, index).trim() : ip.trim();
+            }
+            ip = request.getHeader("X-Real-IP");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip.trim();
+            }
         }
         return request.getRemoteAddr();
     }

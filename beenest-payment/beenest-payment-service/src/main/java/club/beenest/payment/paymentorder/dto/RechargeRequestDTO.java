@@ -71,6 +71,12 @@ public class RechargeRequestDTO {
      */
     @Schema(description = "业务类型", example = "DRONE_ORDER")
     private String bizType;
+
+    /**
+     * 微信 openid（可选，微信 JSAPI 支付时必传）
+     */
+    @Schema(description = "微信 openid（JSAPI 支付时需要）")
+    private String openid;
     
     // ==================== 业务方法 ====================
     

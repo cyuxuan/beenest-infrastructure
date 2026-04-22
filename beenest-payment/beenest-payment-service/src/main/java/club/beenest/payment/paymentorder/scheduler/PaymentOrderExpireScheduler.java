@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 支付订单过期定时任务
@@ -40,7 +41,10 @@ public class PaymentOrderExpireScheduler {
 
             log.info("扫描到 {} 个过期待支付订单", expiredOrders.size());
 
-            int updated = paymentOrderMapper.batchUpdateExpiredOrders(now, BATCH_SIZE);
+            List<String> orderNos = expiredOrders.stream()
+                    .map(PaymentOrder::getOrderNo)
+                    .collect(Collectors.toList());
+            int updated = paymentOrderMapper.batchUpdateExpiredOrders(orderNos);
             if (updated > 0) {
                 log.info("已将 {} 个过期订单标记为 EXPIRED", updated);
             }

@@ -1,15 +1,20 @@
 package club.beenest.payment.admin.controller.internal;
 
 import club.beenest.payment.common.Response;
+import club.beenest.payment.paymentorder.dto.BatchSyncResultDTO;
+import club.beenest.payment.paymentorder.dto.OrderPaymentResultDTO;
+import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
 import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundSyncResultDTO;
 import club.beenest.payment.wallet.dto.WalletBalanceDTO;
 import club.beenest.payment.wallet.dto.WalletAdminQueryDTO;
 import club.beenest.payment.wallet.dto.TransactionQueryDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawResultDTO;
 import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.entity.Refund;
@@ -139,25 +144,25 @@ public class InternalPaymentController {
     // ==================== 充值 / 支付 ====================
 
     @PostMapping("/payment/recharge")
-    public Response<Map<String, Object>> createRechargeOrder(@RequestParam String customerNo,
+    public Response<OrderPaymentResultDTO> createRechargeOrder(@RequestParam String customerNo,
                                                               @Valid @RequestBody RechargeRequestDTO request) {
         return Response.success(paymentService.createRechargeOrder(customerNo, request));
     }
 
     @PostMapping("/payment/order-payment")
-    public Response<Map<String, Object>> createOrderPayment(@RequestParam String customerNo,
+    public Response<OrderPaymentResultDTO> createOrderPayment(@RequestParam String customerNo,
                                                              @Valid @RequestBody OrderPaymentRequestDTO request) {
         return Response.success(paymentService.createOrderPayment(customerNo, request));
     }
 
     @GetMapping("/payment/status/{orderNo}")
-    public Response<Map<String, Object>> queryPaymentStatus(@RequestParam String customerNo,
+    public Response<PaymentStatusDTO> queryPaymentStatus(@RequestParam String customerNo,
                                                              @PathVariable String orderNo) {
         return Response.success(paymentService.queryPaymentStatus(customerNo, orderNo));
     }
 
     @GetMapping("/payment/status-admin/{orderNo}")
-    public Response<Map<String, Object>> queryPaymentStatusForAdmin(@PathVariable String orderNo) {
+    public Response<PaymentStatusDTO> queryPaymentStatusForAdmin(@PathVariable String orderNo) {
         return Response.success(paymentService.queryPaymentStatusForAdmin(orderNo));
     }
 
@@ -210,12 +215,12 @@ public class InternalPaymentController {
     }
 
     @GetMapping("/refund/sync/{refundNo}")
-    public Response<Map<String, Object>> syncRefundStatus(@PathVariable String refundNo) {
+    public Response<RefundSyncResultDTO> syncRefundStatus(@PathVariable String refundNo) {
         return Response.success(paymentService.syncRefundStatus(refundNo));
     }
 
     @PostMapping("/refund/sync-processing")
-    public Response<Map<String, Object>> syncProcessingRefunds(@RequestParam int limit) {
+    public Response<BatchSyncResultDTO> syncProcessingRefunds(@RequestParam int limit) {
         return Response.success(paymentService.syncProcessingRefunds(limit));
     }
 
@@ -230,13 +235,13 @@ public class InternalPaymentController {
     // ==================== 提现 ====================
 
     @PostMapping("/withdraw/create")
-    public Response<Map<String, Object>> createWithdrawRequest(@RequestParam String customerNo,
+    public Response<WithdrawResultDTO> createWithdrawRequest(@RequestParam String customerNo,
                                                                  @Valid @RequestBody WithdrawRequestDTO request) {
         return Response.success(withdrawService.createWithdrawRequest(customerNo, request));
     }
 
     @GetMapping("/withdraw/status/{requestNo}")
-    public Response<Map<String, Object>> getWithdrawRequestStatus(@RequestParam String customerNo,
+    public Response<WithdrawResultDTO> getWithdrawRequestStatus(@RequestParam String customerNo,
                                                                     @PathVariable String requestNo) {
         return Response.success(withdrawService.getWithdrawRequestStatus(customerNo, requestNo));
     }
