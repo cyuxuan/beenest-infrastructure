@@ -141,7 +141,7 @@ class CasServiceCredentialServiceTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.setRequestURI("/cas/app/login");
-        request.setServletPath("/cas/app/login");
+        request.setServletPath("/app/login");
         request.setContentType("application/json");
         request.setContent(REQUEST_BODY.getBytes(StandardCharsets.UTF_8));
         request.addHeader(CasConstant.SERVICE_ID_HEADER, SERVICE_ID);

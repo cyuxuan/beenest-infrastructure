@@ -1,5 +1,6 @@
 package org.apereo.cas.beenest.config;
 
+import org.apereo.cas.authentication.AuthenticationSystemSupport;
 import org.apereo.cas.beenest.authn.handler.AlipayMiniAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.AppTokenAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.DouyinMiniAuthenticationHandler;
@@ -11,6 +12,7 @@ import org.apereo.cas.beenest.controller.CasUserAdminController;
 import org.apereo.cas.beenest.controller.MiniAppLoginController;
 import org.apereo.cas.beenest.controller.SmsController;
 import org.apereo.cas.beenest.controller.SyncStrategyController;
+import org.apereo.cas.beenest.controller.TokenRefreshController;
 import org.apereo.cas.beenest.controller.TokenValidationController;
 import org.apereo.cas.beenest.controller.UserSyncController;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
@@ -28,6 +30,8 @@ import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
 import org.apereo.cas.authentication.AuthenticationHandler;
 import org.apereo.cas.authentication.principal.PrincipalFactory;
 import org.apereo.cas.configuration.CasConfigurationProperties;
+import org.apereo.cas.ticket.factory.DefaultTicketFactory;
+import org.apereo.cas.ticket.registry.TicketRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.ObjectProvider;
@@ -52,10 +56,10 @@ import org.slf4j.LoggerFactory;
  */
 @AutoConfiguration
 @EnableConfigurationProperties({
-        CasConfigurationProperties.class,
-        MiniAppProperties.class,
-        SmsProperties.class,
-        TokenTtlProperties.class
+    CasConfigurationProperties.class,
+    MiniAppProperties.class,
+    SmsProperties.class,
+    TokenTtlProperties.class
 })
 public class CasOverlayOverrideConfiguration {
 
@@ -67,12 +71,12 @@ public class CasOverlayOverrideConfiguration {
     @ConditionalOnMissingBean(name = "wechatMiniAuthenticationHandler")
     @ConditionalOnProperty(prefix = "beenest.miniapp.wechat", name = "appid")
     public AuthenticationHandler wechatMiniAuthenticationHandler(
-            final WxMaService wxMaService,
-            final PrincipalFactory principalFactory,
-            final UserIdentityService userIdentityService) {
+        final WxMaService wxMaService,
+        final PrincipalFactory principalFactory,
+        final UserIdentityService userIdentityService) {
         return new WechatMiniAuthenticationHandler(
-                "wechatMiniAuthenticationHandler",
-                principalFactory, wxMaService, userIdentityService);
+            "wechatMiniAuthenticationHandler",
+            principalFactory, wxMaService, userIdentityService);
     }
 
     // ===== 抖音小程序 Handler =====
@@ -80,11 +84,11 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "douyinMiniAuthenticationHandler")
     public AuthenticationHandler douyinMiniAuthenticationHandler(final PrincipalFactory principalFactory,
-            final MiniAppProperties miniAppProperties,
-            final UserIdentityService userIdentityService) {
+                                                                 final MiniAppProperties miniAppProperties,
+                                                                 final UserIdentityService userIdentityService) {
         return new DouyinMiniAuthenticationHandler(
-                "douyinMiniAuthenticationHandler",
-                principalFactory, miniAppProperties, userIdentityService);
+            "douyinMiniAuthenticationHandler",
+            principalFactory, miniAppProperties, userIdentityService);
     }
 
     // ===== 支付宝小程序 Handler =====
@@ -92,11 +96,11 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "alipayMiniAuthenticationHandler")
     public AuthenticationHandler alipayMiniAuthenticationHandler(final PrincipalFactory principalFactory,
-            final MiniAppProperties miniAppProperties,
-            final UserIdentityService userIdentityService) {
+                                                                 final MiniAppProperties miniAppProperties,
+                                                                 final UserIdentityService userIdentityService) {
         return new AlipayMiniAuthenticationHandler(
-                "alipayMiniAuthenticationHandler",
-                principalFactory, miniAppProperties, userIdentityService);
+            "alipayMiniAuthenticationHandler",
+            principalFactory, miniAppProperties, userIdentityService);
     }
 
     // ===== 短信验证码 Handler =====
@@ -104,11 +108,11 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "smsOtpAuthenticationHandler")
     public AuthenticationHandler smsOtpAuthenticationHandler(final PrincipalFactory principalFactory,
-            final StringRedisTemplate redisTemplate,
-            final UserIdentityService userIdentityService) {
+                                                             final StringRedisTemplate redisTemplate,
+                                                             final UserIdentityService userIdentityService) {
         return new SmsOtpAuthenticationHandler(
-                "smsOtpAuthenticationHandler",
-                principalFactory, redisTemplate, userIdentityService);
+            "smsOtpAuthenticationHandler",
+            principalFactory, redisTemplate, userIdentityService);
     }
 
     // ===== APP Token Handler =====
@@ -116,11 +120,11 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "appTokenAuthenticationHandler")
     public AuthenticationHandler appTokenAuthenticationHandler(final PrincipalFactory principalFactory,
-            final ObjectProvider<UnifiedUserMapper> userMapperProvider,
-            final StringRedisTemplate redisTemplate) {
+                                                               final ObjectProvider<UnifiedUserMapper> userMapperProvider,
+                                                               final StringRedisTemplate redisTemplate) {
         return new AppTokenAuthenticationHandler(
-                "appTokenAuthenticationHandler",
-                principalFactory, userMapperProvider.getObject(), redisTemplate);
+            "appTokenAuthenticationHandler",
+            principalFactory, userMapperProvider.getObject(), redisTemplate);
     }
 
     // ===== 注册到 CAS 认证引擎 =====
@@ -133,29 +137,31 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public BeenestAccessStrategyInitializer beenestAccessStrategyInitializer(
-            final ApplicationContext applicationContext) {
+        final ApplicationContext applicationContext) {
         BeenestAccessStrategy.setApplicationContext(applicationContext);
         return new BeenestAccessStrategyInitializer();
     }
 
-    /** 空壳 Bean，仅触发 ApplicationContext 注入 */
+    /**
+     * 空壳 Bean，仅触发 ApplicationContext 注入
+     */
     public static class BeenestAccessStrategyInitializer {
     }
 
     @Bean
     public AuthenticationEventExecutionPlanConfigurer beenestAuthnPlan(
-            @Autowired(required = false) @Qualifier("wechatMiniAuthenticationHandler") final AuthenticationHandler wechatMiniAuthenticationHandler,
-            @Autowired(required = false) @Qualifier("douyinMiniAuthenticationHandler") final AuthenticationHandler douyinMiniAuthenticationHandler,
-            @Autowired(required = false) @Qualifier("alipayMiniAuthenticationHandler") final AuthenticationHandler alipayMiniAuthenticationHandler,
-            @Qualifier("smsOtpAuthenticationHandler") final AuthenticationHandler smsOtpAuthenticationHandler,
-            @Qualifier("appTokenAuthenticationHandler") final AuthenticationHandler appTokenAuthenticationHandler) {
+        @Autowired(required = false) @Qualifier("wechatMiniAuthenticationHandler") final AuthenticationHandler wechatMiniAuthenticationHandler,
+        @Autowired(required = false) @Qualifier("douyinMiniAuthenticationHandler") final AuthenticationHandler douyinMiniAuthenticationHandler,
+        @Autowired(required = false) @Qualifier("alipayMiniAuthenticationHandler") final AuthenticationHandler alipayMiniAuthenticationHandler,
+        @Qualifier("smsOtpAuthenticationHandler") final AuthenticationHandler smsOtpAuthenticationHandler,
+        @Qualifier("appTokenAuthenticationHandler") final AuthenticationHandler appTokenAuthenticationHandler) {
         return plan -> {
             log.info("认证处理器装配状态: wechat={}, douyin={}, alipay={}, sms={}, appToken={}",
-                    wechatMiniAuthenticationHandler != null,
-                    douyinMiniAuthenticationHandler != null,
-                    alipayMiniAuthenticationHandler != null,
-                    smsOtpAuthenticationHandler != null,
-                    appTokenAuthenticationHandler != null);
+                wechatMiniAuthenticationHandler != null,
+                douyinMiniAuthenticationHandler != null,
+                alipayMiniAuthenticationHandler != null,
+                smsOtpAuthenticationHandler != null,
+                appTokenAuthenticationHandler != null);
             if (wechatMiniAuthenticationHandler != null) {
                 plan.registerAuthenticationHandler(wechatMiniAuthenticationHandler);
             }
@@ -176,62 +182,62 @@ public class CasOverlayOverrideConfiguration {
      * 注册小程序登录控制器。
      *
      * @param authenticationSystemSupport 认证系统支持
-     * @param ticketRegistry 票据仓库
-     * @param defaultTicketFactory 默认票据工厂
-     * @param auditService 审计服务
-     * @param appAccessService 应用访问控制服务
-     * @param redisTemplate Redis 模板
-     * @param tokenTtlProperties Token 生命周期配置
+     * @param ticketRegistry              票据仓库
+     * @param defaultTicketFactory        默认票据工厂
+     * @param auditService                审计服务
+     * @param appAccessService            应用访问控制服务
+     * @param redisTemplate               Redis 模板
+     * @param tokenTtlProperties          Token 生命周期配置
      * @return 小程序登录控制器
      */
     @Bean
     public MiniAppLoginController miniAppLoginController(
-            final org.apereo.cas.authentication.AuthenticationSystemSupport authenticationSystemSupport,
-            final org.apereo.cas.ticket.registry.TicketRegistry ticketRegistry,
-            final org.apereo.cas.ticket.factory.DefaultTicketFactory defaultTicketFactory,
-            final AuthAuditService auditService,
-            final AppAccessService appAccessService,
-            final StringRedisTemplate redisTemplate,
-            final TokenTtlProperties tokenTtlProperties) {
+        final AuthenticationSystemSupport authenticationSystemSupport,
+        final TicketRegistry ticketRegistry,
+        final DefaultTicketFactory defaultTicketFactory,
+        final AuthAuditService auditService,
+        final AppAccessService appAccessService,
+        final StringRedisTemplate redisTemplate,
+        final TokenTtlProperties tokenTtlProperties) {
         return new MiniAppLoginController(
-                authenticationSystemSupport,
-                ticketRegistry,
-                defaultTicketFactory,
-                auditService,
-                appAccessService,
-                redisTemplate,
-                tokenTtlProperties);
+            authenticationSystemSupport,
+            ticketRegistry,
+            defaultTicketFactory,
+            auditService,
+            appAccessService,
+            redisTemplate,
+            tokenTtlProperties);
     }
 
     /**
      * 注册 APP 登录控制器。
      *
      * @param authenticationSystemSupport 认证系统支持
-     * @param ticketRegistry 票据仓库
-     * @param defaultTicketFactory 默认票据工厂
-     * @param redisTemplate Redis 模板
-     * @param auditService 审计服务
-     * @param appAccessService 应用访问控制服务
-     * @param tokenTtlProperties Token 生命周期配置
+     * @param ticketRegistry              票据仓库
+     * @param defaultTicketFactory        默认票据工厂
+     * @param redisTemplate               Redis 模板
+     * @param auditService                审计服务
+     * @param appAccessService            应用访问控制服务
+     * @param tokenTtlProperties          Token 生命周期配置
      * @return APP 登录控制器
      */
     @Bean
     public AppLoginController appLoginController(
-            final org.apereo.cas.authentication.AuthenticationSystemSupport authenticationSystemSupport,
-            final org.apereo.cas.ticket.registry.TicketRegistry ticketRegistry,
-            final org.apereo.cas.ticket.factory.DefaultTicketFactory defaultTicketFactory,
-            final StringRedisTemplate redisTemplate,
-            final AuthAuditService auditService,
-            final AppAccessService appAccessService,
-            final TokenTtlProperties tokenTtlProperties) {
+        final AuthenticationSystemSupport authenticationSystemSupport,
+        final TicketRegistry ticketRegistry,
+        final DefaultTicketFactory defaultTicketFactory,
+        final StringRedisTemplate redisTemplate,
+        final AuthAuditService auditService,
+        final AppAccessService appAccessService,
+        final TokenTtlProperties tokenTtlProperties) {
         return new AppLoginController(
-                authenticationSystemSupport,
-                ticketRegistry,
-                defaultTicketFactory,
-                redisTemplate,
-                auditService,
-                appAccessService,
-                tokenTtlProperties);
+            authenticationSystemSupport,
+            ticketRegistry,
+            defaultTicketFactory,
+            redisTemplate,
+            auditService,
+            appAccessService,
+            tokenTtlProperties);
     }
 
     /**
@@ -242,23 +248,23 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public TokenValidationController tokenValidationController(
-            final org.apereo.cas.ticket.registry.TicketRegistry ticketRegistry) {
+        final org.apereo.cas.ticket.registry.TicketRegistry ticketRegistry) {
         return new TokenValidationController(ticketRegistry);
     }
 
     /**
      * 注册用户同步控制器。
      *
-     * @param userMapper 用户映射器
+     * @param userMapper      用户映射器
      * @param userSyncService 用户同步服务
-     * @param redisTemplate Redis 模板
+     * @param redisTemplate   Redis 模板
      * @return 用户同步控制器
      */
     @Bean
     public UserSyncController userSyncController(
-            final UnifiedUserMapper userMapper,
-            final UserSyncService userSyncService,
-            final StringRedisTemplate redisTemplate) {
+        final UnifiedUserMapper userMapper,
+        final UserSyncService userSyncService,
+        final StringRedisTemplate redisTemplate) {
         return new UserSyncController(userMapper, userSyncService, redisTemplate);
     }
 
@@ -271,8 +277,8 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public CasUserAdminController casUserAdminController(
-            final UserAdminService userAdminService,
-            final AppAccessService appAccessService) {
+        final UserAdminService userAdminService,
+        final AppAccessService appAccessService) {
         return new CasUserAdminController(userAdminService, appAccessService);
     }
 
@@ -284,7 +290,7 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public CasServiceAdminController casServiceAdminController(
-            final CasServiceAdminService serviceAdminService) {
+        final CasServiceAdminService serviceAdminService) {
         return new CasServiceAdminController(serviceAdminService);
     }
 
@@ -307,8 +313,36 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public SyncStrategyController syncStrategyController(
-            final SyncStrategyService syncStrategyService) {
+        final SyncStrategyService syncStrategyService) {
         return new SyncStrategyController(syncStrategyService);
+    }
+
+    /**
+     * 注册 Token 续期控制器。
+     *
+     * @param authenticationSystemSupport 认证系统支持
+     * @param ticketRegistry              票据仓库
+     * @param defaultTicketFactory        默认票据工厂
+     * @param auditService                审计服务
+     * @param redisTemplate               Redis 模板
+     * @param tokenTtlProperties          Token 生命周期配置
+     * @return Token 续期控制器
+     */
+    @Bean
+    public TokenRefreshController tokenRefreshController(
+        final AuthenticationSystemSupport authenticationSystemSupport,
+        final TicketRegistry ticketRegistry,
+        final DefaultTicketFactory defaultTicketFactory,
+        final AuthAuditService auditService,
+        final StringRedisTemplate redisTemplate,
+        final TokenTtlProperties tokenTtlProperties) {
+        return new TokenRefreshController(
+            authenticationSystemSupport,
+            ticketRegistry,
+            defaultTicketFactory,
+            auditService,
+            redisTemplate,
+            tokenTtlProperties);
     }
 
     // ===== API 路径安全：禁用 CSRF =====
@@ -323,9 +357,9 @@ public class CasOverlayOverrideConfiguration {
     @Order(1)
     public SecurityFilterChain casApiSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher("/miniapp/**", "/app/**", "/token/**", "/refresh")
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .build();
+            .securityMatcher("/miniapp/**", "/app/**", "/token/**", "/refresh")
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .build();
     }
 }

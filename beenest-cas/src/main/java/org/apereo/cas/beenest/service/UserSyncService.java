@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Service;
+
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -27,7 +27,6 @@ import java.util.List;
  * 并在独立线程池中执行，不阻塞主认证流程。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class UserSyncService {
 

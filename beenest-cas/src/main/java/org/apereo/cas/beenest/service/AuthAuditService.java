@@ -5,7 +5,7 @@ import org.apereo.cas.beenest.mapper.CasAuthAuditLogMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
+
 
 /**
  * 认证审计服务
@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
  * 不影响认证主流程性能。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class AuthAuditService {
 

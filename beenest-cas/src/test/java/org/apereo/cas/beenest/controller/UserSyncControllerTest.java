@@ -44,7 +44,7 @@ class UserSyncControllerTest {
     @Test
     void rejectsMissingSignatureHeaders() throws Exception {
         ReflectionTestUtils.setField(controller, "signKey", "test-secret");
-        mockMvc.perform(get("/cas/api/user/U1001"))
+        mockMvc.perform(get("/api/user/U1001"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("缺少签名头 X-CAS-Timestamp 或 X-CAS-Signature"));
@@ -52,7 +52,7 @@ class UserSyncControllerTest {
 
     @Test
     void rejectsMissingSyncSigningKey() throws Exception {
-        mockMvc.perform(get("/cas/api/user/U1001")
+        mockMvc.perform(get("/api/user/U1001")
                         .header("X-CAS-Timestamp", String.valueOf(System.currentTimeMillis()))
                         .header("X-CAS-Signature", "demo-signature"))
                 .andExpect(status().isInternalServerError())

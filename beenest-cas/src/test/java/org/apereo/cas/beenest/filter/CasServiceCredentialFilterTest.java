@@ -149,7 +149,7 @@ class CasServiceCredentialFilterTest {
     private MockHttpServletRequest buildRequest(String body, String timestamp, String nonce, String signature) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
-        request.setServletPath("/cas/app/login");
+        request.setServletPath("/app/login");
         request.setRequestURI("/cas/app/login");
         request.setContent(body.getBytes(StandardCharsets.UTF_8));
         request.addHeader(CasConstant.BUSINESS_SERVICE_ID_HEADER, "10001");

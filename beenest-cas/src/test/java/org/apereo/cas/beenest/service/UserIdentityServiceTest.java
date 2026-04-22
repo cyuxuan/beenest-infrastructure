@@ -70,6 +70,7 @@ class UserIdentityServiceTest {
         UnifiedUserDO existingUser = new UnifiedUserDO();
         existingUser.setUserId("U10002");
         existingUser.setOpenid("openid-2");
+        existingUser.setUnionid("union-2");
         existingUser.setNickname("老王");
         existingUser.setUserType("CUSTOMER");
 

@@ -19,7 +19,7 @@ import org.apereo.cas.services.RegisteredService;
 import org.apereo.cas.services.ServicesManager;
 import org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -34,7 +34,6 @@ import java.util.TreeSet;
  * controller 只负责 HTTP 层，不直接拼装 CAS 服务对象。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class CasServiceAdminService {
 

@@ -4,7 +4,7 @@ import org.apereo.cas.beenest.filter.AdminApiAuthFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -17,7 +17,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * Token 通过 {@code beenest.admin.token} 配置，
  * 推荐使用环境变量 {@code CAS_ADMIN_TOKEN} 注入。
  */
-@Configuration
+@AutoConfiguration
 public class CasAdminSecurityConfig {
 
     @Value("${beenest.admin.token:${CAS_ADMIN_TOKEN:}}")

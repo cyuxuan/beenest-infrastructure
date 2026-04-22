@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -20,7 +19,6 @@ import java.util.concurrent.TimeUnit;
  * 使用 {@link BusinessException} 统一异常处理。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class SmsService {
 

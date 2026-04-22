@@ -7,7 +7,7 @@ import org.apereo.cas.beenest.mapper.CasSyncStrategyMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Service;
+
 
 /**
  * 同步策略服务
@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
  * 负责同步策略的查询、创建和更新，不让 controller 处理 Map 解析和默认值补齐。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class SyncStrategyService {
 

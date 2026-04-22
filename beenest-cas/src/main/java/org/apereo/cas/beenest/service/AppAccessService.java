@@ -4,7 +4,6 @@ import org.apereo.cas.beenest.entity.CasAppAccess;
 import org.apereo.cas.beenest.mapper.CasAppAccessMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,7 +15,6 @@ import java.util.List;
  * 支持临时授权（过期时间）、批量操作、变更日志记录。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class AppAccessService {
 

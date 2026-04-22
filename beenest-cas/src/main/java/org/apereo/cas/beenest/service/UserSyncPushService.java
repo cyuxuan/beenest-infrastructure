@@ -14,7 +14,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
+
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit;
  * 独立于 UserSyncService，确保 @Async 通过跨 bean 调用真正生效。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class UserSyncPushService {
 

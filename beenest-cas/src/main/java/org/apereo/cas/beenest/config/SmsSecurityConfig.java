@@ -5,7 +5,7 @@ import org.apereo.cas.beenest.filter.SmsSendEndpointFilter;
 import org.apereo.cas.beenest.service.SmsService;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.core.Ordered;
 
 /**
@@ -14,7 +14,7 @@ import org.springframework.core.Ordered;
  * 使用最高优先级的 servlet filter 直接处理 `/cas/sms/send`，
  * 避免被 CAS 默认安全链提前拒绝。
  */
-@Configuration
+@AutoConfiguration
 public class SmsSecurityConfig {
 
     @Bean

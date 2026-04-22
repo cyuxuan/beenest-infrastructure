@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,7 +20,6 @@ import java.util.UUID;
  * 提供用户 CRUD、启禁用、账号锁定等管理能力。
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class UserAdminService {
 

@@ -20,6 +20,7 @@ class SmsSendEndpointFilterTest {
         SmsService smsService = mock(SmsService.class);
         SmsSendEndpointFilter filter = new SmsSendEndpointFilter(smsService, new ObjectMapper());
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/cas/sms/send");
+        request.setServletPath("/sms/send");
         request.setParameter("phone", "13800138000");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);

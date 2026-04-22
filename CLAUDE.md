@@ -61,7 +61,7 @@ Custom Apereo CAS overlay extended with Chinese platform authentication. Provide
 
 **Root package**: `org.apereo.cas.beenest`
 
-**Authentication handlers** (registered via `BeenestCasAuthenticationConfiguration`):
+**Authentication handlers** (registered via `CasOverlayOverrideConfiguration`):
 - WeChat mini-program (`WechatMiniCredential` / `WechatMiniAuthenticationHandler`)
 - Douyin mini-program (`DouyinMiniCredential` / `DouyinMiniAuthenticationHandler`)
 - Alipay mini-program (`AlipayMiniCredential` / `AlipayMiniAuthenticationHandler`)

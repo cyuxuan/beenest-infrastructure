@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.stereotype.Service;
+
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -31,7 +31,6 @@ import java.util.UUID;
  * - 合并目标账号如果是锁定状态则拒绝合并
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 @Transactional(transactionManager = "beenestTransactionManager")
 public class UserIdentityService {

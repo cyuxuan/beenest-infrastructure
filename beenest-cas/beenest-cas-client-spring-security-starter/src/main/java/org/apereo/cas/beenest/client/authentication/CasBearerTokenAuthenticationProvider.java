@@ -20,6 +20,9 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Bearer Token 认证提供者
@@ -37,6 +40,9 @@ import java.util.Map;
 @Slf4j
 public class CasBearerTokenAuthenticationProvider implements AuthenticationProvider {
 
+    /** 等待并发刷新结果的最大时长（秒） */
+    private static final long REFRESH_AWAIT_TIMEOUT_SECONDS = 30;
+
     private final CasTgtValidator tgtValidator;
     private final CasSecurityProperties properties;
     private final BearerTokenCache tokenCache;
@@ -44,6 +50,15 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
     private final CasUserDetailsService userDetailsService;
     private final CasTokenRefresher tokenRefresher;
     private final BearerAuthorityVersionService authorityVersionService;
+
+    /**
+     * 正在执行中的刷新请求去重映射。
+     * <p>
+     * Key: refreshToken，Value: 代表刷新结果的 CompletableFuture。
+     * 通过 {@link ConcurrentHashMap#putIfAbsent} 保证同一个 refreshToken
+     * 同时只有一个线程执行实际刷新，其余线程等待并复用结果。
+     */
+    private final ConcurrentHashMap<String, CompletableFuture<Authentication>> inflightRefreshes = new ConcurrentHashMap<>();
 
     public CasBearerTokenAuthenticationProvider(CasTgtValidator tgtValidator,
                                                  CasSecurityProperties properties,
@@ -115,10 +130,10 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             return buildAuthenticatedToken(accessToken, null, session, null);
         }
 
-        // 3. TGT 过期 — 尝试无感刷新
+        // 3. TGT 过期 — 通过 Singleflight 机制尝试无感刷新
         if (properties.getTokenAuth().isAutoRefreshEnabled() && refreshToken != null && !refreshToken.isBlank()) {
             LOGGER.debug("accessToken 过期，尝试使用 refreshToken 自动刷新");
-            Authentication refreshed = tryRefreshToken(refreshToken);
+            Authentication refreshed = singleflightRefresh(accessToken, refreshToken);
             if (refreshed != null) {
                 return refreshed;
             }
@@ -129,15 +144,55 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
     }
 
     /**
-     * 使用 refreshToken 尝试刷新
+     * Singleflight 刷新：保证同一个 refreshToken 同时只有一个线程执行实际刷新请求。
      * <p>
-     * 调用 CAS Server refresh 端点换取新的 accessToken + refreshToken，
-     * 成功后缓存新 token 并构建已认证 Token（携带新的 refreshToken）。
+     * 通过 {@link ConcurrentHashMap#putIfAbsent} 注册刷新 Future，
+     * 第一个线程负责执行实际的网络请求，后续并发线程等待第一个线程的结果。
+     * <p>
+     * 刷新成功后，不仅缓存新的 accessToken，还在旧 accessToken 的缓存位
+     * 放入一个短 TTL 的迁移条目，让仍在使用旧 token 到达的请求可以直接命中。
      *
-     * @param refreshToken 旧的刷新令牌
+     * @param expiredAccessToken 过期的 accessToken（用于缓存迁移）
+     * @param refreshToken       刷新令牌
      * @return 刷新成功返回已认证 Token，失败返回 null
      */
-    private Authentication tryRefreshToken(String refreshToken) {
+    private Authentication singleflightRefresh(String expiredAccessToken, String refreshToken) {
+        CompletableFuture<Authentication> future = new CompletableFuture<>();
+        CompletableFuture<Authentication> existing = inflightRefreshes.putIfAbsent(refreshToken, future);
+
+        if (existing != null) {
+            // 已有线程在刷新同一个 refreshToken，等待其结果
+            LOGGER.debug("已有并发刷新正在进行，等待结果: refreshToken={}...", refreshToken.substring(0, Math.min(8, refreshToken.length())));
+            try {
+                return existing.get(REFRESH_AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                LOGGER.warn("等待并发刷新结果超时或异常: {}", e.getMessage());
+                return null;
+            }
+        }
+
+        // 当前线程负责执行实际刷新
+        try {
+            Authentication result = doRefresh(expiredAccessToken, refreshToken);
+            future.complete(result);
+            return result;
+        } catch (Exception e) {
+            future.complete(null);
+            LOGGER.warn("Token 刷新执行失败: {}", e.getMessage());
+            return null;
+        } finally {
+            inflightRefreshes.remove(refreshToken);
+        }
+    }
+
+    /**
+     * 执行实际的 Token 刷新网络请求。
+     *
+     * @param expiredAccessToken 过期的 accessToken（用于缓存迁移）
+     * @param refreshToken       刷新令牌
+     * @return 刷新成功返回已认证 Token，失败返回 null
+     */
+    private Authentication doRefresh(String expiredAccessToken, String refreshToken) {
         CasTokenRefresher.TokenRefreshResult result = tokenRefresher.refreshToken(refreshToken);
         if (result == null) {
             LOGGER.warn("Token 自动刷新失败");
@@ -149,12 +204,18 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         // 缓存新的 accessToken
         result.getSession().setAuthTime(System.currentTimeMillis());
 
-        // 构建已认证 Token，携带新的 refreshToken（供 Filter 写入响应头）
-        return buildAuthenticatedToken(
+        Authentication authResult = buildAuthenticatedToken(
                 result.getNewAccessToken(),
                 result.getNewRefreshToken(),
                 result.getSession(),
                 null);
+
+        // 将新 token 的认证结果也缓存到旧 accessToken 下，使仍在使用旧 token 的并发请求能直接命中
+        if (tokenCache != null && expiredAccessToken != null) {
+            tokenCache.put(expiredAccessToken, result.getSession(), authResult.getPrincipal() instanceof CasUserDetails cud ? cud : null);
+        }
+
+        return authResult;
     }
 
     /**

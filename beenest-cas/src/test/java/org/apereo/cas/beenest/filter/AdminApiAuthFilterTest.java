@@ -20,6 +20,7 @@ class AdminApiAuthFilterTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         AdminApiAuthFilter filter = new AdminApiAuthFilter("secret-token", redisTemplate);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/cas/admin/user/U1001");
+        request.setServletPath("/admin/user/U1001");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -35,6 +36,7 @@ class AdminApiAuthFilterTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         AdminApiAuthFilter filter = new AdminApiAuthFilter("secret-token", redisTemplate);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/cas/admin/user/U1001");
+        request.setServletPath("/admin/user/U1001");
         request.addHeader(CasConstant.ADMIN_TOKEN_HEADER, "secret-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);

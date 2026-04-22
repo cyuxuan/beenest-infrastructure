@@ -1,6 +1,6 @@
 package org.apereo.cas.beenest.config;
 
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * <p>
  * 启用 @Async 支持，用于审计日志等非阻塞异步写入。
  */
-@Configuration
+@AutoConfiguration
 @EnableAsync
 public class AsyncConfig {
 }
