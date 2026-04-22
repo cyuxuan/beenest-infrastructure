@@ -194,11 +194,10 @@ cas:
 当 `cas.client.business-login-proxy.base-path=/cas` 时，业务系统会对外暴露下面这些代理接口：
 
 - `POST /cas/app/login`
-- `POST /cas/app/refresh`
+- `POST /cas/refresh`
 - `POST /cas/miniapp/wechat/login`
 - `POST /cas/miniapp/douyin/login`
 - `POST /cas/miniapp/alipay/login`
-- `POST /cas/miniapp/refresh`
 
 这些接口由 starter 接收后，再转发到 CAS Server，对业务系统来说不需要手写转发代码。
 
@@ -249,10 +248,11 @@ boolean authenticated = CasSecurityUtils.isAuthenticated();
 
 小程序和 App 场景使用 Bearer Token 模式：
 
-1. 客户端先调用业务系统的 `/cas/miniapp/*` 登录代理。
+1. 客户端先调用业务系统的 `/cas/app/login` 或 `/cas/miniapp/*` 登录代理。
 2. starter 转发请求到 CAS Server。
 3. CAS 完成微信 / 抖音 / 支付宝 / App Token 认证。
 4. CAS 返回的 accessToken / refreshToken 由业务系统保存并继续传给客户端。
+5. accessToken 过期后，客户端统一调用 `/cas/refresh` 完成续期。
 
 ### 认证方式
 

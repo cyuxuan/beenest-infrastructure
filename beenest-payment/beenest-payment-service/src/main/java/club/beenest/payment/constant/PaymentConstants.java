@@ -5,7 +5,7 @@ public final class PaymentConstants {
     private PaymentConstants() {
     }
 
-    public static final String ORDER_PLAN_PREFIX = "ORDER_PLAN:";
+    public static final String BIZ_ORDER_PREFIX = "BIZ_ORDER:";
     public static final String COUPON_PREFIX = "|COUPON:";
     public static final String RECHARGE_PREFIX = "RECHARGE_";
 
@@ -25,8 +25,11 @@ public final class PaymentConstants {
     public static final String PLATFORM_ALIPAY = "ALIPAY";
     public static final String PLATFORM_DOUYIN = "DOUYIN";
 
-    public static final String METHOD_WECHAT_MINI = "WECHAT_MINI";
-    public static final String METHOD_ALIPAY_MINI = "ALIPAY_MINI";
+    public static final String METHOD_WECHAT_APP = "WECHAT_APP";
+    public static final String METHOD_WECHAT_JSAPI = "WECHAT_JSAPI";
+    public static final String METHOD_ALIPAY_APP = "ALIPAY_APP";
+    public static final String METHOD_ALIPAY_JSAPI = "ALIPAY_JSAPI";
+    public static final String METHOD_DOUYIN_APP = "DOUYIN_APP";
     public static final String METHOD_DOUYIN_MINI = "DOUYIN_MINI";
 
     public static final String WITHDRAW_TYPE_ALIPAY = "ALIPAY";
@@ -112,10 +115,20 @@ public final class PaymentConstants {
             return null;
         }
         return switch (platform.toUpperCase()) {
-            case PLATFORM_WECHAT -> METHOD_WECHAT_MINI;
-            case PLATFORM_ALIPAY -> METHOD_ALIPAY_MINI;
+            case PLATFORM_WECHAT -> METHOD_WECHAT_APP;
+            case PLATFORM_ALIPAY -> METHOD_ALIPAY_APP;
             case PLATFORM_DOUYIN -> METHOD_DOUYIN_MINI;
-            default -> platform.toUpperCase() + "_MINI";
+            default -> platform.toUpperCase() + "_APP";
         };
+    }
+
+    /**
+     * 判断微信支付方式是否需要 openid。
+     *
+     * @param paymentMethod 支付方式
+     * @return true 表示需要 openid
+     */
+    public static boolean requiresWechatOpenid(String paymentMethod) {
+        return METHOD_WECHAT_JSAPI.equalsIgnoreCase(paymentMethod);
     }
 }

@@ -30,7 +30,7 @@ class CasTokenRefresherTest {
 
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
-        server.expect(requestTo("http://localhost:8081/cas/app/refresh"))
+        server.expect(requestTo("http://localhost:8081/cas/refresh"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("X-CAS-Service-Id", "10001"))
                 .andExpect(header("X-CAS-Timestamp", not(blankOrNullString())))
@@ -74,7 +74,7 @@ class CasTokenRefresherTest {
 
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
-        server.expect(requestTo("http://localhost:8081/cas/app/refresh"))
+        server.expect(requestTo("http://localhost:8081/cas/refresh"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json("""
                         {

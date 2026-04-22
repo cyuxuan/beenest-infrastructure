@@ -114,7 +114,7 @@ public class CasSecurityProperties {
         /** 是否启用无感 Token 刷新（需客户端同时传递 X-Refresh-Token） */
         private boolean autoRefreshEnabled = true;
         /** CAS Server refresh 端点路径（相对于 serverUrl） */
-        private String refreshEndpoint = "/app/refresh";
+        private String refreshEndpoint = "/refresh";
         /** refresh 请求超时（毫秒） */
         private int refreshTimeoutMs = 5000;
         /** 权限版本属性名，用于识别授权缓存是否过期 */

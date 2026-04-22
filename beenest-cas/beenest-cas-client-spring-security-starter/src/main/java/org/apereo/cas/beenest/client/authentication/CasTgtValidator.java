@@ -98,7 +98,7 @@ public class CasTgtValidator {
             // 存储所有属性（处理 CAS attributes 数组格式）
             Map<String, String> allAttrs = new HashMap<>();
             if (attrs.isObject()) {
-                attrs.fields().forEachRemaining(e -> {
+                attrs.properties().forEach(e -> {
                     JsonNode val = e.getValue();
                     if (val.isArray() && !val.isEmpty()) {
                         allAttrs.put(e.getKey(), val.get(0).asText());

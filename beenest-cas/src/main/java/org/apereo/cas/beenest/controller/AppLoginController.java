@@ -8,7 +8,6 @@ import org.apereo.cas.beenest.common.util.CasAttributeUtils;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.AppLoginRequestDTO;
 import org.apereo.cas.beenest.dto.AppLogoutRequestDTO;
-import org.apereo.cas.beenest.dto.AppRefreshRequestDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.AppAccessService;
@@ -33,7 +32,9 @@ import java.util.concurrent.TimeUnit;
  * APP 登录 REST 控制器
  * <p>
  * APP 登录返回 JSON token（不触发浏览器重定向）。
- * 支持密码、短信验证码、refreshToken 三种登录方式。
+ * 支持密码、短信验证码登录。
+ * <p>
+ * refreshToken 续期由统一的 {@code /refresh} 端点处理。
  * <p>
  * Token 有效期通过 {@link TokenTtlProperties} 配置：
  * - accessToken (TGT) 默认 7 天
@@ -76,7 +77,7 @@ public class AppLoginController {
         }
 
         if ("refresh".equalsIgnoreCase(loginMethod)) {
-            return R.fail(400, "请使用 /cas/app/refresh 端点进行 Token 续期");
+            return R.fail(400, "请使用 /cas/refresh 端点进行 Token 续期");
         }
 
         if ("sms".equalsIgnoreCase(loginMethod)) {
@@ -121,10 +122,10 @@ public class AppLoginController {
             TicketGrantingTicket tgt = tgtFactory.create(authResult.getAuthentication(), null);
             ticketRegistry.addTicket(tgt);
 
-            // 3. 生成 refreshToken（TTL 可配置，默认 1 年）
+            // 3. 生成 refreshToken（统一使用单一前缀）
             String refreshToken = UUID.randomUUID().toString().replace("-", "");
             long refreshTtl = tokenTtlProperties.getRefreshTokenTtlSeconds();
-            String refreshKey = CasConstant.REDIS_APP_TOKEN_PREFIX + "refresh:" + refreshToken;
+            String refreshKey = CasConstant.REDIS_REFRESH_TOKEN_PREFIX + "refresh:" + refreshToken;
             redisTemplate.opsForValue().set(refreshKey, principal.getId(), refreshTtl, TimeUnit.SECONDS);
 
             // 4. 记录成功审计日志
@@ -164,8 +165,9 @@ public class AppLoginController {
 
         // 1. 清除 refreshToken
         if (StringUtils.isNotBlank(refreshToken)) {
-            String refreshKey = CasConstant.REDIS_APP_TOKEN_PREFIX + "refresh:" + refreshToken;
-            redisTemplate.delete(refreshKey);
+            redisTemplate.delete(CasConstant.REDIS_REFRESH_TOKEN_PREFIX + "refresh:" + refreshToken);
+            redisTemplate.delete(CasConstant.REDIS_APP_TOKEN_PREFIX + "refresh:" + refreshToken);
+            redisTemplate.delete(CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + refreshToken);
         }
 
         // 2. 销毁 TGT
@@ -189,89 +191,6 @@ public class AppLoginController {
             clientIp, userAgent, null, null, "appTokenAuthenticationHandler");
 
         return R.ok(null);
-    }
-
-    /**
-     * refreshToken 续期
-     * <p>
-     * 原子操作：获取并删除旧 refreshToken（防重放攻击），
-     * 通过认证引擎创建新 TGT + 新 refreshToken。
-     *
-     * @param request { refreshToken }
-     * @return { accessToken, refreshToken, expiresIn, userId, attributes }
-     */
-    @PostMapping("/refresh")
-    public R<TokenResponseDTO> refresh(@RequestBody AppRefreshRequestDTO request,
-                                          HttpServletRequest httpRequest) {
-        String oldRefreshToken = request.getRefreshToken();
-        if (StringUtils.isBlank(oldRefreshToken)) {
-            return R.fail(400, "refreshToken 不能为空");
-        }
-
-        String clientIp = getClientIp(httpRequest);
-        String userAgent = httpRequest.getHeader("User-Agent");
-
-        // 1. 验证旧 refreshToken（根据配置决定是否轮换）
-        String oldKey = CasConstant.REDIS_APP_TOKEN_PREFIX + "refresh:" + oldRefreshToken;
-        String userId;
-        if (tokenTtlProperties.isRefreshTokenRotation()) {
-            // 轮换模式：原子删除旧 refreshToken（防重放攻击）
-            userId = redisTemplate.opsForValue().getAndDelete(oldKey);
-        } else {
-            // 非轮换模式：仅读取，旧 refreshToken 保留至自然过期
-            userId = redisTemplate.opsForValue().get(oldKey);
-        }
-        if (userId == null) {
-            auditService.record(null, null, "APP_REFRESH", "FAILED",
-                "refreshToken 已过期或已被使用", clientIp, userAgent, null, null, "appTokenRefresh");
-            return R.fail(401, "refreshToken 已过期或已被使用");
-        }
-
-        try {
-            // 2. 通过认证引擎创建新 TGT（使用 preValidatedUserId 跳过重新认证）
-            AppTokenCredential credential = new AppTokenCredential();
-            credential.setLoginMethod("refresh");
-            credential.setPreValidatedUserId(userId);
-            credential.setRefreshToken(oldRefreshToken);
-
-            AuthenticationResult authResult = authenticationSystemSupport.finalizeAuthenticationTransaction(credential);
-
-            if (authResult == null || authResult.getAuthentication() == null) {
-                auditService.record(userId, userId, "APP_REFRESH", "FAILED", "认证结果为空",
-                    clientIp, userAgent, null, null, "appTokenRefresh");
-                return R.fail(401, "Token 刷新失败");
-            }
-
-            Principal principal = authResult.getAuthentication().getPrincipal();
-
-            // 3. 创建新 TGT
-            TicketGrantingTicketFactory tgtFactory = (TicketGrantingTicketFactory) defaultTicketFactory.get(TicketGrantingTicket.class);
-            TicketGrantingTicket tgt = tgtFactory.create(authResult.getAuthentication(), null);
-            ticketRegistry.addTicket(tgt);
-
-            // 4. 生成新 refreshToken（TTL 可配置，默认 1 年）
-            String newRefreshToken = UUID.randomUUID().toString().replace("-", "");
-            long refreshTtl = tokenTtlProperties.getRefreshTokenTtlSeconds();
-            String newRefreshKey = CasConstant.REDIS_APP_TOKEN_PREFIX + "refresh:" + newRefreshToken;
-            redisTemplate.opsForValue().set(newRefreshKey, principal.getId(), refreshTtl, TimeUnit.SECONDS);
-
-            // 5. 记录审计日志
-            auditService.record(principal.getId(), principal.getId(), "APP_REFRESH", "SUCCESS", null,
-                clientIp, userAgent, null, null, "appTokenRefresh");
-
-            // 6. 构建返回数据
-            return R.ok(buildTokenResponse(tgt.getId(), newRefreshToken, principal));
-
-        } catch (BusinessException e) {
-            auditService.record(userId, userId, "APP_REFRESH", "FAILED", e.getMessage(),
-                clientIp, userAgent, null, null, "appTokenRefresh");
-            return R.fail(e.getCode(), e.getMessage());
-        } catch (Throwable e) {
-            LOGGER.error("APP Token 刷新失败: userId={}", userId, e);
-            auditService.record(userId, userId, "APP_REFRESH", "FAILED", e.getMessage(),
-                clientIp, userAgent, null, null, "appTokenRefresh");
-            return R.fail(500, "Token 刷新失败");
-        }
     }
 
     /**

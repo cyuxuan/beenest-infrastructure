@@ -142,7 +142,7 @@ public class CasTokenRefresher {
             JsonNode attrs = data.path("attributes");
             Map<String, String> allAttrs = new HashMap<>();
             if (attrs.isObject()) {
-                attrs.fields().forEachRemaining(e -> {
+                attrs.properties().forEach(e -> {
                     JsonNode val = e.getValue();
                     if (val.isArray() && !val.isEmpty()) {
                         allAttrs.put(e.getKey(), val.get(0).asText());

@@ -88,7 +88,7 @@ public class BeenestServiceConfiguration {
             final StringRedisTemplate redisTemplate) {
         FilterRegistrationBean<CasServiceCredentialFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new CasServiceCredentialFilter(credentialService, properties, redisTemplate));
-        registration.addUrlPatterns("/app/*", "/miniapp/*", "/miniapp/*/*");
+        registration.addUrlPatterns("/app/*", "/miniapp/*", "/miniapp/*/*", "/refresh");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 15);
         registration.setName("casServiceCredentialFilter");
         return registration;

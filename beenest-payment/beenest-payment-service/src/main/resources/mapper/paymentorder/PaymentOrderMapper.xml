@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.paymentorder.mapper.PaymentOrderMapper">
+
+    <!-- Result Map -->
+    <resultMap id="BaseResultMap" type="club.beenest.payment.paymentorder.domain.entity.PaymentOrder">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="order_no" property="orderNo" jdbcType="VARCHAR"/>
+        <result column="customer_no" property="customerNo" jdbcType="VARCHAR"/>
+        <result column="wallet_no" property="walletNo" jdbcType="VARCHAR"/>
+        <result column="amount" property="amount" jdbcType="BIGINT"/>
+        <result column="platform" property="platform" jdbcType="VARCHAR"/>
+        <result column="payment_method" property="paymentMethod" jdbcType="VARCHAR"/>
+        <result column="third_party_order_no" property="thirdPartyOrderNo" jdbcType="VARCHAR"/>
+        <result column="third_party_transaction_no" property="thirdPartyTransactionNo" jdbcType="VARCHAR"/>
+        <result column="payment_params" property="paymentParams" jdbcType="VARCHAR"/>
+        <result column="callback_data" property="callbackData" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="paid_time" property="paidTime" jdbcType="TIMESTAMP"/>
+        <result column="expire_time" property="expireTime" jdbcType="TIMESTAMP"/>
+        <result column="notify_url" property="notifyUrl" jdbcType="VARCHAR"/>
+        <result column="return_url" property="returnUrl" jdbcType="VARCHAR"/>
+        <result column="ext" property="ext" jdbcType="VARCHAR"/>
+        <result column="remark" property="remark" jdbcType="VARCHAR"/>
+        <result column="biz_no" property="bizNo" jdbcType="VARCHAR"/>
+        <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!-- 根据业务单号查询所有已成功支付的订单（含首付款+补差款），用于退款聚合 -->
+    <select id="selectSuccessfulByBizNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE biz_no = #{bizNo}
+          AND status IN ('PAID', 'PARTIAL_REFUNDED')
+        ORDER BY create_time ASC
+    </select>
+
+
+    <sql id="Base_Column_List">
+        id, order_no, customer_no, wallet_no, amount, platform, payment_method,
+        third_party_order_no, third_party_transaction_no, payment_params, callback_data,
+        status, paid_time, expire_time, notify_url, return_url, ext, remark, biz_no, biz_type, create_time, update_time
+    </sql>
+
+    <!-- 根据主键ID查询 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据订单号查询 -->
+    <select id="selectByOrderNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE order_no = #{orderNo}
+    </select>
+
+    <select id="selectLatestPendingByBizNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE status = 'PENDING'
+          AND biz_no = #{bizNo}
+        ORDER BY create_time DESC, id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectLatestByBizNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE biz_no = #{bizNo}
+        ORDER BY create_time DESC, id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 根据第三方订单号查询 -->
+    <select id="selectByThirdPartyOrderNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE third_party_order_no = #{thirdPartyOrderNo}
+        <if test="platform != null and platform != ''">
+          AND platform = #{platform}
+        </if>
+        LIMIT 1
+    </select>
+
+    <!-- 插入充值订单记录 -->
+    <insert id="insert" parameterType="club.beenest.payment.paymentorder.domain.entity.PaymentOrder" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_payment_order (
+            order_no, customer_no, wallet_no, amount, platform, payment_method,
+            third_party_order_no, third_party_transaction_no, payment_params,
+            callback_data, status, paid_time, expire_time, notify_url, return_url, ext, remark, biz_no, biz_type, create_time, update_time
+        ) VALUES (
+            #{orderNo}, #{customerNo}, #{walletNo}, #{amount}, #{platform}, #{paymentMethod},
+            #{thirdPartyOrderNo}, #{thirdPartyTransactionNo}, #{paymentParams},
+            #{callbackData}, #{status}, #{paidTime}, #{expireTime}, #{notifyUrl}, #{returnUrl}, #{ext}, #{remark}, #{bizNo}, #{bizType}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 更新充值订单信息 -->
+    <update id="updateByOrderNo">
+        UPDATE ds_payment_order
+        SET third_party_order_no = #{thirdPartyOrderNo},
+            third_party_transaction_no = #{thirdPartyTransactionNo},
+            payment_params = #{paymentParams},
+            update_time = CURRENT_TIMESTAMP
+        WHERE order_no = #{orderNo}
+    </update>
+
+    <!-- 更新订单状态 -->
+    <update id="updateStatus">
+        UPDATE ds_payment_order
+        SET status = #{status},
+            <if test="callbackData != null">
+            callback_data = #{callbackData},
+            </if>
+            <if test="thirdPartyTransactionNo != null">
+            third_party_transaction_no = #{thirdPartyTransactionNo},
+            </if>
+            <if test="status == 'PAID'">
+            paid_time = CURRENT_TIMESTAMP,
+            </if>
+            update_time = CURRENT_TIMESTAMP
+        WHERE order_no = #{orderNo}
+    </update>
+
+    <update id="updateStatusIfCurrentStatus">
+        UPDATE ds_payment_order
+        SET status = #{status},
+            <if test="callbackData != null">
+            callback_data = #{callbackData},
+            </if>
+            <if test="thirdPartyTransactionNo != null">
+            third_party_transaction_no = #{thirdPartyTransactionNo},
+            </if>
+            <if test="status == 'PAID'">
+            paid_time = CURRENT_TIMESTAMP,
+            </if>
+            update_time = CURRENT_TIMESTAMP
+        WHERE order_no = #{orderNo}
+          AND status = #{currentStatus}
+    </update>
+
+    <!-- 分页查询用户充值订单 -->
+    <select id="selectByCustomerNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE customer_no = #{customerNo}
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询过期的待支付订单 -->
+    <select id="selectExpiredOrders" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE status = 'PENDING'
+          AND expire_time &lt; #{currentTime}
+        ORDER BY expire_time ASC
+        <if test="limit != null">
+        LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 按时间范围查询充值订单 -->
+    <select id="selectByTimeRange" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE create_time BETWEEN #{startTime} AND #{endTime}
+        <if test="customerNo != null and customerNo != ''">
+          AND customer_no = #{customerNo}
+        </if>
+        <if test="status != null and status != ''">
+          AND status = #{status}
+        </if>
+        <if test="platform != null and platform != ''">
+          AND platform = #{platform}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 统计充值订单数据 - 使用白名单防止SQL注入 -->
+    <select id="statisticsOrders" resultMap="BaseResultMap">
+        <choose>
+            <!-- 按状态统计 -->
+            <when test="groupBy == 'status'">
+                SELECT status, COUNT(*) as id, SUM(amount) as amount
+                FROM ds_payment_order
+                WHERE 1=1
+                <if test="startTime != null">
+                  AND create_time &gt;= #{startTime}
+                </if>
+                <if test="endTime != null">
+                  AND create_time &lt;= #{endTime}
+                </if>
+                <if test="customerNo != null and customerNo != ''">
+                  AND customer_no = #{customerNo}
+                </if>
+                GROUP BY status
+                ORDER BY status
+            </when>
+            <!-- 按平台统计 -->
+            <when test="groupBy == 'platform'">
+                SELECT platform, COUNT(*) as id, SUM(amount) as amount
+                FROM ds_payment_order
+                WHERE 1=1
+                <if test="startTime != null">
+                  AND create_time &gt;= #{startTime}
+                </if>
+                <if test="endTime != null">
+                  AND create_time &lt;= #{endTime}
+                </if>
+                <if test="customerNo != null and customerNo != ''">
+                  AND customer_no = #{customerNo}
+                </if>
+                GROUP BY platform
+                ORDER BY platform
+            </when>
+            <!-- 默认按状态统计 -->
+            <otherwise>
+                SELECT status, COUNT(*) as id, SUM(amount) as amount
+                FROM ds_payment_order
+                WHERE 1=1
+                <if test="startTime != null">
+                  AND create_time &gt;= #{startTime}
+                </if>
+                <if test="endTime != null">
+                  AND create_time &lt;= #{endTime}
+                </if>
+                <if test="customerNo != null and customerNo != ''">
+                  AND customer_no = #{customerNo}
+                </if>
+                GROUP BY status
+                ORDER BY status
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 检查订单号是否存在 -->
+    <select id="countByOrderNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_payment_order
+        WHERE order_no = #{orderNo}
+    </select>
+
+    <!-- 批量更新过期订单状态 -->
+    <update id="batchUpdateExpiredOrders">
+        UPDATE ds_payment_order
+        SET status = 'EXPIRED',
+            update_time = CURRENT_TIMESTAMP
+        WHERE status = 'PENDING'
+          AND expire_time &lt; #{currentTime}
+        <if test="limit != null">
+        LIMIT #{limit}
+        </if>
+    </update>
+
+    <!-- 根据查询条件查询充值订单 -->
+    <select id="selectByQuery" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order t
+        <where>
+            <if test="orderNo != null and orderNo != ''">
+                AND t.order_no LIKE CONCAT('%', #{orderNo}, '%')
+            </if>
+            <if test="customerNo != null and customerNo != ''">
+                AND t.customer_no = #{customerNo}
+            </if>
+            <if test="status != null and status != ''">
+                AND t.status = #{status}
+            </if>
+            <if test="platform != null and platform != ''">
+                AND t.platform = #{platform}
+            </if>
+            <if test="startTime != null">
+                AND t.create_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND t.create_time &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+    </select>
+
+    <!-- 根据时间范围和平台查询订单 -->
+    <select id="selectByTimeRangeAndPlatform" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE platform = #{platform}
+          AND create_time BETWEEN #{startTime} AND #{endTime}
+    </select>
+</mapper>

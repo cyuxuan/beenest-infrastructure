@@ -48,7 +48,7 @@ public class SmsService {
         }
 
         // 3. 生成验证码
-        String code = RandomStringUtils.randomNumeric(6);
+        String code = RandomStringUtils.secure().nextNumeric(6);
 
         // 4. 存储到 Redis
         String otpKey = CasConstant.REDIS_SMS_OTP_PREFIX + phone;

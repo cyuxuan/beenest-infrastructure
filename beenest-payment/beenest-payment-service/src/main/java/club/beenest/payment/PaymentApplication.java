@@ -12,7 +12,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication(scanBasePackages = {
         "club.beenest.payment"
 })
-@MapperScan("club.beenest.payment.mapper")
+@MapperScan({
+        "club.beenest.payment.paymentorder.mapper",
+        "club.beenest.payment.wallet.mapper",
+        "club.beenest.payment.withdraw.mapper",
+        "club.beenest.payment.reconciliation.mapper",
+        "club.beenest.payment.shared.mapper"
+})
 @EnableFeignClients(basePackages = "club.beenest.payment.feign")
 @EnableScheduling
 public class PaymentApplication {

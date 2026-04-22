@@ -121,6 +121,12 @@ public class DouyinMiniAuthenticationHandler implements AuthenticationHandler {
         attrs.put("userType", List.of(user.getUserType() != null ? user.getUserType() : "CUSTOMER"));
         attrs.put("loginType", List.of("DOUYIN_MINI"));
         attrs.put("firstLogin", List.of(firstLogin));
+        if (StringUtils.isNotBlank(user.getDouyinOpenid())) {
+            attrs.put("douyinOpenid", List.of(user.getDouyinOpenid()));
+        }
+        if (StringUtils.isNotBlank(user.getDouyinUnionid())) {
+            attrs.put("douyinUnionid", List.of(user.getDouyinUnionid()));
+        }
         if (StringUtils.isNotBlank(user.getNickname())) {
             attrs.put("nickname", List.of(user.getNickname()));
         }

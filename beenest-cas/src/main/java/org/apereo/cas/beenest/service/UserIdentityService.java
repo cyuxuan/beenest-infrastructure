@@ -105,11 +105,17 @@ public class UserIdentityService {
             autoGrantDefaultServices(user.getUserId());
             firstLogin = true;
             LOGGER.info("微信自动注册: userId={}", user.getUserId());
-        } else if (tryRefreshNickname(user, sanitizedNickname)) {
-            userMapper.updateByUserId(user);
+        } else {
+            boolean updated = syncWechatIdentity(user, openid, unionid);
+            if (tryRefreshNickname(user, sanitizedNickname)) {
+                updated = true;
+            }
+            if (updated) {
+                userMapper.updateByUserId(user);
+            }
         }
 
-        return new UserIdentityResult(user, firstLogin);
+        return new UserIdentityResult(reloadUser(user), firstLogin);
     }
 
     /**
@@ -163,7 +169,7 @@ public class UserIdentityService {
         } else if (tryRefreshNickname(user, sanitizedNickname)) {
             userMapper.updateByUserId(user);
         }
-        return new UserIdentityResult(user, firstLogin);
+        return new UserIdentityResult(reloadUser(user), firstLogin);
     }
 
     /**
@@ -206,7 +212,7 @@ public class UserIdentityService {
         } else if (tryRefreshNickname(user, sanitizedNickname)) {
             userMapper.updateByUserId(user);
         }
-        return new UserIdentityResult(user, firstLogin);
+        return new UserIdentityResult(reloadUser(user), firstLogin);
     }
 
     /**
@@ -307,6 +313,30 @@ public class UserIdentityService {
         return true;
     }
 
+    /**
+     * 补全微信渠道身份。
+     *
+     * <p>当账号已经存在时，如果库里还没有 openid / unionid，
+     * 则使用本次微信登录返回的值进行补写，避免“首次微信登录”后渠道身份仍缺失。</p>
+     *
+     * @param user 当前用户
+     * @param openid 当前微信 openid
+     * @param unionid 当前微信 unionid
+     * @return true 表示发生了更新
+     */
+    private boolean syncWechatIdentity(UnifiedUserDO user, String openid, String unionid) {
+        boolean updated = false;
+        if (StringUtils.isNotBlank(openid) && StringUtils.isBlank(user.getOpenid())) {
+            user.setOpenid(openid);
+            updated = true;
+        }
+        if (StringUtils.isNotBlank(unionid) && StringUtils.isBlank(user.getUnionid())) {
+            user.setUnionid(unionid);
+            updated = true;
+        }
+        return updated;
+    }
+
     private UnifiedUserDO createWechatUser(String openid, String unionid, String phone,
                                             String userType, String nickname) {
         UnifiedUserDO user = new UnifiedUserDO();
@@ -387,5 +417,24 @@ public class UserIdentityService {
                 LOGGER.warn("忽略非法的自动授权服务ID: {}", serviceIdText);
             }
         }
+    }
+
+    /**
+     * 重新加载最新的用户记录。
+     *
+     * <p>微信/抖音/支付宝登录完成后，可能会触发账号合并或渠道标识补写。
+     * 为了避免把“内存里刚创建但未包含最新数据库字段”的对象直接返回给 CAS 主体，
+     * 这里统一回库读取一次最新状态。</p>
+     *
+     * @param user 当前用户
+     * @return 最新用户记录；如果回库失败，则退回原对象
+     */
+    private UnifiedUserDO reloadUser(UnifiedUserDO user) {
+        if (user == null || StringUtils.isBlank(user.getUserId())) {
+            return user;
+        }
+
+        UnifiedUserDO latestUser = userMapper.selectByUserId(user.getUserId());
+        return latestUser != null ? latestUser : user;
     }
 }

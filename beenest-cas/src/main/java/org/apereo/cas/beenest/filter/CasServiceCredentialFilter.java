@@ -37,11 +37,10 @@ public class CasServiceCredentialFilter extends OncePerRequestFilter {
 
     private static final Set<String> PROTECTED_PATHS = Set.of(
             "/app/login",
-            "/app/refresh",
             "/miniapp/wechat/login",
             "/miniapp/douyin/login",
             "/miniapp/alipay/login",
-            "/miniapp/refresh",
+            "/refresh",
             "/miniapp/sms/send"
     );
 

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.paymentorder.mapper.RefundMapper">
+
+    <resultMap id="BaseResultMap" type="club.beenest.payment.paymentorder.domain.entity.Refund">
+        <id column="id" property="id" />
+        <result column="refund_no" property="refundNo" />
+        <result column="order_no" property="orderNo" />
+        <result column="amount" property="amount" />
+        <result column="reason" property="reason" />
+        <result column="status" property="status" />
+        <result column="refund_policy" property="refundPolicy" />
+        <result column="request_source" property="requestSource" />
+        <result column="applicant_id" property="applicantId" />
+        <result column="third_party_refund_no" property="thirdPartyRefundNo" />
+        <result column="channel_status" property="channelStatus" />
+        <result column="audit_user" property="auditUser" />
+        <result column="audit_time" property="auditTime" />
+        <result column="audit_remark" property="auditRemark" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+        <result column="customerNo" property="customerNo" />
+        <result column="customerName" property="customerName" />
+        <result column="customerPhone" property="customerPhone" />
+    </resultMap>
+
+    <insert id="insert" parameterType="club.beenest.payment.paymentorder.domain.entity.Refund" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_refund (
+            refund_no, order_no, amount, reason, status, refund_policy, request_source, applicant_id,
+            third_party_refund_no, channel_status, audit_user, audit_time, audit_remark, create_time, update_time
+        ) VALUES (
+            #{refundNo}, #{orderNo}, #{amount}, #{reason}, #{status}, #{refundPolicy}, #{requestSource}, #{applicantId},
+            #{thirdPartyRefundNo}, #{channelStatus}, #{auditUser}, #{auditTime}, #{auditRemark}, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="update" parameterType="club.beenest.payment.paymentorder.domain.entity.Refund">
+        UPDATE ds_refund
+        SET
+            status = #{status},
+            refund_policy = #{refundPolicy},
+            request_source = #{requestSource},
+            applicant_id = #{applicantId},
+            third_party_refund_no = #{thirdPartyRefundNo},
+            channel_status = #{channelStatus},
+            audit_user = #{auditUser},
+            audit_time = #{auditTime},
+            audit_remark = #{auditRemark},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM ds_refund WHERE id = #{id}
+    </select>
+
+    <select id="selectByRefundNo" resultMap="BaseResultMap">
+        SELECT * FROM ds_refund WHERE refund_no = #{refundNo}
+    </select>
+
+    <select id="selectByThirdPartyRefundNo" resultMap="BaseResultMap">
+        SELECT * FROM ds_refund WHERE third_party_refund_no = #{thirdPartyRefundNo}
+    </select>
+
+    <select id="selectByOrderNo" resultMap="BaseResultMap">
+        SELECT * FROM ds_refund WHERE order_no = #{orderNo} ORDER BY create_time DESC, id DESC
+    </select>
+
+    <select id="selectByStatusForSync" resultMap="BaseResultMap">
+        SELECT *
+        FROM ds_refund
+        WHERE status = #{status}
+        ORDER BY update_time ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectByQuery" resultMap="BaseResultMap">
+        SELECT r.*, p.customer_no as customerNo
+        FROM ds_refund r
+        LEFT JOIN ds_payment_order p ON r.order_no = p.order_no
+        <where>
+            <if test="refundNo != null and refundNo != ''">
+                AND r.refund_no = #{refundNo}
+            </if>
+            <if test="orderNo != null and orderNo != ''">
+                AND r.order_no = #{orderNo}
+            </if>
+            <if test="status != null and status != ''">
+                AND r.status = #{status}
+            </if>
+            <if test="refundPolicy != null and refundPolicy != ''">
+                AND r.refund_policy = #{refundPolicy}
+            </if>
+            <if test="requestSource != null and requestSource != ''">
+                AND r.request_source = #{requestSource}
+            </if>
+            <if test="applicantId != null and applicantId != ''">
+                AND r.applicant_id = #{applicantId}
+            </if>
+            <if test="channelStatus != null and channelStatus != ''">
+                AND r.channel_status = #{channelStatus}
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="selectLatestPendingByOrderNo" resultMap="BaseResultMap">
+        SELECT *
+        FROM ds_refund
+        WHERE order_no = #{orderNo}
+          AND status = 'PENDING'
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+
+    <!-- 累计订单已成功退款金额（用于全退/部分退判断） -->
+    <select id="sumSuccessAmountByOrderNo" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM ds_refund
+        WHERE order_no = #{orderNo}
+          AND status = 'SUCCESS'
+    </select>
+
+</mapper>

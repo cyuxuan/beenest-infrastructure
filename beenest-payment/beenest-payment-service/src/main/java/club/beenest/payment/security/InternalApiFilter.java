@@ -2,6 +2,7 @@ package club.beenest.payment.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -59,20 +61,21 @@ public class InternalApiFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-        String clientIp = getClientIp(request);
+        CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(request);
+        String clientIp = getClientIp(cachedRequest);
 
         // 1. 检查内网 IP
         if (!isInternalIp(clientIp)) {
-            log.warn("内部 API 非法访问: uri={}, clientIp={}", request.getRequestURI(), clientIp);
+            log.warn("内部 API 非法访问: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
             reject(response, "Access denied");
             return;
         }
 
         // 2. 静态令牌校验
         if (internalToken != null && !internalToken.isEmpty()) {
-            String requestToken = request.getHeader("X-Internal-Token");
+            String requestToken = cachedRequest.getHeader("X-Internal-Token");
             if (!internalToken.equals(requestToken)) {
-                log.warn("内部 API Token 验证失败: uri={}, clientIp={}", request.getRequestURI(), clientIp);
+                log.warn("内部 API Token 验证失败: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
                 reject(response, "Invalid internal token");
                 return;
             }
@@ -82,14 +85,14 @@ public class InternalApiFilter extends OncePerRequestFilter {
 
         // 3. HMAC 签名校验（配置 sign-secret 后启用）
         if (signSecret != null && !signSecret.isEmpty()) {
-            if (!verifySignature(request)) {
-                log.warn("内部 API 签名验证失败: uri={}, clientIp={}", request.getRequestURI(), clientIp);
+            if (!verifySignature(cachedRequest)) {
+                log.warn("内部 API 签名验证失败: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
                 reject(response, "Invalid signature");
                 return;
             }
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(cachedRequest, response);
     }
 
     @Override
@@ -218,6 +221,62 @@ public class InternalApiFilter extends OncePerRequestFilter {
             }
         }
         return false;
+    }
+
+    /**
+     * 可重复读取请求体的 HttpServletRequest 包装器。
+     * <p>内部 API 过滤器需要先读取请求体计算签名，然后还要把同一个请求交给 Controller
+     * 继续做 {@code @RequestBody} 反序列化，因此必须把 body 先缓存到内存中。</p>
+     */
+    private static final class CachedBodyHttpServletRequest extends jakarta.servlet.http.HttpServletRequestWrapper {
+
+        private final byte[] cachedBody;
+
+        /**
+         * 构造可重复读取的请求包装器。
+         *
+         * @param request 原始请求
+         * @throws IOException 读取请求体失败时抛出
+         */
+        private CachedBodyHttpServletRequest(HttpServletRequest request) throws IOException {
+            super(request);
+            this.cachedBody = request.getInputStream().readAllBytes();
+        }
+
+        @Override
+        public ServletInputStream getInputStream() {
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(cachedBody);
+            return new ServletInputStream() {
+                @Override
+                public int read() {
+                    return inputStream.read();
+                }
+
+                @Override
+                public boolean isFinished() {
+                    return inputStream.available() == 0;
+                }
+
+                @Override
+                public boolean isReady() {
+                    return true;
+                }
+
+                @Override
+                public void setReadListener(jakarta.servlet.ReadListener readListener) {
+                    throw new UnsupportedOperationException("Async read listener is not supported");
+                }
+            };
+        }
+
+        @Override
+        public BufferedReader getReader() {
+            String encoding = getCharacterEncoding();
+            java.nio.charset.Charset charset = encoding != null
+                    ? java.nio.charset.Charset.forName(encoding)
+                    : StandardCharsets.UTF_8;
+            return new BufferedReader(new java.io.InputStreamReader(getInputStream(), charset));
+        }
     }
 
     private boolean matchCidr(String clientIp, String cidr) {

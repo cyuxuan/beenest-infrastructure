@@ -1,7 +1,5 @@
 package org.apereo.cas.beenest.service;
 
-import org.apereo.cas.beenest.dto.UserRegisterDTO;
-import org.apereo.cas.beenest.dto.UserUpdateDTO;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.junit.jupiter.api.Test;
@@ -9,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;

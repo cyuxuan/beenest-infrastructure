@@ -70,6 +70,14 @@
         <set>
             <if test="userType != null">user_type = #{userType},</if>
             <if test="identity != null">identity = #{identity},</if>
+            <if test="source != null">source = #{source},</if>
+            <if test="loginType != null">login_type = #{loginType},</if>
+            <if test="openid != null and openid != ''">openid = #{openid},</if>
+            <if test="unionid != null and unionid != ''">unionid = #{unionid},</if>
+            <if test="douyinOpenid != null and douyinOpenid != ''">douyin_openid = #{douyinOpenid},</if>
+            <if test="douyinUnionid != null and douyinUnionid != ''">douyin_unionid = #{douyinUnionid},</if>
+            <if test="alipayUid != null and alipayUid != ''">alipay_uid = #{alipayUid},</if>
+            <if test="alipayOpenid != null and alipayOpenid != ''">alipay_openid = #{alipayOpenid},</if>
             <if test="username != null">username = #{username},</if>
             <if test="nickname != null">nickname = #{nickname},</if>
             <if test="avatarUrl != null">avatar_url = #{avatarUrl},</if>

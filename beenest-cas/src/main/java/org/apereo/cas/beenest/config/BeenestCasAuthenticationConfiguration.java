@@ -167,7 +167,7 @@ public class BeenestCasAuthenticationConfiguration {
     @Order(1)
     public SecurityFilterChain casApiSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher("/miniapp/**", "/app/**", "/token/**")
+                .securityMatcher("/miniapp/**", "/app/**", "/token/**", "/refresh")
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .build();

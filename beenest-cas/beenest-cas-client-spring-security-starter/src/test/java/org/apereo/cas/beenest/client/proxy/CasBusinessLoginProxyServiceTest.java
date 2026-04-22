@@ -119,7 +119,7 @@ class CasBusinessLoginProxyServiceTest {
     }
 
     @Nested
-    class MiniAppRefresh {
+    class Refresh {
 
         @Test
         void shouldProxyRefreshToCasServer() {
@@ -128,7 +128,7 @@ class CasBusinessLoginProxyServiceTest {
             MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
 
             String responseBody = "{\"code\":200,\"data\":{\"accessToken\":\"new-TGT\",\"refreshToken\":\"new-RT\"}}";
-            server.expect(once(), requestTo("http://localhost:8081/cas/miniapp/refresh"))
+            server.expect(once(), requestTo("http://localhost:8081/cas/refresh"))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
@@ -136,7 +136,7 @@ class CasBusinessLoginProxyServiceTest {
             MockHttpServletRequest request = stubRequest();
             String body = "{\"refreshToken\":\"RT-1\"}";
 
-            ResponseEntity<String> response = service.proxy(request, body, "/cas/miniapp/refresh");
+            ResponseEntity<String> response = service.proxy(request, body, "/cas/refresh");
 
             assertThat(response.getStatusCode().value()).isEqualTo(200);
             assertThat(response.getBody()).contains("\"accessToken\":\"new-TGT\"");

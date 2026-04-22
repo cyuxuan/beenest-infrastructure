@@ -56,8 +56,7 @@ spring:
           max-interval: 10000
 
 mybatis:
-  mapper-locations: classpath:mapper/payment/*.xml
-  type-aliases-package: club.beenest.payment.object.entity
+  mapper-locations: classpath:mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
 
@@ -72,7 +71,8 @@ cas:
     mode: resource-server
     server-url: ${CAS_SERVER_URL:https://localhost:8443/cas}
     client-host-url: ${PAYMENT_CLIENT_HOST_URL:http://localhost:8082}
-    service-id: ${CAS_SERVICE_ID:beenest-payment}
+    service-id: ${CAS_CLIENT_SERVICE_ID:10001}
+    sign-key: ${CAS_SIGN_KEY:}
     redirect-login: false
     use-session: false
     ignore-pattern: /internal/**,/api/wallet/payment/callback/**,/api/wallet/payment/refund/callback/**,/v3/api-docs/**,/v3/api-docs/swagger-config,/swagger-ui/**,/swagger-ui.html,/webjars/**

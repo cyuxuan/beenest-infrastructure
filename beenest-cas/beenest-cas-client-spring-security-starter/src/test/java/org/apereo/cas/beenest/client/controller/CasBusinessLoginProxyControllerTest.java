@@ -105,20 +105,20 @@ class CasBusinessLoginProxyControllerTest {
     }
 
     @Nested
-    class MiniAppRefresh {
+    class Refresh {
 
         @Test
         void shouldDelegateToProxyService() {
             String body = "{\"refreshToken\":\"tgt-refresh-token-abc\"}";
-            MockHttpServletRequest request = stubRequest("/cas/miniapp/refresh");
-            when(proxyService.proxy(request, body, "/cas/miniapp/refresh"))
+            MockHttpServletRequest request = stubRequest("/cas/refresh");
+            when(proxyService.proxy(request, body, "/cas/refresh"))
                 .thenReturn(ResponseEntity.ok("{\"code\":200,\"data\":{\"accessToken\":\"new-tgt\"}}"));
 
-            ResponseEntity<String> response = controller.proxyMiniAppRefresh(body, request);
+            ResponseEntity<String> response = controller.proxyRefresh(body, request);
 
             assertThat(response.getStatusCode().value()).isEqualTo(200);
             assertThat(response.getBody()).contains("\"accessToken\"");
-            verify(proxyService).proxy(request, body, "/cas/miniapp/refresh");
+            verify(proxyService).proxy(request, body, "/cas/refresh");
         }
     }
 

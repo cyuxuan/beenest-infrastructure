@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.wallet.mapper.WalletMapper">
+
+    <!-- Result Map -->
+    <resultMap id="BaseResultMap" type="club.beenest.payment.wallet.domain.entity.Wallet">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="wallet_no" property="walletNo" jdbcType="VARCHAR"/>
+        <result column="customer_no" property="customerNo" jdbcType="VARCHAR"/>
+        <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="balance" property="balance" jdbcType="BIGINT"/>
+        <result column="frozen_balance" property="frozenBalance" jdbcType="BIGINT"/>
+        <result column="total_recharge" property="totalRecharge" jdbcType="BIGINT"/>
+        <result column="total_withdraw" property="totalWithdraw" jdbcType="BIGINT"/>
+        <result column="total_consume" property="totalConsume" jdbcType="BIGINT"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="version" property="version" jdbcType="INTEGER"/>
+        <result column="balance_hash" property="balanceHash" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!-- Base Column List -->
+    <sql id="Base_Column_List">
+        id, wallet_no, customer_no, biz_type, balance, frozen_balance, total_recharge,
+        total_withdraw, total_consume, status, version, balance_hash, create_time, update_time
+    </sql>
+
+    <!-- 根据主键ID查询 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据钱包编号查询 -->
+    <select id="selectByWalletNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet
+        WHERE wallet_no = #{walletNo}
+    </select>
+
+    <!-- 根据用户编号查询（兼容旧调用，默认 DRONE_ORDER） -->
+    <select id="selectByCustomerNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet
+        WHERE customer_no = #{customerNo}
+        LIMIT 1
+    </select>
+
+    <!-- 根据用户编号和业务类型查询（多租户） -->
+    <select id="selectByCustomerNoAndBizType" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet
+        WHERE customer_no = #{customerNo}
+          AND biz_type = #{bizType}
+        LIMIT 1
+    </select>
+
+    <!-- 管理端分页查询钱包列表（配合PageHelper使用） -->
+    <select id="selectAllWithConditions" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_wallet
+        <where>
+            <if test="customerNo != null and customerNo != ''">
+                AND customer_no = #{customerNo}
+            </if>
+            <if test="walletNo != null and walletNo != ''">
+                AND wallet_no = #{walletNo}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="bizType != null and bizType != ''">
+                AND biz_type = #{bizType}
+            </if>
+        </where>
+        ORDER BY update_time DESC
+    </select>
+
+    <!-- 插入钱包记录 -->
+    <insert id="insert" parameterType="club.beenest.payment.wallet.domain.entity.Wallet" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_wallet (
+            wallet_no, customer_no, biz_type, balance, frozen_balance,
+            total_recharge, total_withdraw, total_consume,
+            status, version, balance_hash, create_time, update_time
+        ) VALUES (
+            #{walletNo}, #{customerNo}, #{bizType}, #{balance}, #{frozenBalance},
+            #{totalRecharge}, #{totalWithdraw}, #{totalConsume},
+            #{status}, #{version}, #{balanceHash}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 更新钱包基本信息 -->
+    <update id="updateById">
+        UPDATE ds_wallet
+        SET status = #{status},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 增加余额（原子操作，使用乐观锁 + 余额哈希校验） -->
+    <update id="addBalance">
+        UPDATE ds_wallet
+        SET balance = balance + #{amount},
+            <if test="isRecharge != null and isRecharge">
+            total_recharge = total_recharge + #{amount},
+            </if>
+            version = version + 1,
+            balance_hash = #{balanceHash},
+            update_time = CURRENT_TIMESTAMP
+        WHERE wallet_no = #{walletNo}
+          AND version = #{version}
+          AND status = 'ACTIVE'
+    </update>
+
+    <!-- 扣减余额（原子操作，使用乐观锁 + 余额哈希校验） -->
+    <update id="deductBalance">
+        UPDATE ds_wallet
+        SET balance = balance - #{amount},
+            <if test="isWithdraw != null and isWithdraw">
+            total_withdraw = total_withdraw + #{amount},
+            </if>
+            <if test="isConsume != null and isConsume">
+            total_consume = total_consume + #{amount},
+            </if>
+            version = version + 1,
+            balance_hash = #{balanceHash},
+            update_time = CURRENT_TIMESTAMP
+        WHERE wallet_no = #{walletNo}
+          AND version = #{version}
+          AND balance &gt;= #{amount}
+          AND status = 'ACTIVE'
+    </update>
+
+    <!-- 冻结余额（原子操作，使用乐观锁 + 余额哈希校验） -->
+    <update id="freezeBalance">
+        UPDATE ds_wallet
+        SET balance = balance - #{amount},
+            frozen_balance = frozen_balance + #{amount},
+            version = version + 1,
+            balance_hash = #{balanceHash},
+            update_time = CURRENT_TIMESTAMP
+        WHERE wallet_no = #{walletNo}
+          AND version = #{version}
+          AND balance &gt;= #{amount}
+          AND status = 'ACTIVE'
+    </update>
+
+    <!-- 解冻余额（原子操作，使用乐观锁 + 余额哈希校验） -->
+    <update id="unfreezeBalance">
+        UPDATE ds_wallet
+        SET frozen_balance = frozen_balance - #{amount},
+            balance = balance + #{amount},
+            version = version + 1,
+            balance_hash = #{balanceHash},
+            update_time = CURRENT_TIMESTAMP
+        WHERE wallet_no = #{walletNo}
+          AND version = #{version}
+          AND frozen_balance &gt;= #{amount}
+          AND status = 'ACTIVE'
+    </update>
+
+    <!-- 扣减冻结余额（原子操作，使用乐观锁 + 余额哈希校验） -->
+    <update id="deductFrozenBalance">
+        UPDATE ds_wallet
+        SET frozen_balance = frozen_balance - #{amount},
+            <if test="isWithdraw != null and isWithdraw">
+            total_withdraw = total_withdraw + #{amount},
+            </if>
+            <if test="isConsume != null and isConsume">
+            total_consume = total_consume + #{amount},
+            </if>
+            version = version + 1,
+            balance_hash = #{balanceHash},
+            update_time = CURRENT_TIMESTAMP
+        WHERE wallet_no = #{walletNo}
+          AND version = #{version}
+          AND frozen_balance &gt;= #{amount}
+          AND status = 'ACTIVE'
+    </update>
+
+    <!-- 更新钱包状态 -->
+    <update id="updateStatus">
+        UPDATE ds_wallet
+        SET status = #{status},
+            version = version + 1,
+            update_time = CURRENT_TIMESTAMP
+        WHERE wallet_no = #{walletNo}
+          AND version = #{version}
+    </update>
+
+    <!-- 检查钱包编号是否存在 -->
+    <select id="countByWalletNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_wallet
+        WHERE wallet_no = #{walletNo}
+    </select>
+
+    <!-- 检查用户是否已有钱包 -->
+    <select id="countByCustomerNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_wallet
+        WHERE customer_no = #{customerNo}
+    </select>
+
+    <!-- 检查用户在指定业务类型下是否已有钱包（多租户） -->
+    <select id="countByCustomerNoAndBizType" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_wallet
+        WHERE customer_no = #{customerNo}
+          AND biz_type = #{bizType}
+    </select>
+
+    <!-- 对账修复：直接设置余额和哈希（仅管理员修复使用） -->
+    <update id="reconcileBalance">
+        UPDATE ds_wallet
+        SET balance = #{balance},
+            balance_hash = #{balanceHash},
+            version = version + 1,
+            update_time = CURRENT_TIMESTAMP
+        WHERE wallet_no = #{walletNo}
+          AND version = #{version}
+    </update>
+
+</mapper>

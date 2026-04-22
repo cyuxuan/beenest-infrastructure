@@ -121,6 +121,12 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
         attrs.put("userType", List.of(user.getUserType() != null ? user.getUserType() : "CUSTOMER"));
         attrs.put("loginType", List.of("WECHAT"));
         attrs.put("firstLogin", List.of(firstLogin));
+        if (StringUtils.isNotBlank(user.getOpenid())) {
+            attrs.put("openid", List.of(user.getOpenid()));
+        }
+        if (StringUtils.isNotBlank(user.getUnionid())) {
+            attrs.put("unionid", List.of(user.getUnionid()));
+        }
         if (StringUtils.isNotBlank(user.getUsername())) {
             attrs.put("username", List.of(user.getUsername()));
         }

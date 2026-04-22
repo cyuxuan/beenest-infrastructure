@@ -26,9 +26,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * APP Token 认证处理器
+ * 统一 Token 认证处理器。
  * <p>
- * 支持三种 APP 登录方式：
+ * 支持三种登录方式：
  * 1. 用户名/手机号 + 密码
  * 2. 手机号 + 短信验证码
  * 3. refreshToken 续期
@@ -127,16 +127,16 @@ public class AppTokenAuthenticationHandler implements AuthenticationHandler {
     }
 
     /**
-     * refreshToken 续期
+     * refreshToken 续期。
      * <p>
      * 支持两种模式：
      * 1. Controller 已通过 getAndDelete 原子验证 refreshToken 并传入 preValidatedUserId
-     *    — 直接使用，无需再查 Redis（防重放由 Controller 保证）
-     * 2. 兼容旧路径 — 从 Redis 查询 refreshToken 对应的 userId
-     *    — 此模式下 refreshToken 未被删除，仅作为降级方案
+     *    - 直接使用，无需再查 Redis（防重放由 Controller 保证）
+     * 2. 兼容迁移路径 - 从 Redis 查询 refreshToken 对应的 userId
+     *    - 此模式下 refreshToken 未被删除，仅作为降级方案
      */
     private UnifiedUserDO handleRefreshToken(AppTokenCredential credential) throws FailedLoginException {
-        // 优先使用 Controller 预验证的 userId（refreshToken 轮换场景）
+        // 优先使用 Controller 预验证的 userId（统一 refresh 入口的轮换场景）
         if (StringUtils.isNotBlank(credential.getPreValidatedUserId())) {
             UnifiedUserDO user = userMapper.selectByUserId(credential.getPreValidatedUserId());
             if (user == null) {
@@ -145,13 +145,13 @@ public class AppTokenAuthenticationHandler implements AuthenticationHandler {
             return user;
         }
 
-        // 兼容旧路径：从 Redis 查询 refreshToken
+        // 兼容迁移路径：从 Redis 查询 refreshToken
         String refreshToken = credential.getRefreshToken();
         if (StringUtils.isBlank(refreshToken)) {
             throw new FailedLoginException("refreshToken 不能为空");
         }
 
-        // 依次尝试 APP 前缀和小程序前缀
+        // 依次尝试统一前缀、APP 前缀和小程序前缀
         String userId = findUserIdByRefreshToken(refreshToken);
         if (userId == null) {
             throw new FailedLoginException("refreshToken 已过期");
@@ -168,12 +168,17 @@ public class AppTokenAuthenticationHandler implements AuthenticationHandler {
     /**
      * 查找 refreshToken 对应的 userId
      * <p>
-     * 依次尝试 APP 前缀和小程序前缀，兼容两种场景。
+     * 依次尝试统一前缀、APP 前缀和小程序前缀，兼容迁移期间的历史数据。
      */
     private String findUserIdByRefreshToken(String refreshToken) {
+        String unifiedKey = CasConstant.REDIS_REFRESH_TOKEN_PREFIX + "refresh:" + refreshToken;
+        String userId = redisTemplate.opsForValue().get(unifiedKey);
+        if (userId != null) {
+            return userId;
+        }
         // 先查 APP 前缀
         String appKey = CasConstant.REDIS_APP_TOKEN_PREFIX + "refresh:" + refreshToken;
-        String userId = redisTemplate.opsForValue().get(appKey);
+        userId = redisTemplate.opsForValue().get(appKey);
         if (userId != null) {
             return userId;
         }
@@ -235,6 +240,27 @@ public class AppTokenAuthenticationHandler implements AuthenticationHandler {
         attrs.put("userId", List.of(user.getUserId()));
         attrs.put("userType", List.of(user.getUserType() != null ? user.getUserType() : "CUSTOMER"));
         attrs.put("loginType", List.of("APP"));
+        if (StringUtils.isNotBlank(user.getIdentity())) {
+            attrs.put("identity", List.of(user.getIdentity()));
+        }
+        if (StringUtils.isNotBlank(user.getOpenid())) {
+            attrs.put("openid", List.of(user.getOpenid()));
+        }
+        if (StringUtils.isNotBlank(user.getUnionid())) {
+            attrs.put("unionid", List.of(user.getUnionid()));
+        }
+        if (StringUtils.isNotBlank(user.getDouyinOpenid())) {
+            attrs.put("douyinOpenid", List.of(user.getDouyinOpenid()));
+        }
+        if (StringUtils.isNotBlank(user.getDouyinUnionid())) {
+            attrs.put("douyinUnionid", List.of(user.getDouyinUnionid()));
+        }
+        if (StringUtils.isNotBlank(user.getAlipayUid())) {
+            attrs.put("alipayUid", List.of(user.getAlipayUid()));
+        }
+        if (StringUtils.isNotBlank(user.getAlipayOpenid())) {
+            attrs.put("alipayOpenid", List.of(user.getAlipayOpenid()));
+        }
         if (StringUtils.isNotBlank(user.getUsername())) {
             attrs.put("username", List.of(user.getUsername()));
         }

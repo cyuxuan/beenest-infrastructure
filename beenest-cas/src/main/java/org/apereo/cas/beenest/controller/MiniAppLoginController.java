@@ -1,7 +1,6 @@
 package org.apereo.cas.beenest.controller;
 
 import org.apereo.cas.beenest.authn.credential.AlipayMiniCredential;
-import org.apereo.cas.beenest.authn.credential.AppTokenCredential;
 import org.apereo.cas.beenest.authn.credential.DouyinMiniCredential;
 import org.apereo.cas.beenest.authn.credential.WechatMiniCredential;
 import org.apereo.cas.beenest.common.constant.CasConstant;
@@ -11,7 +10,6 @@ import org.apereo.cas.beenest.common.util.CasAttributeUtils;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.MiniAppLoginDTO;
 import org.apereo.cas.beenest.dto.MiniAppLogoutDTO;
-import org.apereo.cas.beenest.dto.MiniAppRefreshDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.AppAccessService;
@@ -38,6 +36,8 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * 小程序登录不走浏览器重定向流程，通过 REST 端点接收 code，
  * 构造 Credential，调用 CAS 内部认证引擎。
+ * <p>
+ * refreshToken 续期由统一的 {@code /refresh} 端点处理。
  * <p>
  * 登录成功返回 accessToken（TGT）+ refreshToken（用于静默续期），
  * 支持微信、抖音、支付宝三个小程序平台。
@@ -120,81 +120,6 @@ public class MiniAppLoginController {
     }
 
     /**
-     * refreshToken 续期（小程序通用）
-     * <p>
-     * 原子删除旧 refreshToken（防重放），生成新的 accessToken + refreshToken。
-     * 使用 AppTokenCredential 走认证引擎，通过 preValidatedUserId 传递已验证的用户 ID。
-     */
-    @PostMapping("/refresh")
-    public R<TokenResponseDTO> refresh(@RequestBody MiniAppRefreshDTO dto,
-                                           HttpServletRequest httpRequest) {
-        String oldRefreshToken = dto.getRefreshToken();
-
-        String clientIp = getClientIp(httpRequest);
-        String userAgent = httpRequest.getHeader("User-Agent");
-
-        // 1. 验证旧 refreshToken（根据配置决定是否轮换）
-        String oldKey = CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + oldRefreshToken;
-        String userId;
-        if (tokenTtlProperties.isRefreshTokenRotation()) {
-            // 轮换模式：原子删除旧 refreshToken（防重放攻击）
-            userId = redisTemplate.opsForValue().getAndDelete(oldKey);
-        } else {
-            // 非轮换模式：仅读取，旧 refreshToken 保留至自然过期
-            userId = redisTemplate.opsForValue().get(oldKey);
-        }
-        if (userId == null) {
-            auditService.record(null, null, "MINIAPP_REFRESH", "FAILED",
-                    "refreshToken 已过期或已被使用", clientIp, userAgent, null, null, "miniappRefresh");
-            return R.fail(401, "refreshToken 已过期或已被使用");
-        }
-
-        try {
-            // 2. 通过认证引擎创建新 TGT（使用 preValidatedUserId 跳过重新认证）
-            AppTokenCredential credential = new AppTokenCredential();
-            credential.setLoginMethod("refresh");
-            credential.setPreValidatedUserId(userId);
-            credential.setRefreshToken(oldRefreshToken);
-
-            AuthenticationResult authResult = authenticationSystemSupport
-                    .finalizeAuthenticationTransaction(credential);
-
-            if (authResult == null || authResult.getAuthentication() == null) {
-                auditService.record(userId, userId, "MINIAPP_REFRESH", "FAILED", "认证结果为空",
-                        clientIp, userAgent, null, null, "miniappRefresh");
-                return R.fail(401, "Token 刷新失败");
-            }
-
-            Principal principal = authResult.getAuthentication().getPrincipal();
-
-            // 3. 创建新 TGT
-            TicketGrantingTicketFactory tgtFactory = (TicketGrantingTicketFactory) defaultTicketFactory.get(TicketGrantingTicket.class);
-            TicketGrantingTicket tgt = tgtFactory.create(authResult.getAuthentication(), null);
-            ticketRegistry.addTicket(tgt);
-
-            // 4. 生成新 refreshToken
-            String newRefreshToken = generateRefreshToken(principal.getId());
-
-            // 5. 记录审计日志
-            auditService.record(principal.getId(), principal.getId(), "MINIAPP_REFRESH", "SUCCESS", null,
-                    clientIp, userAgent, null, null, "miniappRefresh");
-
-            // 6. 构建返回数据
-            return R.ok(buildTokenResponse(tgt.getId(), newRefreshToken, principal));
-
-        } catch (BusinessException e) {
-            auditService.record(userId, userId, "MINIAPP_REFRESH", "FAILED", e.getMessage(),
-                    clientIp, userAgent, null, null, "miniappRefresh");
-            return R.fail(e.getCode(), e.getMessage());
-        } catch (Throwable e) {
-            LOGGER.error("小程序 Token 刷新失败: userId={}", userId, e);
-            auditService.record(userId, userId, "MINIAPP_REFRESH", "FAILED", e.getMessage(),
-                    clientIp, userAgent, null, null, "miniappRefresh");
-            return R.fail(500, "Token 刷新失败");
-        }
-    }
-
-    /**
      * 小程序登出
      * <p>
      * 删除 refreshToken + 销毁 TGT，防止已注销的 token 被复用。
@@ -209,8 +134,9 @@ public class MiniAppLoginController {
 
         // 1. 清除 refreshToken
         if (StringUtils.isNotBlank(refreshToken)) {
-            String refreshKey = CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + refreshToken;
-            redisTemplate.delete(refreshKey);
+            redisTemplate.delete(CasConstant.REDIS_REFRESH_TOKEN_PREFIX + "refresh:" + refreshToken);
+            redisTemplate.delete(CasConstant.REDIS_APP_TOKEN_PREFIX + "refresh:" + refreshToken);
+            redisTemplate.delete(CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + refreshToken);
         }
 
         // 2. 销毁 TGT
@@ -295,7 +221,7 @@ public class MiniAppLoginController {
     private String generateRefreshToken(String userId) {
         String refreshToken = UUID.randomUUID().toString().replace("-", "");
         long ttl = tokenTtlProperties.getRefreshTokenTtlSeconds();
-        String key = CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + refreshToken;
+        String key = CasConstant.REDIS_REFRESH_TOKEN_PREFIX + "refresh:" + refreshToken;
         redisTemplate.opsForValue().set(key, userId, ttl, TimeUnit.SECONDS);
         return refreshToken;
     }

@@ -9,6 +9,7 @@ import org.springframework.util.StringUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +54,36 @@ public final class AuthUtils {
             return userDetails.getNickname();
         }
         return userDetails.getUserId();
+    }
+
+    /**
+     * 获取当前登录用户的属性值。
+     *
+     * <p>会按传入顺序依次尝试多个属性名，返回第一个非空值。
+     * 适合读取 openid、unionid 这类可能因不同登录渠道而命名略有差异的字段。</p>
+     *
+     * @param attributeNames 属性名候选列表
+     * @return 第一个命中的属性值；当前用户未登录或没有匹配属性时返回 null
+     */
+    public static String getCurrentAttribute(String... attributeNames) {
+        CasUserDetails userDetails = CasSecurityUtils.getCurrentUserDetails();
+        if (userDetails == null || attributeNames == null || attributeNames.length == 0) {
+            return null;
+        }
+        Map<String, String> attributes = userDetails.getAttributes();
+        if (attributes == null || attributes.isEmpty()) {
+            return null;
+        }
+        for (String attributeName : attributeNames) {
+            if (!StringUtils.hasText(attributeName)) {
+                continue;
+            }
+            String value = attributes.get(attributeName);
+            if (StringUtils.hasText(value)) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**

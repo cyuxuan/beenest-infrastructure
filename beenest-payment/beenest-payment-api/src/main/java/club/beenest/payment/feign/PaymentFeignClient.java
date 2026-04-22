@@ -1,8 +1,20 @@
 package club.beenest.payment.feign;
 
 import club.beenest.payment.common.Response;
-import club.beenest.payment.object.dto.*;
-import club.beenest.payment.object.entity.*;
+import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
+import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
+import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.wallet.dto.WalletBalanceDTO;
+import club.beenest.payment.wallet.dto.WalletAdminQueryDTO;
+import club.beenest.payment.wallet.dto.TransactionQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
+import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
+import club.beenest.payment.paymentorder.entity.PaymentOrder;
+import club.beenest.payment.paymentorder.entity.Refund;
+import club.beenest.payment.wallet.entity.Wallet;
+import club.beenest.payment.wallet.entity.WalletTransaction;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
@@ -66,6 +78,20 @@ public interface PaymentFeignClient {
                                     @RequestParam("description") String description,
                                     @RequestParam("transactionType") String transactionType,
                                     @RequestParam(value = "referenceNo", required = false) String referenceNo);
+
+    @PostMapping("/wallet/freeze-balance")
+    Response<Boolean> freezeBalance(@RequestParam("customerNo") String customerNo,
+                                    @RequestParam(value = "bizType", required = false) String bizType,
+                                    @RequestParam("amount") Long amount,
+                                    @RequestParam("description") String description,
+                                    @RequestParam(value = "referenceNo", required = false) String referenceNo);
+
+    @PostMapping("/wallet/unfreeze-balance")
+    Response<Boolean> unfreezeBalance(@RequestParam("customerNo") String customerNo,
+                                      @RequestParam(value = "bizType", required = false) String bizType,
+                                      @RequestParam("amount") Long amount,
+                                      @RequestParam("description") String description,
+                                      @RequestParam(value = "referenceNo", required = false) String referenceNo);
 
     // ==================== 充值 / 支付 ====================
 
@@ -152,8 +178,8 @@ public interface PaymentFeignClient {
 
     // ==================== 内部查询（供 drone-system 直接查询支付数据） ====================
 
-    @GetMapping("/payment/latest-by-plan/{planNo}")
-    Response<PaymentOrder> getLatestPaymentOrderByPlanNo(@PathVariable("planNo") String planNo);
+    @GetMapping("/payment/latest-by-biz-no/{bizNo}")
+    Response<PaymentOrder> getLatestPaymentOrderByBizNo(@PathVariable("bizNo") String bizNo);
 
     @GetMapping("/refund/list-by-order/{orderNo}")
     Response<List<Refund>> getRefundsByOrderNo(@PathVariable("orderNo") String orderNo);

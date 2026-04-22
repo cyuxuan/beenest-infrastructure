@@ -1,8 +1,20 @@
 package club.beenest.payment.feign;
 
 import club.beenest.payment.common.Response;
-import club.beenest.payment.object.dto.*;
-import club.beenest.payment.object.entity.*;
+import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
+import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
+import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.paymentorder.entity.PaymentOrder;
+import club.beenest.payment.paymentorder.entity.Refund;
+import club.beenest.payment.wallet.dto.WalletBalanceDTO;
+import club.beenest.payment.wallet.dto.WalletAdminQueryDTO;
+import club.beenest.payment.wallet.dto.TransactionQueryDTO;
+import club.beenest.payment.wallet.entity.Wallet;
+import club.beenest.payment.wallet.entity.WalletTransaction;
+import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
+import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -65,6 +77,18 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             @Override
             public Response<Boolean> deductBalance(String customerNo, String bizType, BigDecimal amount,
                                                     String description, String transactionType, String referenceNo) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Boolean> freezeBalance(String customerNo, String bizType, Long amount,
+                                                    String description, String referenceNo) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Boolean> unfreezeBalance(String customerNo, String bizType, Long amount,
+                                                      String description, String referenceNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
@@ -167,7 +191,7 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             // ==================== 内部查询 ====================
 
             @Override
-            public Response<PaymentOrder> getLatestPaymentOrderByPlanNo(String planNo) {
+            public Response<PaymentOrder> getLatestPaymentOrderByBizNo(String bizNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 

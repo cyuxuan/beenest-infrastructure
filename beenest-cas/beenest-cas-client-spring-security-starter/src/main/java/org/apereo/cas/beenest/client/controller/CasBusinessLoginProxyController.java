@@ -71,19 +71,6 @@ public class CasBusinessLoginProxyController {
     }
 
     /**
-     * 代理 APP refresh 请求。
-     *
-     * @param body 请求体
-     * @param request 当前请求
-     * @return CAS Server 原始响应
-     */
-    @PostMapping("/app/refresh")
-    public ResponseEntity<String> proxyAppRefresh(@RequestBody(required = false) String body,
-                                                  HttpServletRequest request) {
-        return proxyService.proxy(request, body, "/cas/app/refresh");
-    }
-
-    /**
      * 代理微信小程序登录请求。
      *
      * @param body 请求体
@@ -123,16 +110,16 @@ public class CasBusinessLoginProxyController {
     }
 
     /**
-     * 代理小程序 refresh 请求。
+     * 代理统一 refresh 请求。
      *
      * @param body 请求体
      * @param request 当前请求
      * @return CAS Server 原始响应
      */
-    @PostMapping("/miniapp/refresh")
-    public ResponseEntity<String> proxyMiniAppRefresh(@RequestBody(required = false) String body,
-                                                      HttpServletRequest request) {
-        return proxyService.proxy(request, body, "/cas/miniapp/refresh");
+    @PostMapping("/refresh")
+    public ResponseEntity<String> proxyRefresh(@RequestBody(required = false) String body,
+                                               HttpServletRequest request) {
+        return proxyService.proxy(request, body, "/cas/refresh");
     }
 
     /**

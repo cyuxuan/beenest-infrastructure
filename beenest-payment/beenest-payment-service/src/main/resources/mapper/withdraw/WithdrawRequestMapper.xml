@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.withdraw.mapper.WithdrawRequestMapper">
+
+    <!-- Result Map -->
+    <resultMap id="BaseResultMap" type="club.beenest.payment.withdraw.domain.entity.WithdrawRequest">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="request_no" property="requestNo" jdbcType="VARCHAR"/>
+        <result column="customer_no" property="customerNo" jdbcType="VARCHAR"/>
+        <result column="customerName" property="customerName" jdbcType="VARCHAR"/>
+        <result column="customerPhone" property="customerPhone" jdbcType="VARCHAR"/>
+        <result column="wallet_no" property="walletNo" jdbcType="VARCHAR"/>
+        <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="amount" property="amount" jdbcType="BIGINT"/>
+        <result column="withdraw_type" property="withdrawType" jdbcType="VARCHAR"/>
+        <result column="account_type" property="accountType" jdbcType="VARCHAR"/>
+        <result column="account_name" property="accountName" jdbcType="VARCHAR"/>
+        <result column="account_number" property="accountNumber" jdbcType="VARCHAR"/>
+        <result column="bank_name" property="bankName" jdbcType="VARCHAR"/>
+        <result column="bank_branch" property="bankBranch" jdbcType="VARCHAR"/>
+        <result column="fee_amount" property="feeAmount" jdbcType="BIGINT"/>
+        <result column="actual_amount" property="actualAmount" jdbcType="BIGINT"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="audit_user" property="auditUser" jdbcType="VARCHAR"/>
+        <result column="audit_time" property="auditTime" jdbcType="TIMESTAMP"/>
+        <result column="audit_remark" property="auditRemark" jdbcType="VARCHAR"/>
+        <result column="process_time" property="processTime" jdbcType="TIMESTAMP"/>
+        <result column="process_result" property="processResult" jdbcType="VARCHAR"/>
+        <result column="third_party_order_no" property="thirdPartyOrderNo" jdbcType="VARCHAR"/>
+        <result column="remark" property="remark" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!-- Base Column List -->
+    <sql id="Base_Column_List">
+        id, request_no, customer_no, wallet_no, biz_type, amount, withdraw_type, account_type,
+        account_name, account_number, bank_name, bank_branch, fee_amount, actual_amount,
+        status, audit_user, audit_time, audit_remark, process_time, process_result,
+        third_party_order_no, remark, create_time, update_time
+    </sql>
+
+    <!-- 根据主键ID查询 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_withdraw_request
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据申请号查询 -->
+    <select id="selectByRequestNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_withdraw_request
+        WHERE request_no = #{requestNo}
+    </select>
+
+    <!-- 插入提现申请记录 -->
+    <insert id="insert" parameterType="club.beenest.payment.withdraw.domain.entity.WithdrawRequest" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_withdraw_request (
+            request_no, customer_no, wallet_no, biz_type, amount, withdraw_type, account_type,
+            account_name, account_number, bank_name, bank_branch, fee_amount, actual_amount,
+            status, audit_user, audit_time, audit_remark, process_time, process_result,
+            third_party_order_no, remark, create_time, update_time
+        ) VALUES (
+            #{requestNo}, #{customerNo}, #{walletNo}, #{bizType}, #{amount}, #{withdrawType}, #{accountType},
+            #{accountName}, #{accountNumber}, #{bankName}, #{bankBranch}, #{feeAmount}, #{actualAmount},
+            #{status}, #{auditUser}, #{auditTime}, #{auditRemark}, #{processTime}, #{processResult},
+            #{thirdPartyOrderNo}, #{remark}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 更新提现申请信息 -->
+    <update id="updateByRequestNo">
+        UPDATE ds_withdraw_request
+        SET account_name = #{accountName},
+            account_number = #{accountNumber},
+            bank_name = #{bankName},
+            bank_branch = #{bankBranch},
+            <if test="remark != null">
+            remark = #{remark},
+            </if>
+            update_time = CURRENT_TIMESTAMP
+        WHERE request_no = #{requestNo}
+          AND status = 'PENDING'
+    </update>
+
+    <!-- 审核提现申请 -->
+    <update id="auditRequest">
+        UPDATE ds_withdraw_request
+        SET status = #{status},
+            audit_user = #{auditUser},
+            audit_time = CURRENT_TIMESTAMP,
+            <if test="auditRemark != null">
+            audit_remark = #{auditRemark},
+            </if>
+            update_time = CURRENT_TIMESTAMP
+        WHERE request_no = #{requestNo}
+          AND status IN ('PENDING', 'MANUAL_REVIEW')
+    </update>
+
+    <!-- 更新申请处理状态 -->
+    <update id="updateProcessStatus">
+        UPDATE ds_withdraw_request
+        SET status = #{status},
+            <if test="processResult != null">
+            process_result = #{processResult},
+            </if>
+            <if test="thirdPartyOrderNo != null">
+            third_party_order_no = #{thirdPartyOrderNo},
+            </if>
+            <if test="status == 'SUCCESS' or status == 'FAILED'">
+            process_time = CURRENT_TIMESTAMP,
+            </if>
+            update_time = CURRENT_TIMESTAMP
+        WHERE request_no = #{requestNo}
+        <if test="status == 'PROCESSING'">
+          AND status = 'APPROVED'
+        </if>
+        <if test="status == 'SUCCESS' or status == 'FAILED'">
+          AND status = 'PROCESSING'
+        </if>
+    </update>
+
+    <!-- 分页查询用户提现申请 -->
+    <select id="selectByCustomerNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_withdraw_request
+        WHERE customer_no = #{customerNo}
+        <if test="status != null and status != ''">
+          AND status = #{status}
+        </if>
+        <if test="withdrawType != null and withdrawType != ''">
+          AND withdraw_type = #{withdrawType}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 查询待审核的提现申请 -->
+    <select id="selectPendingRequests" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_withdraw_request
+        WHERE status IN ('PENDING', 'MANUAL_REVIEW')
+        ORDER BY create_time ASC, id ASC
+    </select>
+
+    <!-- 查询已审核待处理的提现申请 -->
+    <select id="selectApprovedRequests" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_withdraw_request
+        WHERE status = 'APPROVED'
+        ORDER BY audit_time ASC, id ASC
+    </select>
+
+    <!-- 按时间范围查询提现申请 -->
+    <select id="selectByTimeRange" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_withdraw_request
+        WHERE create_time BETWEEN #{startTime} AND #{endTime}
+        <if test="customerNo != null and customerNo != ''">
+          AND customer_no = #{customerNo}
+        </if>
+        <if test="status != null and status != ''">
+          AND status = #{status}
+        </if>
+        <if test="withdrawType != null and withdrawType != ''">
+          AND withdraw_type = #{withdrawType}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 统计提现申请数据 - 使用白名单防止SQL注入 -->
+    <select id="statisticsRequests" resultMap="BaseResultMap">
+        <choose>
+            <!-- 按状态统计 -->
+            <when test="groupBy == 'status'">
+                SELECT status, COUNT(*) as id, SUM(amount) as amount,
+                       SUM(fee_amount) as feeAmount, SUM(actual_amount) as actualAmount
+                FROM ds_withdraw_request
+                WHERE 1=1
+                <if test="startTime != null">
+                  AND create_time &gt;= #{startTime}
+                </if>
+                <if test="endTime != null">
+                  AND create_time &lt;= #{endTime}
+                </if>
+                <if test="customerNo != null and customerNo != ''">
+                  AND customer_no = #{customerNo}
+                </if>
+                GROUP BY status
+                ORDER BY status
+            </when>
+            <!-- 按提现类型统计 -->
+            <when test="groupBy == 'withdrawType'">
+                SELECT withdraw_type as withdrawType, COUNT(*) as id, SUM(amount) as amount,
+                       SUM(fee_amount) as feeAmount, SUM(actual_amount) as actualAmount
+                FROM ds_withdraw_request
+                WHERE 1=1
+                <if test="startTime != null">
+                  AND create_time &gt;= #{startTime}
+                </if>
+                <if test="endTime != null">
+                  AND create_time &lt;= #{endTime}
+                </if>
+                <if test="customerNo != null and customerNo != ''">
+                  AND customer_no = #{customerNo}
+                </if>
+                GROUP BY withdraw_type
+                ORDER BY withdraw_type
+            </when>
+            <!-- 默认按状态统计 -->
+            <otherwise>
+                SELECT status, COUNT(*) as id, SUM(amount) as amount,
+                       SUM(fee_amount) as feeAmount, SUM(actual_amount) as actualAmount
+                FROM ds_withdraw_request
+                WHERE 1=1
+                <if test="startTime != null">
+                  AND create_time &gt;= #{startTime}
+                </if>
+                <if test="endTime != null">
+                  AND create_time &lt;= #{endTime}
+                </if>
+                <if test="customerNo != null and customerNo != ''">
+                  AND customer_no = #{customerNo}
+                </if>
+                GROUP BY status
+                ORDER BY status
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 检查申请号是否存在 -->
+    <select id="countByRequestNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_withdraw_request
+        WHERE request_no = #{requestNo}
+    </select>
+
+    <!-- 检查用户是否有处理中的提现申请 -->
+    <select id="countProcessingByCustomerNo" resultType="int">
+        SELECT COUNT(*)
+        FROM ds_withdraw_request
+        WHERE customer_no = #{customerNo}
+          AND status IN ('PENDING', 'MANUAL_REVIEW', 'APPROVED', 'PROCESSING')
+    </select>
+
+    <!-- 取消提现申请 -->
+    <update id="cancelRequest">
+        UPDATE ds_withdraw_request
+        SET status = 'CANCELLED',
+            <if test="remark != null">
+            audit_remark = #{remark},
+            </if>
+            update_time = CURRENT_TIMESTAMP
+        WHERE request_no = #{requestNo}
+          AND status IN ('PENDING', 'MANUAL_REVIEW', 'APPROVED')
+    </update>
+
+    <!-- 根据查询条件查询提现申请 -->
+    <select id="selectByQuery" resultMap="BaseResultMap">
+        SELECT t.*
+        FROM ds_withdraw_request t
+        <where>
+            <if test="requestNo != null and requestNo != ''">
+                AND t.request_no LIKE CONCAT('%', #{requestNo}, '%')
+            </if>
+            <if test="customerNo != null and customerNo != ''">
+                AND t.customer_no = #{customerNo}
+            </if>
+            <if test="status != null and status != ''">
+                AND t.status = #{status}
+            </if>
+            <if test="withdrawType != null and withdrawType != ''">
+                AND t.withdraw_type = #{withdrawType}
+            </if>
+            <if test="startTime != null">
+                AND t.create_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND t.create_time &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+    </select>
+</mapper>

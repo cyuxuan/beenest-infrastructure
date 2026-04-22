@@ -79,7 +79,7 @@ public class CasBusinessLoginProxyService {
             requestPath = requestPath.substring(4);
         }
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl).path(requestPath);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl).path(requestPath);
         if (StringUtils.hasText(queryString)) {
             builder.query(queryString);
         }

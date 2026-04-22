@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.reconciliation.mapper.ReconciliationTaskMapper">
+
+    <resultMap id="BaseResultMap" type="club.beenest.payment.reconciliation.domain.entity.ReconciliationTask">
+        <id column="id" property="id" />
+        <result column="date" property="date" />
+        <result column="channel" property="channel" />
+        <result column="status" property="status" />
+        <result column="total_orders" property="totalOrders" />
+        <result column="total_amount" property="totalAmount" />
+        <result column="platform_order_count" property="platformOrderCount" />
+        <result column="platform_amount" property="platformAmount" />
+        <result column="match_count" property="matchCount" />
+        <result column="mismatch_count" property="mismatchCount" />
+        <result column="detail" property="detail" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <insert id="insert" parameterType="club.beenest.payment.reconciliation.domain.entity.ReconciliationTask" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_payment_reconciliation_task (
+            date, channel, status, total_orders, total_amount,
+            platform_order_count, platform_amount, match_count, mismatch_count, detail,
+            create_time, update_time
+        ) VALUES (
+            #{date}, #{channel}, #{status}, #{totalOrders}, #{totalAmount},
+            #{platformOrderCount}, #{platformAmount}, #{matchCount}, #{mismatchCount}, #{detail},
+            NOW(), NOW()
+        )
+    </insert>
+
+    <update id="update" parameterType="club.beenest.payment.reconciliation.domain.entity.ReconciliationTask">
+        UPDATE ds_payment_reconciliation_task
+        SET
+            status = #{status},
+            total_orders = #{totalOrders},
+            total_amount = #{totalAmount},
+            platform_order_count = #{platformOrderCount},
+            platform_amount = #{platformAmount},
+            match_count = #{matchCount},
+            mismatch_count = #{mismatchCount},
+            detail = #{detail},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectByQuery" resultMap="BaseResultMap">
+        SELECT * FROM ds_payment_reconciliation_task
+        <where>
+            <if test="date != null and date != ''">
+                AND date = #{date}
+            </if>
+            <if test="channel != null and channel != ''">
+                AND channel = #{channel}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT * FROM ds_payment_reconciliation_task WHERE id = #{id}
+    </select>
+
+</mapper>

@@ -5,7 +5,6 @@ import org.apereo.cas.beenest.common.response.R;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.MiniAppLoginDTO;
 import org.apereo.cas.beenest.dto.MiniAppLogoutDTO;
-import org.apereo.cas.beenest.dto.MiniAppRefreshDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
 import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.beenest.service.AuthAuditService;
@@ -41,7 +40,7 @@ import static org.mockito.Mockito.when;
  * <p>
  * 模拟业务系统通过 starter 代理发起的登录请求，验证：
  * - 微信/抖音/支付宝三个平台的正常登录流程
- * - refresh token 续期（轮换模式和非轮换模式）
+ * - 统一 refresh 续期在独立测试中覆盖
  * - logout 清理 TGT 和 refreshToken
  * - 参数校验（空授权码、空 refreshToken 等）
  * - 认证失败的错误处理
@@ -285,90 +284,6 @@ class MiniAppLoginControllerTest {
         }
     }
 
-    // ===== Refresh Token 续期 =====
-
-    @Nested
-    class Refresh {
-
-        @Test
-        void shouldRotateRefreshTokenInRotationMode() throws Throwable {
-            ttlProperties.setRefreshTokenRotation(true);
-
-            String oldRefreshToken = "old-rt-abc";
-            String redisKey = CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + oldRefreshToken;
-            when(valueOperations.getAndDelete(redisKey)).thenReturn("U10001");
-
-            Principal principal = mock(Principal.class);
-            when(principal.getId()).thenReturn("U10001");
-            when(principal.getAttributes()).thenReturn(Map.of());
-
-            Authentication authentication = mock(Authentication.class);
-            when(authentication.getPrincipal()).thenReturn(principal);
-            AuthenticationResult authResult = mock(AuthenticationResult.class);
-            when(authResult.getAuthentication()).thenReturn(authentication);
-            when(authSupport.finalizeAuthenticationTransaction(any(Credential.class))).thenReturn(authResult);
-
-            stubTgtCreation("TGT-NEW");
-
-            MiniAppRefreshDTO dto = new MiniAppRefreshDTO();
-            dto.setRefreshToken(oldRefreshToken);
-
-            R<TokenResponseDTO> response = controller.refresh(dto, stubRequest());
-
-            assertThat(response.isSuccess()).isTrue();
-            assertThat(response.getData().getAccessToken()).isEqualTo("TGT-NEW");
-            assertThat(response.getData().getRefreshToken()).isNotBlank();
-            assertThat(response.getData().getRefreshToken()).isNotEqualTo(oldRefreshToken);
-
-            verify(valueOperations).getAndDelete(redisKey);
-        }
-
-        @Test
-        void shouldKeepOldRefreshTokenInNonRotationMode() throws Throwable {
-            ttlProperties.setRefreshTokenRotation(false);
-
-            String oldRefreshToken = "old-rt-xyz";
-            String redisKey = CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + oldRefreshToken;
-            when(valueOperations.get(redisKey)).thenReturn("U10002");
-
-            Principal principal = mock(Principal.class);
-            when(principal.getId()).thenReturn("U10002");
-            when(principal.getAttributes()).thenReturn(Map.of());
-
-            Authentication authentication = mock(Authentication.class);
-            when(authentication.getPrincipal()).thenReturn(principal);
-            AuthenticationResult authResult = mock(AuthenticationResult.class);
-            when(authResult.getAuthentication()).thenReturn(authentication);
-            when(authSupport.finalizeAuthenticationTransaction(any(Credential.class))).thenReturn(authResult);
-
-            stubTgtCreation("TGT-REFRESH");
-
-            MiniAppRefreshDTO dto = new MiniAppRefreshDTO();
-            dto.setRefreshToken(oldRefreshToken);
-
-            R<TokenResponseDTO> response = controller.refresh(dto, stubRequest());
-
-            assertThat(response.isSuccess()).isTrue();
-            verify(valueOperations).get(redisKey);
-        }
-
-        @Test
-        void shouldRejectExpiredRefreshToken() {
-            String oldRefreshToken = "expired-rt";
-            String redisKey = CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + oldRefreshToken;
-            when(valueOperations.getAndDelete(redisKey)).thenReturn(null);
-
-            MiniAppRefreshDTO dto = new MiniAppRefreshDTO();
-            dto.setRefreshToken(oldRefreshToken);
-
-            R<TokenResponseDTO> response = controller.refresh(dto, stubRequest());
-
-            assertThat(response.isSuccess()).isFalse();
-            assertThat(response.getCode()).isEqualTo(401);
-            assertThat(response.getMessage()).contains("refreshToken 已过期或已被使用");
-        }
-    }
-
     // ===== Logout =====
 
     @Nested
@@ -395,7 +310,7 @@ class MiniAppLoginControllerTest {
             R<Void> response = controller.logout(dto, stubRequest());
 
             assertThat(response.isSuccess()).isTrue();
-            verify(redisTemplate).delete(CasConstant.REDIS_MINIAPP_TOKEN_PREFIX + "refresh:" + refreshToken);
+            verify(redisTemplate).delete(CasConstant.REDIS_REFRESH_TOKEN_PREFIX + "refresh:" + refreshToken);
             verify(ticketRegistry).deleteTicket(accessToken);
         }
 

@@ -24,6 +24,8 @@ public final class CasConstant {
     public static final String REDIS_SMS_OTP_FAIL_PREFIX = "cas:sms:otp:fail:";
     public static final String REDIS_SMS_LIMIT_PREFIX = "cas:sms:limit:";
     public static final String REDIS_APP_TOKEN_PREFIX = "cas:app:token:";
+    /** 统一 refreshToken 存储前缀 */
+    public static final String REDIS_REFRESH_TOKEN_PREFIX = "cas:token:refresh:";
     public static final String REDIS_SERVICE_NONCE_PREFIX = "cas:service:nonce:";
 
     /** 小程序 refreshToken -> userId 映射前缀 */

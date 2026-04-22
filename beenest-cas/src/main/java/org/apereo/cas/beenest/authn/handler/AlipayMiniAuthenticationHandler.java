@@ -214,6 +214,12 @@ public class AlipayMiniAuthenticationHandler implements AuthenticationHandler {
         attributes.put("userType", List.of(user.getUserType() != null ? user.getUserType() : "CUSTOMER"));
         attributes.put("loginType", List.of("ALIPAY_MINI"));
         attributes.put("firstLogin", List.of(firstLogin));
+        if (StringUtils.isNotBlank(user.getAlipayUid())) {
+            attributes.put("alipayUid", List.of(user.getAlipayUid()));
+        }
+        if (StringUtils.isNotBlank(user.getAlipayOpenid())) {
+            attributes.put("alipayOpenid", List.of(user.getAlipayOpenid()));
+        }
         if (StringUtils.isNotBlank(user.getNickname())) {
             attributes.put("nickname", List.of(user.getNickname()));
         }
