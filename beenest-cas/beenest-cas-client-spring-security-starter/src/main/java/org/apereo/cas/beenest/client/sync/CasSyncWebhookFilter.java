@@ -22,12 +22,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CAS 用户同步 Webhook 过滤器
+ * CAS 用户同步 Webhook 过滤器（已弃用）
  * <p>
  * 监听 CAS Server 推送的用户变更通知（默认 POST /cas/sync/webhook），
  * 验证 HMAC-SHA256 签名后自动更新本地 Session 中的用户信息。
+ * <p>
+ * <b>已弃用</b>：CAS Server 全面原生化重构后已停止主动推送用户变更。
+ * 替代方案：每次 Bearer Token 验证时 CAS 返回最新用户属性，无需额外同步通道。
+ *
+ * @deprecated CAS Server 已停止推送 webhook，此过滤器不再收到数据。将在下个大版本移除。
  */
 @Slf4j
+@Deprecated(since = "2.0", forRemoval = true)
 public class CasSyncWebhookFilter implements Filter {
 
     private final CasSecurityProperties properties;

@@ -64,7 +64,8 @@ public class CasSecurityProperties {
     /** SLO 配置 */
     private SloConfig slo = new SloConfig();
 
-    /** 用户同步配置 */
+    /** 用户同步配置（已弃用 — CAS Server 已移除同步端点） */
+    @Deprecated(since = "2.0")
     private SyncConfig sync = new SyncConfig();
 
     /** Spring Security 集成配置 */
@@ -151,9 +152,15 @@ public class CasSecurityProperties {
     }
 
     /**
-     * 用户同步配置
+     * 用户同步配置（已弃用）
+     * <p>
+     * CAS Server 全面原生化后已移除自定义同步端点。
+     * 用户属性通过每次 Token 验证自动获取最新值，无需额外同步。
+     *
+     * @deprecated 请移除 {@code cas.client.sync.*} 配置
      */
     @Data
+    @Deprecated(since = "2.0")
     public static class SyncConfig {
         /** 是否启用用户同步（需显式开启） */
         private boolean enabled = false;

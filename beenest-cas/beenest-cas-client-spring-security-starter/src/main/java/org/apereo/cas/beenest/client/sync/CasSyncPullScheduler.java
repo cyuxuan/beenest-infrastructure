@@ -21,15 +21,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 用户同步拉取调度器（可选启用）
+ * 用户同步拉取调度器（已弃用）
  * <p>
- * 定时调用 CAS Server {@code /cas/api/user/changes} 拉取变更日志，
- * 更新本地 Session 并触发 {@link CasUserChangeListener}。
+ * 定时调用 CAS Server {@code /api/user/changes} 拉取变更日志。
  * <p>
- * 启用条件：{@code cas.client.sync.pull-enabled=true}
- * 默认关闭，推送模式足够时无需启用。适用于网络隔离、CAS Server 推送不可靠等场景。
+ * <b>已弃用</b>：CAS Server 全面原生化重构后已移除 {@code /api/user/changes} 端点。
+ * 替代方案：每次 Bearer Token 验证时 CAS 返回最新用户属性，无需额外同步通道。
+ * 如需感知用户变更，请使用 {@link CasUserChangeListener} 配合 OIDC UserInfo 端点。
+ *
+ * @deprecated CAS Server 已移除 pull 端点，此功能不再可用。将在下个大版本移除。
  */
 @Slf4j
+@Deprecated(since = "2.0", forRemoval = true)
 public class CasSyncPullScheduler {
 
     private final CasSecurityProperties properties;
@@ -46,7 +49,8 @@ public class CasSyncPullScheduler {
         this.properties = properties;
         this.activeSessionRegistry = activeSessionRegistry;
         this.listeners = listeners != null ? listeners : List.of();
-        LOGGER.info("用户同步拉取调度器已启用，间隔: {}秒", properties.getSync().getPullIntervalSeconds());
+        LOGGER.warn("【已弃用】CasSyncPullScheduler 启用 — CAS Server 已移除 /api/user/changes 端点，拉取请求将失败。" +
+                "请迁移至 CAS 原生属性发布机制（每次 token 验证返回最新属性），并在下个大版本前移除 sync.pull-enabled=true 配置。");
     }
 
     @Scheduled(fixedDelayString = "${cas.client.sync.pull-interval-seconds:60}000")
