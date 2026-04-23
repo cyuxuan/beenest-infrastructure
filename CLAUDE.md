@@ -55,35 +55,58 @@ docker build -t beenest-payment .
 
 ## Architecture
 
-### beenest-cas — CAS SSO Server
+### beenest-cas — Enterprise CAS SSO Server
 
-Custom Apereo CAS overlay extended with Chinese platform authentication. Provides SSO for all Beenest services.
+Apereo CAS 7.3.6 overlay with ~49 CAS native modules and custom Chinese platform authentication. Provides enterprise-grade SSO for all Beenest services.
 
 **Root package**: `org.apereo.cas.beenest`
 
-**Authentication handlers** (registered via `CasOverlayOverrideConfiguration`):
+**Supported protocols**: CAS Protocol 3.0, SAML2 IdP, OAuth2 Provider, OIDC Provider, REST Protocol, WS-Federation.
+
+**Custom authentication handlers** (registered via `CasOverlayOverrideConfiguration`):
 - WeChat mini-program (`WechatMiniCredential` / `WechatMiniAuthenticationHandler`)
 - Douyin mini-program (`DouyinMiniCredential` / `DouyinMiniAuthenticationHandler`)
 - Alipay mini-program (`AlipayMiniCredential` / `AlipayMiniAuthenticationHandler`)
 - SMS OTP (`SmsOtpCredential` / `SmsOtpAuthenticationHandler`)
 - App token (`AppTokenCredential` / `AppTokenAuthenticationHandler`)
 
+**CAS native enterprise modules**:
+- **MFA**: Google Authenticator (gauth JPA) + FIDO2/WebAuthn (JPA) + Trusted Devices (JDBC)
+- **Password Management**: BCrypt-12, history tracking (6 entries), reset/expiry, must-change
+- **JWT**: token-tickets (JWT Service Ticket) + token-webflow + rest-tokens (OAuth2 JWT)
+- **Security**: CAPTCHA, Throttle (Redis rate limiting), Electrofence (adaptive risk), Interrupt Webflow
+- **Enterprise**: Consent (JDBC), AUP (JDBC), Surrogate (JDBC proxy login), Pac4j OIDC (social login)
+- **User Management**: Account Management, Groovy Provisioning (auto-registration), Session Management (TGT destruction + SLO cascade)
+- **Auth methods**: QR Code scan, Passwordless (Magic Link via Groovy user store)
+- **Monitoring**: Inspektr Audit (JDBC), Events JPA, Palantir Dashboard, Spring Boot Actuator
+- **Notifications**: Email (Spring Mail), SMS (Aliyun via CAS `SmsSender` interface)
+
 **User identity** (`UserIdentityService`): Unified user model across all channels. Account merging priority: unionid > openid > phone. Auto-registration on first login.
 
-**User sync**: Two modes for downstream services:
-- **Push** (webhook): `UserSyncPushService` sends async HTTP POST with HmacSHA256 signatures
-- **Pull**: Downstream services call `/api/user/changes` endpoint
+**SMS integration** (`AliyunSmsSender`): Implements CAS `SmsSender` interface for Aliyun SMS. Auto-degrades to log output when accessKey/secretKey not configured (dev mode). Bean name must be `smsSender`.
 
-**Access control** (`BeenestAccessStrategy`): Per-application access grants checked at ST issuance via `cas_app_access` table.
+**Session management** (`SessionManagementController`): Admin API for kicking users offline via TGT destruction with automatic SLO cascade.
 
-**Data layer**: MyBatis with 5 mappers. PostgreSQL schema `beenest_cas`. Flyway migrations in `src/main/resources/db/migration/`.
+**Data layer**: MyBatis with remaining mappers. PostgreSQL schema `beenest_cas`. Flyway migrations V1.0.x (legacy) + V2.0.x (nativization). Tables: `cas_user`, `cas_surrogate`, `aup_usage_terms`, CAS native tables (Inspektr audit, events, consent, etc.).
+
+**Groovy scripts**:
+- `interrupt.groovy` — Checks `mustChangePassword` attribute for password expiry interrupt
+- `passwordlessUserStore.groovy` — Queries `cas_user` by username/phone/email for passwordless auth
+- `accountRegistrationProvisioning.groovy` — Dedup + create user in `cas_user` for auto-registration
+
+**Templates** (Thymeleaf, Aurora dark theme):
+- `layout.html` — Base layout with brand header/footer, shared by all secondary pages
+- `login/casLoginView.html` — Standalone dual-panel login page (password + SMS modes)
+- 15 override templates: logout, MFA (gauth/webauthn), AUP, consent, surrogate, passwordless, password-reset, interrupt, error, adaptive-authn, login-error, mfa-trusted-devices
 
 **Configuration properties**:
 - `beenest.miniapp.*` — WeChat/Douyin/Alipay app credentials
-- `beenest.sms.*` — SMS provider (Aliyun)
+- `beenest.sms.*` — Aliyun SMS accessKey/secretKey/template
 - `beenest.token.*` — Access/refresh token TTL and rotation settings
 
-**Client starter** (`beenest-cas-client-spring-security-starter`): Spring Boot starter for downstream services. Activated with `cas.client.enabled=true`. Provides Bearer token auth filter, SSO/SLO, TGT validation, user sync (pull scheduler + webhook receiver). Published as `club.beenest.cas:beenest-cas-client-spring-security-starter:1.0.0-SNAPSHOT`.
+**Client starter** (`beenest-cas-client-spring-security-starter`): Spring Boot starter for downstream services. Activated with `cas.client.enabled=true`. Provides Bearer token auth filter, SSO/SLO, TGT validation. Published as `club.beenest.cas:beenest-cas-client-spring-security-starter:1.0.0-SNAPSHOT`.
+
+**Deleted code** (Phase 1-6): ~3300 lines removed. Custom audit (`AuthAuditService`), service management (`CasServiceAdmin*`), user admin (`CasUserAdmin*`), sync strategy (`SyncStrategy*`, `UserSync*`), service credentials (`CasServiceCredential*`), app access (`CasAppAccess*`) — all replaced by CAS native modules or converted to no-op shells.
 
 ### beenest-payment — Payment Microservice
 
