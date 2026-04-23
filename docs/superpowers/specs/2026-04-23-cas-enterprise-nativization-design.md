@@ -39,9 +39,13 @@
 | **使用条款 (AUP)** | ❌ 无 | `cas-server-support-aup` | 需新增 |
 | **模拟/代理认证** | ❌ 无 | `cas-server-support-surrogate-authentication-jdbc` | 需新增 |
 | **自适应风险认证** | ❌ 无 | `cas-server-support-adaptive-authentication` | 需新增 |
-| **Admin Dashboard** | 🔶 自定义 Controller | `cas-server-support-reports` | 应替换 |
-| **服务管理 UI** | 🔶 自定义 Controller | CAS SSO Management Webapp | 应替换 |
-| **用户管理** | 🔶 自定义 Service + Controller | CAS 密码管理 + Person Directory | 应替换 |
+| **Admin Dashboard** | 🔶 自定义 Controller | `cas-server-support-palantir` | 应替换 |
+| **服务管理 UI** | 🔶 自定义 Controller | Palantir 向导式 + Management Webapp | 应替换 |
+| **用户管理** | 🔶 自定义 Service + Controller | CAS 密码管理 + Person Directory + Account Management | 应替换 |
+| **用户自注册页面** | ❌ 无 | `cas-server-support-account-registration` | 需新增 |
+| **用户自助 Profile** | ❌ 无 | `cas-server-support-account-management` | 需新增 |
+| **Swagger API 文档** | ❌ 无 | `springdoc-openapi` + CAS 配置 | 需新增 |
+| **用户 CRUD 管理 UI** | 🔶 自定义（不完善） | 自定义 Thymeleaf 页面（CAS 内嵌） | 需完善 |
 | **通知 (邮件)** | ❌ 无 | CAS 内置邮件通知 | 需新增 |
 | **通知 (SMS)** | 🔶 自定义 SmsService | CAS SMS 框架 | 可保留/整合 |
 | **委托认证** | ❌ 无 | `cas-server-support-integration-pac4j` | 需新增 |
@@ -223,7 +227,8 @@ MFA:
 ├── cas-server-support-surrogate-authentication   (新增)
 ├── cas-server-support-surrogate-authentication-jdbc (新增)
 ├── cas-server-support-adaptive-authentication    (新增)
-├── cas-server-support-reports                    (新增)
+├── cas-server-support-reports                    (新增, Reports Dashboard)
+├── cas-server-support-palantir                   (新增, Admin 管理控制台)
 ├── cas-server-webapp-resources                   (新增)
 └── cas-server-support-person-directory           (新增)
 
@@ -280,9 +285,10 @@ JWT 与 Token:
 // build.gradle
 implementation "org.apereo.cas:cas-server-support-audit-jdbc"
 implementation "org.apereo.cas:cas-server-support-reports"
+implementation "org.apereo.cas:cas-server-support-palantir"
 implementation "org.apereo.cas:cas-server-webapp-resources"
 
-// Spring Boot Actuator（监控）
+// Spring Boot Actuator（监控 + Palantir 依赖）
 implementation "org.springframework.boot:spring-boot-starter-actuator"
 ```
 
@@ -305,10 +311,24 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,cache,cas
+        include: "*"   # Palantir 需要完整 Actuator 端点访问
   endpoint:
     health:
       show-details: when-authorized
+    env:
+      enabled: true
+    info:
+      enabled: true
+    ssoSessions:
+      enabled: true
+
+# Palantir Admin Dashboard 认证（Spring Security form-based）
+spring:
+  security:
+    user:
+      name: ${PALANTIR_ADMIN_USER:admin}
+      password: ${PALANTIR_ADMIN_PASSWORD:}
+      roles: ADMIN
 ```
 
 #### 1.3 删除自定义审计代码
@@ -319,12 +339,25 @@ management:
 - 删除 `mapper/CasAuthAuditLogMapper.xml`
 - 删除 Flyway `V1.0.4__create_cas_auth_audit_log.sql`（**注意**：如果该脚本已在环境中运行过，不能删除，因为 Flyway 需要校验 checksum。仅在全新环境可删除。推荐做法：保留旧脚本，新增 V2.0.1 删除表）
 
-#### 1.4 Admin Dashboard
+#### 1.4 Palantir Admin Dashboard
 
-CAS 原生 Admin Dashboard 通过 `cas-server-support-reports` 提供：
+CAS 新一代管理控制台，内嵌在 CAS Server 中，提供完整的可视化管理：
+
+**Palantir（`cas-server-support-palantir`）**：
+- `/cas/palantir` — 完整管理控制台（需认证）
+  - **应用注册向导**：通过 UI 向导注册 CAS/SAML2/OIDC/OAuth2/WS-Fed 服务
+  - **SSO 会话查询**：查看所有活跃 SSO Session 和用户 Principal
+  - **访问策略配置**：为每个 Service 配置 Access Strategy
+  - **协议 Payload 模拟**：模拟 SAML2/OIDC Response 验证属性发布
+  - **服务器状态**：通过 Actuator 端点展示 CAS 运行状态
+
+**Reports（`cas-server-support-reports`）**：
 - `/cas/status` — 服务器状态
-- `/cas/status/dashboard` — 管理面板
+- `/cas/status/dashboard` — 基础管理面板
 - `/cas/statistics` — 统计信息
+
+> **注意**：Palantir 依赖 Actuator 端点（`info`、`env`、`ssoSessions` 等）。
+> CAS 启动时会检查必需的端点是否已启用。建议暴露所有端点并配置认证访问。
 
 删除自定义的 `CasUserAdminController` 中的管理功能。
 
@@ -1361,7 +1394,248 @@ CREATE TABLE IF NOT EXISTS cas_user_aup (
 
 ---
 
-## 五、风险与注意事项
+## 五、可视化管理页面（CAS Admin Console & Dashboard）
+
+### 5.1 可视化页面覆盖矩阵
+
+> 核心问题：CAS 是否提供用户管理页面、应用管理页面等可视化的 Web 管理界面？
+> **答案：CAS 提供了三层可视化管理能力**——Palantir Admin Dashboard（内嵌）、CAS Management Webapp（独立部署）、Account Profile Management（用户自助）。
+
+| 管理功能 | CAS 原生页面 | 模块 | 访问路径 | 状态 |
+|---|---|---|---|---|
+| **Admin Dashboard（Palantir）** | ✅ 原生提供 | `cas-server-support-palantir` | `/cas/palantir` | 新增 |
+| **应用注册管理** | ✅ Palantir 向导式 | 同上 | `/cas/palantir` → Service Registration Wizard | 新增 |
+| **SSO 会话查询** | ✅ Palantir + Actuator | 同上 + `spring-boot-starter-actuator` | `/cas/palantir` → SSO Sessions | 新增 |
+| **服务器状态监控** | ✅ Reports Dashboard | `cas-server-support-reports` | `/cas/status/dashboard` | 新增 |
+| **密码管理（重置/修改）** | ✅ 原生 Webflow | `cas-server-support-pm-webflow` | `/cas/login` → 密码重置流程 | 新增 |
+| **用户自助 Profile** | ✅ Account Management | `cas-server-support-account-management` | `/cas/account` | 新增 |
+| **用户自注册** | ✅ Account Registration | `cas-server-support-account-registration` | `/cas/register` | 新增 |
+| **MFA 设备管理** | ✅ Account Management | 同上 | `/cas/account` → Trusted Devices | 新增 |
+| **用户同意管理** | ✅ 原生 Webflow | `cas-server-support-consent-jdbc` | 登录时属性同意弹窗 | 新增 |
+| **审计日志查看** | ✅ Actuator + Palantir | `spring-boot-starter-actuator` | `/actuator/auditevents` | 新增 |
+| **健康检查/指标** | ✅ Spring Boot Actuator | `spring-boot-starter-actuator` | `/actuator/health`, `/actuator/metrics` | 新增 |
+| **Swagger API 文档** | ✅ SpringDoc | `springdoc-openapi` + CAS 配置 | `/cas/v3/api-docs` | 新增 |
+| **踢人下线/会话管理** | ❌ 无原生 UI | 自定义 `SessionManagementController` | `/api/admin/session` | 自定义 |
+| **完整应用 CRUD 管理** | 🔶 独立 Management Webapp | `cas-management`（独立 WAR） | 独立部署 | 可选 |
+| **用户列表/搜索/禁用** | ❌ 无原生页面 | 需自定义或通过数据库管理 | — | 自定义 |
+
+> **结论**：CAS 原生提供了约 12 个可视化管理页面/功能，覆盖了绝大多数企业级管理需求。
+> 需要自定义开发的仅 3 个功能：踢人下线 UI、完整用户 CRUD 管理 UI、以及深度用户列表搜索。
+
+### 5.2 Palantir Admin Dashboard（核心管理控制台）
+
+Palantir 是 CAS 7.2+ 引入的新一代管理工具，已集成到 CAS 主代码库中（不再需要独立部署）。它提供向导式的应用注册、SSO 会话查询、协议 Payload 模拟等功能。
+
+#### 5.2.1 依赖与配置
+
+```groovy
+// build.gradle
+implementation "org.apereo.cas:cas-server-support-palantir"
+```
+
+```yaml
+# application.yml — Palantir 认证配置
+spring:
+  security:
+    user:
+      name: ${PALANTIR_ADMIN_USER:admin}
+      password: ${PALANTIR_ADMIN_PASSWORD:}
+      roles: ADMIN
+
+# Palantir 依赖 Actuator 端点，需要启用并暴露
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    env:
+      enabled: true
+    info:
+      enabled: true
+    ssoSessions:
+      enabled: true
+```
+
+> **重要**：Palantir 坐落在 Actuator 端点之上，消费并渲染数据。CAS 启动时会检查所需的 Actuator 端点是否已配置。
+> **推荐**：生产环境暴露所有端点但必须配置认证访问（Spring Security）。
+
+#### 5.2.2 Palantir 功能清单
+
+| 功能 | 说明 |
+|---|---|
+| **应用注册向导** | 通过 UI 向导注册新的 CAS Service（支持 CAS/SAML2/OIDC/OAuth2/WS-Fed 协议） |
+| **应用列表管理** | 查看所有已注册应用，编辑 Service 属性 |
+| **SSO 会话查询** | 查询所有活跃的 SSO Session，查看关联的用户 Principal 和属性 |
+| **访问策略配置** | 为每个 Service 配置 Access Strategy（属性/角色/时间限制等） |
+| **协议 Payload 模拟** | 模拟 SAML2/OIDC Response，验证属性发布是否正确 |
+| **服务器状态** | CAS 实例信息、配置属性、环境变量（通过 Actuator） |
+| **审计日志** | 查看 Inspektr 审计记录 |
+
+访问地址：`https://sso.beenest.club/cas/palantir`
+
+#### 5.2.3 注意事项
+
+- Palantir 是**相对较新的功能**（CAS 7.2+ 引入，CAS 8.x 进一步完善），官方鼓励实验和反馈
+- 默认使用 Spring Security 的 form-based 认证，凭据由 `spring.security.user.*` 配置
+- 生产部署时**必须**配置强密码，并通过 Spring Security 限制 IP 访问
+
+### 5.3 CAS Management Webapp（独立服务管理应用）
+
+CAS Management Webapp 是一个**独立的 WAR overlay**（`cas-management` 仓库），提供完整的 Service CRUD 管理 UI。与 Palantir 不同，它是成熟稳定的管理工具。
+
+#### 5.3.1 部署方式
+
+```bash
+# 独立部署 cas-management
+# 1. 从 https://github.com/apereo/cas-management 获取 overlay
+# 2. 配置连接同一个 JPA Service Registry 数据库
+# 3. 作为独立的 Spring Boot 应用运行
+```
+
+```yaml
+# cas-management 的 application.yml
+cas:
+  service-registry:
+    jpa:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER}
+      password: ${DB_PASSWORD}
+  # 与 CAS Server 共享 Service Registry
+  mux:
+    enabled: true
+```
+
+#### 5.3.2 Management Webapp vs Palantir 选择
+
+| 维度 | Palantir（内嵌） | Management Webapp（独立） |
+|---|---|---|
+| 部署方式 | CAS Server 内嵌 | 独立 WAR |
+| 成熟度 | 较新（7.2+），持续迭代 | 成熟稳定 |
+| Service CRUD | ✅ 向导式 | ✅ 完整 CRUD |
+| SSO Session 管理 | ✅ 查询 + 属性查看 | ❌ |
+| 协议模拟 | ✅ SAML2/OIDC 模拟 | ❌ |
+| Actuator 集成 | ✅ 深度集成 | ❌ |
+| 权限控制 | Spring Security | 细粒度 RBAC |
+
+**推荐策略**：
+1. **阶段一**：启用 Palantir（内嵌，零额外部署），获得完整的 Admin + Service 管理 + SSO 会话查询能力
+2. **阶段二**（可选）：如需更成熟的 Service CRUD 管理或细粒度权限控制，再部署独立 Management Webapp
+3. **长期**：Palantir 作为 CAS 8.x 的主推管理工具，建议以 Palantir 为主
+
+### 5.4 Account Profile Management（用户自助管理门户）
+
+CAS 原生的 Account Management 模块提供已认证用户的自助管理门户。
+
+```groovy
+// build.gradle
+implementation "org.apereo.cas:cas-server-support-account-management"
+```
+
+访问地址：`https://sso.beenest.club/cas/account`（需已认证）
+
+#### 5.4.1 用户自助功能
+
+| 功能 | 说明 |
+|---|---|
+| **个人信息编辑** | 修改昵称、头像等 Profile 属性 |
+| **密码修改** | 安全地修改当前密码（需验证旧密码） |
+| **登录活动查看** | 查看最近 60 天的登录历史（IP、设备、时间） |
+| **可信设备管理** | 查看/删除 MFA 可信设备记录 |
+| **MFA 设备管理** | 注册/注销 Google Authenticator、WebAuthn 设备 |
+| **属性同意历史** | 查看已授权的属性发布记录 |
+
+### 5.5 Account Registration（用户自注册页面）
+
+```groovy
+// build.gradle
+implementation "org.apereo.cas:cas-server-support-account-registration"
+```
+
+访问地址：`https://sso.beenest.club/cas/register`
+
+提供可视化的用户自注册流程：
+- 用户填写注册表单（用户名、密码、邮箱/手机号）
+- 可选邮件/短信验证
+- 注册成功后自动 Provisioning（通过 Groovy 脚本写入 `cas_user` 表）
+- 可配置自动授权默认应用
+
+### 5.6 Swagger API 文档集成
+
+为 CAS REST API 提供自动生成的 API 文档。
+
+```groovy
+// build.gradle
+implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6"
+```
+
+```yaml
+# application.yml
+springdoc:
+  api-docs:
+    enabled: true
+    path: /cas/v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /cas/swagger-ui.html
+```
+
+访问地址：`https://sso.beenest.club/cas/swagger-ui.html`
+
+### 5.7 需自定义开发的管理页面
+
+以下管理功能 CAS 不提供原生 UI，需要在 CAS 内部自定义开发（不与其他系统耦合）：
+
+| 功能 | 实现方式 | 复杂度 |
+|---|---|---|
+| **踢人下线 UI** | 自定义 `SessionManagementController` + Thymeleaf 页面 | 低（~50 行后端 + 简单模板） |
+| **用户列表/搜索/禁用/启用** | 自定义 `UserAdminController` + Thymeleaf 页面 | 中（需查询 cas_user 表） |
+| **用户角色/权限管理** | 通过 Service Access Strategy 的 `requiredAttributes` 配置，无需独立页面 | 低 |
+| **批量用户导入** | 自定义管理页面 | 中 |
+
+> **原则**：所有管理页面均在 CAS 内部开发（Thymeleaf 模板 + 自定义 Controller），
+> 保持 CAS 作为独立、完整的企业统一认证管理中心，不依赖外部系统。
+
+### 5.8 Admin 页面架构（CAS 内嵌）
+
+```
+CAS Server 内嵌管理页面架构：
+
+┌──────────────────────────────────────────────────────────┐
+│  CAS Server (beenest-cas)                                │
+│                                                          │
+│  ┌──────────────────────┐  ┌──────────────────────────┐ │
+│  │  Palantir Dashboard  │  │  CAS 原生 Webflow 页面   │ │
+│  │  /cas/palantir       │  │  /cas/login              │ │
+│  │  ├─ 应用注册管理     │  │  /cas/logout             │ │
+│  │  ├─ SSO 会话查询     │  │  /cas/register           │ │
+│  │  ├─ 协议模拟         │  │  /cas/account (Profile)  │ │
+│  │  └─ 服务器状态       │  │  └─ 密码管理/MFA/同意    │ │
+│  └──────────────────────┘  └──────────────────────────┘ │
+│                                                          │
+│  ┌──────────────────────────────────────────────────────┐│
+│  │  自定义 Admin 页面 (Thymeleaf + Controller)          ││
+│  │  /api/admin/session  → 踢人下线/会话管理             ││
+│  │  /admin/users        → 用户列表/搜索/禁用/启用       ││
+│  │  统一使用 Spring Security 认证（与 Palantir 共享）   ││
+│  └──────────────────────────────────────────────────────┘│
+│                                                          │
+│  ┌──────────────────────┐  ┌──────────────────────────┐ │
+│  │  Actuator 端点       │  │  Swagger API 文档         │ │
+│  │  /actuator/*         │  │  /cas/swagger-ui.html    │ │
+│  └──────────────────────┘  └──────────────────────────┘ │
+└──────────────────────────────────────────────────────────┘
+```
+
+所有管理页面统一使用 Spring Security 认证，与 Palantir 共享同一套管理员凭据。
+自定义 Admin 页面使用 Thymeleaf 模板引擎（CAS 已集成），保持技术栈一致性。
+
+---
+
+## 六、风险与注意事项
 
 ### 5.1 高风险项
 
@@ -1429,4 +1703,4 @@ CAS 原生的服务管理 UI 是一个**独立的 WAR overlay**（`cas-managemen
 | 认证安全 | 防暴力破解(ExponentialBackoff)/自适应风险认证 |
 | 自定义代码减少 | 从 ~90 个 Java 文件减少到 ~40 个 |
 | CAS 原生模块数 | 从 13 个增加到 ~45 个 |
-| Admin 能力 | Dashboard + Service Management UI + Actuator + 会话管理 |
+| Admin 能力 | Palantir Dashboard + Service Management + Account Management + Account Registration + Swagger API + Actuator + 会话管理 |
