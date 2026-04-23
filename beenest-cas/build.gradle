@@ -380,6 +380,9 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-pac4j-webflow"
     implementation "org.apereo.cas:cas-server-support-pac4j-oidc"
 
+    // CAS 通知核心 API（SmsSender 接口）
+    implementation "org.apereo.cas:cas-server-core-notifications-api"
+
     // 邮件通知（Spring Boot Starter Mail + CAS 通知框架内建支持）
     implementation "org.springframework.boot:spring-boot-starter-mail"
 
