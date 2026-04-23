@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" lang="zh-CN">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+    <title>密码已过期</title>
+</head>
+<body>
+<main class="container mt-3 mb-3">
+    <div layout:fragment="content">
+        <div class="cas-page-card" style="text-align: center;">
+            <h2>密码已过期</h2>
+            <p>你的密码已过期，需要更新才能继续。</p>
+            <div class="cas-btn-group" style="justify-content: center;">
+                <a th:href="@{/login}" class="cas-btn cas-btn-primary">修改密码</a>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

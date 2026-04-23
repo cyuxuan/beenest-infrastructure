@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" lang="zh-CN">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+    <title>登录成功</title>
+</head>
+<body>
+<main class="container mt-3 mb-3">
+    <div layout:fragment="content">
+        <div class="cas-page-card" style="text-align: center;">
+            <h2>认证成功</h2>
+            <p th:if="${registeredService}">
+                你已通过身份验证，即将跳转到 <strong th:text="${registeredService.name}">应用</strong>。
+            </p>
+            <p th:unless="${registeredService}">
+                你已成功通过统一认证。
+            </p>
+            <div style="margin-top: 1.5rem;" class="cas-btn-group" style="justify-content: center;">
+                <a th:href="@{/logout}" class="cas-btn cas-btn-outline">登出</a>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>
