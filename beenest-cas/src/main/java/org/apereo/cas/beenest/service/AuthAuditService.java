@@ -1,60 +1,26 @@
 package org.apereo.cas.beenest.service;
 
-import org.apereo.cas.beenest.entity.CasAuthAuditLog;
-import org.apereo.cas.beenest.mapper.CasAuthAuditLogMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
-
 
 /**
- * 认证审计服务
+ * 认证审计服务（已停用，由 CAS Inspektr 审计框架替代）。
  * <p>
- * 异步记录所有认证事件到 cas_auth_audit_log 表，
- * 不影响认证主流程性能。
+ * 保留此类的空壳实现以确保 Controller 编译通过。
+ * 所有审计数据现由 Inspektr（cas-server-support-audit-jdbc）自动记录到 COM_AUDIT_TRAIL 表。
+ * 后续 Phase 会重构 Controller，届时可完全移除此类。
  */
 @Slf4j
-@RequiredArgsConstructor
 public class AuthAuditService {
 
-    private final CasAuthAuditLogMapper auditLogMapper;
-
     /**
-     * 异步记录认证审计日志
-     *
-     * @param userId        用户ID（失败时可能为空）
-     * @param principal     登录标识
-     * @param authType      认证方式
-     * @param authResult    认证结果 (SUCCESS/FAILED/LOCKED/DISABLED)
-     * @param failureReason 失败原因
-     * @param clientIp      客户端 IP
-     * @param userAgent     User-Agent
-     * @param deviceId      设备标识
-     * @param serviceUrl    请求的 service URL
-     * @param handlerName   处理器名称
+     * 记录认证审计日志（no-op，由 Inspektr 替代）
      */
-    @Async
     public void record(String userId, String principal, String authType,
                        String authResult, String failureReason,
                        String clientIp, String userAgent, String deviceId,
                        String serviceUrl, String handlerName) {
-        try {
-            CasAuthAuditLog auditLog = new CasAuthAuditLog();
-            auditLog.setUserId(userId);
-            auditLog.setPrincipal(principal);
-            auditLog.setAuthType(authType);
-            auditLog.setAuthResult(authResult);
-            auditLog.setFailureReason(failureReason);
-            auditLog.setClientIp(clientIp);
-            auditLog.setUserAgent(userAgent);
-            auditLog.setDeviceId(deviceId);
-            auditLog.setServiceUrl(serviceUrl);
-            auditLog.setHandlerName(handlerName);
-            auditLogMapper.insert(auditLog);
-        } catch (Exception e) {
-            // 审计日志写入失败不应影响认证流程
-            LOGGER.error("审计日志写入失败: userId={}, authType={}, authResult={}",
-                    userId, authType, authResult, e);
-        }
+        // 审计已由 CAS Inspektr 框架自动处理
+        LOGGER.debug("审计委托给 Inspektr: userId={}, authType={}, authResult={}",
+                userId, authType, authResult);
     }
 }

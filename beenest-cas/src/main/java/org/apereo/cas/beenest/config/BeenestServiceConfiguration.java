@@ -2,7 +2,6 @@ package org.apereo.cas.beenest.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apereo.cas.beenest.mapper.CasAppAccessMapper;
-import org.apereo.cas.beenest.mapper.CasAuthAuditLogMapper;
 import org.apereo.cas.beenest.mapper.CasSyncStrategyMapper;
 import org.apereo.cas.beenest.mapper.CasUserChangeLogMapper;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
@@ -71,8 +70,8 @@ public class BeenestServiceConfiguration {
     }
 
     @Bean
-    public AuthAuditService authAuditService(final CasAuthAuditLogMapper auditLogMapper) {
-        return new AuthAuditService(auditLogMapper);
+    public AuthAuditService authAuditService() {
+        return new AuthAuditService();
     }
 
     @Bean

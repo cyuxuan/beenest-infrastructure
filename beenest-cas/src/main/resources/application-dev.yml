@@ -29,6 +29,11 @@ spring:
       database: 1
   thymeleaf:
     cache: false
+  # Palantir Admin Dashboard（开发环境使用简单密码）
+  security:
+    user:
+      name: admin
+      password: admin
 
 server:
   port: 8081
@@ -42,3 +47,9 @@ logging:
     org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:-INFO}
     org.springframework.web: ${LOG_LEVEL_SPRING_WEB:-INFO}
     org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: ${LOG_LEVEL_SPRING_WEB:-INFO}
+
+# Actuator 开发环境配置
+management:
+  endpoint:
+    health:
+      show-details: always

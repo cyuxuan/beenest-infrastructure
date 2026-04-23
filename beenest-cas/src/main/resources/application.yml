@@ -64,6 +64,46 @@ cas:
   logout:
     follow-service-redirects: true
 
+  # Inspektr 审计（替代自定义 AuthAuditService）
+  audit:
+    jdbc:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER:postgres}
+      password: ${DB_PASSWORD:changeme}
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      ddl-auto: update
+      audit-column-length: 5000
+      max-age-days: 180
+
+  # CAS 事件持久化
+  events:
+    jpa:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER:postgres}
+      password: ${DB_PASSWORD:changeme}
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      ddl-auto: update
+
+  # 验证码（登录/注册防机器人，默认关闭，需配置 reCAPTCHA/hCaptcha 密钥后启用）
+  captcha:
+    core:
+      enabled: ${CAPTCHA_ENABLED:false}
+      provider: RECAPTCHA
+    recaptcha:
+      site-key: ${RECAPTCHA_SITE_KEY:}
+      secret-key: ${RECAPTCHA_SECRET_KEY:}
+      verify-url: https://www.google.com/recaptcha/api/siteverify
+
+  # 认证中断（强制改密/公告/合规提醒）
+  interrupt:
+    core:
+      enabled: true
+      trigger-mode: AFTER
+    groovy:
+      location: classpath:interrupt.groovy
+
 # ============================================================
 # Spring Boot 配置
 # ============================================================
@@ -81,6 +121,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+  # Palantir Admin Dashboard 认证
+  security:
+    user:
+      name: ${PALANTIR_ADMIN_USER:admin}
+      password: ${PALANTIR_ADMIN_PASSWORD:}
+      roles: ADMIN
 
 # MyBatis
 mybatis:
@@ -126,3 +172,21 @@ beenest:
   # 用户同步 API 签名密钥
   sync:
     sign-key: ${CAS_SYNC_SIGN_KEY:}
+
+# ============================================================
+# Actuator 端点（Palantir 依赖）
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: when-authorized
+    env:
+      enabled: true
+    info:
+      enabled: true
+    ssoSessions:
+      enabled: true
