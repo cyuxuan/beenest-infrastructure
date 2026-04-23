@@ -104,6 +104,63 @@ cas:
     groovy:
       location: classpath:interrupt.groovy
 
+  # ===== SAML2 IdP =====
+  authn:
+    saml-idp:
+      core:
+        entity-id: https://sso.beenest.club/cas/idp
+        metadata:
+          location: file:/etc/cas/saml
+      metadata:
+        jpa:
+          driver-class: org.postgresql.Driver
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD:changeme}
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          ddl-auto: update
+      response:
+        sign-error: true
+        sign-responses: true
+        sign-assertions: true
+
+    # ===== OAuth2 / OIDC =====
+    oauth:
+      access-token:
+        time-to-kill-in-seconds: 7200
+      refresh-token:
+        time-to-kill-in-seconds: 2592000
+    oidc:
+      core:
+        issuer: https://sso.beenest.club/cas/oidc
+        scopes:
+          - openid
+          - profile
+          - email
+          - phone
+          - offline_access
+      jwks:
+        jwks-file: file:/etc/cas/oidc/jwks.json
+      crypto:
+        signing:
+          key: ${OIDC_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+        encryption:
+          key: ${OIDC_ENCRYPTION_KEY:changeme-changeme-changeme}
+
+    # ===== WS-Federation =====
+    wsfed-idp:
+      idp:
+        realm: urn:org:apereo:cas:ws:idp:realm-beenest
+        realm-name: Beenest
+      sts:
+        realm:
+          issuer: https://sso.beenest.club/cas/wsfed
+        crypto:
+          encryption:
+            key: ${WSFED_ENCRYPTION_KEY:changeme-changeme-changeme}
+          signing:
+            key: ${WSFED_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+
 # ============================================================
 # Spring Boot 配置
 # ============================================================
