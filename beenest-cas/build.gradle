@@ -370,6 +370,19 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-pm-webflow"
     implementation "org.apereo.cas:cas-server-support-person-directory"
 
+    // ===== Phase 4: 企业级功能层 =====
+    implementation "org.apereo.cas:cas-server-support-consent-jdbc"
+    implementation "org.apereo.cas:cas-server-support-consent-webflow"
+    implementation "org.apereo.cas:cas-server-support-aup-webflow"
+    implementation "org.apereo.cas:cas-server-support-aup-jdbc"
+    implementation "org.apereo.cas:cas-server-support-surrogate-webflow"
+    implementation "org.apereo.cas:cas-server-support-surrogate-authentication-jdbc"
+    implementation "org.apereo.cas:cas-server-support-pac4j-webflow"
+    implementation "org.apereo.cas:cas-server-support-pac4j-oidc"
+
+    // 邮件通知（Spring Boot Starter Mail + CAS 通知框架内建支持）
+    implementation "org.springframework.boot:spring-boot-starter-mail"
+
     testImplementation "org.springframework.boot:spring-boot-starter-test"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
