@@ -386,6 +386,18 @@ dependencies {
     // 邮件通知（Spring Boot Starter Mail + CAS 通知框架内建支持）
     implementation "org.springframework.boot:spring-boot-starter-mail"
 
+    // ===== Phase 4.5: JWT/QR/Passwordless/Throttle/Electrofence =====
+    implementation "org.apereo.cas:cas-server-support-token-tickets"
+    implementation "org.apereo.cas:cas-server-support-token-webflow"
+    implementation "org.apereo.cas:cas-server-support-rest-tokens"
+    implementation "org.apereo.cas:cas-server-support-qr-authentication"
+    implementation "org.apereo.cas:cas-server-support-websockets"
+    implementation "org.apereo.cas:cas-server-support-passwordless-webflow"
+    implementation "org.apereo.cas:cas-server-support-passwordless-jpa"
+    implementation "org.apereo.cas:cas-server-support-throttle"
+    implementation "org.apereo.cas:cas-server-support-throttle-redis"
+    implementation "org.apereo.cas:cas-server-support-electrofence"
+
     testImplementation "org.springframework.boot:spring-boot-starter-test"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }

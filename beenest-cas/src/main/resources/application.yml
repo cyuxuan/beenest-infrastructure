@@ -287,6 +287,67 @@ cas:
       password: ${DB_PASSWORD:changeme}
       dialect: org.hibernate.dialect.PostgreSQLDialect
       ddl-auto: update
+
+    # ===== JWT 认证 =====
+    jwt:
+      core:
+        enabled: true
+      crypto:
+        signing:
+          key: ${JWT_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+        encryption:
+          key: ${JWT_ENCRYPTION_KEY:changeme-changeme-changeme}
+
+    # ===== QR Code 扫码登录 =====
+    qr:
+      core:
+        enabled: true
+        ttl: 300
+        qr-size: 256
+        verify-url: ${cas.server.prefix}/qr/verify
+
+    # ===== 无密码认证 (Passwordless) =====
+    passwordless:
+      core:
+        enabled: true
+        token-expire-seconds: 300
+        multiple-token-usage: false
+      groovy:
+        location: classpath:passwordlessUserStore.groovy
+
+    # ===== 认证节流/防暴力破解 =====
+    throttle:
+      core:
+        enabled: true
+        failure-threshold: 5
+        failure-range-in-seconds: 300
+        username-parameter: username
+      redis:
+        host: ${REDIS_HOST:localhost}
+        port: ${REDIS_PORT:6379}
+        password: ${REDIS_PASSWORD:}
+
+    # ===== 自适应风险认证 (Electrofence) =====
+    adaptive:
+      core:
+        enabled: true
+        risk-threshold: 0.6
+      geo:
+        enabled: true
+        provider: ip
+      policy:
+        block-attempt: true
+        trigger-mfa: true
+        log-event: true
+
+  # ===== WebSocket (QR Code 扫码依赖) =====
+  websocket:
+    core:
+      enabled: true
+      endpoint: /cas/websocket
+
+# ============================================================
+# Spring Boot 配置
 # ============================================================
 spring:
   datasource:
