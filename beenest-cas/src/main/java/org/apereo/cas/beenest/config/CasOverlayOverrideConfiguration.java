@@ -7,7 +7,6 @@ import org.apereo.cas.beenest.authn.handler.DouyinMiniAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.SmsOtpAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.WechatMiniAuthenticationHandler;
 import org.apereo.cas.beenest.controller.AppLoginController;
-import org.apereo.cas.beenest.controller.CasServiceAdminController;
 import org.apereo.cas.beenest.controller.CasUserAdminController;
 import org.apereo.cas.beenest.controller.MiniAppLoginController;
 import org.apereo.cas.beenest.controller.SmsController;
@@ -20,7 +19,6 @@ import org.apereo.cas.beenest.authn.strategy.BeenestAccessStrategy;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.AppAccessService;
-import org.apereo.cas.beenest.service.CasServiceAdminService;
 import org.apereo.cas.beenest.service.SmsService;
 import org.apereo.cas.beenest.service.SyncStrategyService;
 import org.apereo.cas.beenest.service.UserAdminService;
@@ -287,18 +285,6 @@ public class CasOverlayOverrideConfiguration {
     }
 
     /**
-     * 注册服务管理控制器。
-     *
-     * @param serviceAdminService 服务管理服务
-     * @return 服务管理控制器
-     */
-    @Bean
-    public CasServiceAdminController casServiceAdminController(
-        final CasServiceAdminService serviceAdminService) {
-        return new CasServiceAdminController(serviceAdminService);
-    }
-
-    /**
      * 注册短信控制器。
      *
      * @param smsService 短信服务
@@ -356,8 +342,7 @@ public class CasOverlayOverrideConfiguration {
     /**
      * 对小程序/APP 登录 API 路径禁用 CSRF 保护。
      * <p>
-     * 这些端点通过 {@link org.apereo.cas.beenest.filter.CasServiceCredentialFilter}
-     * 进行 HMAC 签名校验来保证安全性，无需 CSRF Token。
+     * 这些端点使用自定义认证机制，无需 CSRF Token。
      */
     @Bean
     @Order(1)
