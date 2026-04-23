@@ -1,15 +1,10 @@
 package org.apereo.cas.beenest.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apereo.cas.beenest.mapper.CasSyncStrategyMapper;
-import org.apereo.cas.beenest.mapper.CasUserChangeLogMapper;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.SmsService;
-import org.apereo.cas.beenest.service.SyncStrategyService;
 import org.apereo.cas.beenest.service.UserIdentityService;
-import org.apereo.cas.beenest.service.UserSyncPushService;
 import org.apereo.cas.beenest.service.UserSyncService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -25,17 +20,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 public class BeenestServiceConfiguration {
 
     @Bean
-    public UserSyncPushService userSyncPushService(final CasSyncStrategyMapper syncStrategyMapper,
-                                                   final ObjectMapper objectMapper,
-                                                   final StringRedisTemplate redisTemplate) {
-        return new UserSyncPushService(syncStrategyMapper, objectMapper, redisTemplate);
-    }
-
-    @Bean
-    public UserSyncService userSyncService(final CasUserChangeLogMapper changeLogMapper,
-                                           final ObjectMapper objectMapper,
-                                           final UserSyncPushService pushService) {
-        return new UserSyncService(changeLogMapper, objectMapper, pushService);
+    public UserSyncService userSyncService() {
+        return new UserSyncService();
     }
 
     @Bean
@@ -60,10 +46,5 @@ public class BeenestServiceConfiguration {
     public SmsService smsService(final SmsProperties smsProperties,
                                  final StringRedisTemplate redisTemplate) {
         return new SmsService(smsProperties, redisTemplate);
-    }
-
-    @Bean
-    public SyncStrategyService syncStrategyService(final CasSyncStrategyMapper syncStrategyMapper) {
-        return new SyncStrategyService(syncStrategyMapper);
     }
 }

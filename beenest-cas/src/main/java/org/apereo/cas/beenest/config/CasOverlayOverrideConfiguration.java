@@ -9,18 +9,14 @@ import org.apereo.cas.beenest.authn.handler.WechatMiniAuthenticationHandler;
 import org.apereo.cas.beenest.controller.AppLoginController;
 import org.apereo.cas.beenest.controller.MiniAppLoginController;
 import org.apereo.cas.beenest.controller.SmsController;
-import org.apereo.cas.beenest.controller.SyncStrategyController;
 import org.apereo.cas.beenest.controller.TokenRefreshController;
 import org.apereo.cas.beenest.controller.TokenValidationController;
-import org.apereo.cas.beenest.controller.UserSyncController;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.authn.strategy.BeenestAccessStrategy;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.beenest.service.SmsService;
-import org.apereo.cas.beenest.service.SyncStrategyService;
-import org.apereo.cas.beenest.service.UserSyncService;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
 import org.apereo.cas.authentication.AuthenticationHandler;
@@ -253,22 +249,6 @@ public class CasOverlayOverrideConfiguration {
     }
 
     /**
-     * 注册用户同步控制器。
-     *
-     * @param userMapper      用户映射器
-     * @param userSyncService 用户同步服务
-     * @param redisTemplate   Redis 模板
-     * @return 用户同步控制器
-     */
-    @Bean
-    public UserSyncController userSyncController(
-        final UnifiedUserMapper userMapper,
-        final UserSyncService userSyncService,
-        final StringRedisTemplate redisTemplate) {
-        return new UserSyncController(userMapper, userSyncService, redisTemplate);
-    }
-
-    /**
      * 注册短信控制器。
      *
      * @param smsService 短信服务
@@ -277,18 +257,6 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     public SmsController smsController(final SmsService smsService) {
         return new SmsController(smsService);
-    }
-
-    /**
-     * 注册同步策略控制器。
-     *
-     * @param syncStrategyService 同步策略服务
-     * @return 同步策略控制器
-     */
-    @Bean
-    public SyncStrategyController syncStrategyController(
-        final SyncStrategyService syncStrategyService) {
-        return new SyncStrategyController(syncStrategyService);
     }
 
     /**
