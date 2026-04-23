@@ -30,7 +30,7 @@
 | **OAuth2 Provider** | ❌ 无 | `cas-server-support-oauth` | 需新增 |
 | **OIDC Provider** | ❌ 无 | `cas-server-support-oidc` | 需新增 |
 | **REST Protocol** | ✅ 已有 | `cas-server-support-rest` | 无差距 |
-| **WS-Federation** | ❌ 无 | `cas-server-support-wsfederation` | 需新增 |
+| **WS-Federation** | ❌ 无 | `cas-server-support-ws-idp` | 需新增 |
 | **审计** | 🔶 自定义 `AuthAuditService` | `cas-server-support-audit-jdbc` (Inspektr) | 应替换 |
 | **密码管理** | ❌ 无 | `cas-server-support-pm-jdbc` + `pm-webflow` | 需新增 |
 | **MFA - TOTP** | ❌ 无 | `cas-server-support-gauth` + `gauth-jpa` | 需新增 |
@@ -176,7 +176,7 @@ CAS API:
 ├── cas-server-support-saml-idp-metadata-jpa      (新增)
 ├── cas-server-support-oidc                       (新增)
 ├── cas-server-support-oauth                       (新增)
-└── cas-server-support-wsfederation                (新增)
+└── cas-server-support-ws-idp                      (新增)
 
 认证层:
 ├── cas-server-support-redis-ticket-registry      (已有)
@@ -191,8 +191,7 @@ CAS API:
 └── cas-server-support-integration-pac4j          (新增)
 
 MFA:
-├── cas-server-support-mfa-core                   (新增)
-├── cas-server-support-authentication-mfa          (新增)
+├── cas-server-core-authentication-mfa-api         (新增, MFA 核心 API)
 ├── cas-server-support-gauth                      (新增)
 ├── cas-server-support-gauth-jpa                  (新增)
 ├── cas-server-support-webauthn                   (新增)
@@ -216,7 +215,7 @@ MFA:
 └── cas-server-support-person-directory           (新增)
 
 通知:
-├── cas-server-support-notifications              (新增)
+├── cas-server-support-email-sending              (新增, 邮件通知)
 └── cas-server-support-sms                        (新增)
 
 SAML SP 集成:
@@ -226,6 +225,17 @@ SAML SP 集成:
 ---
 
 ## 三、分阶段实施计划
+
+> **Phase 依赖关系**：
+> - Phase 1（基础设施）→ 无前置依赖，最先执行
+> - Phase 2（协议层）→ 依赖 Phase 1 的审计模块
+> - Phase 3（MFA + 密码管理）→ 可与 Phase 2 并行，依赖 Phase 1
+> - Phase 4（企业功能）→ 依赖 Phase 2（属性发布需要协议层）和 Phase 3（MFA 触发器）
+> - Phase 5（认证重构 + 客户端）→ 依赖 Phase 2-4 全部完成
+> - Phase 6（数据库整合）→ 贯穿 Phase 3-4，每个 Phase 的自定义表由对应的 V2.0.x 脚本处理
+> - Phase 7（UI 定制）→ 可与 Phase 4-5 并行
+>
+> **回滚策略**：每个 Phase 在 git 上创建独立分支。如果某个 Phase 出现严重问题，可 revert 该分支的合并。数据库回滚脚本放在 `db/rollback/` 目录下。
 
 ### Phase 1: 基础设施增强（审计 + 监控 + Admin Dashboard）
 
@@ -276,7 +286,7 @@ management:
 - 删除 `CasAuthAuditLog.java` (Entity)
 - 删除 `CasAuthAuditLogMapper.java`
 - 删除 `mapper/CasAuthAuditLogMapper.xml`
-- 删除 Flyway `V1.0.4__create_cas_auth_audit_log.sql`（或标记废弃）
+- 删除 Flyway `V1.0.4__create_cas_auth_audit_log.sql`（**注意**：如果该脚本已在环境中运行过，不能删除，因为 Flyway 需要校验 checksum。仅在全新环境可删除。推荐做法：保留旧脚本，新增 V2.0.1 删除表）
 
 #### 1.4 Admin Dashboard
 
@@ -309,7 +319,7 @@ implementation "org.apereo.cas:cas-server-support-saml-idp"
 implementation "org.apereo.cas:cas-server-support-saml-idp-metadata-jpa"
 implementation "org.apereo.cas:cas-server-support-oidc"
 implementation "org.apereo.cas:cas-server-support-oauth"
-implementation "org.apereo.cas:cas-server-support-wsfederation"
+implementation "org.apereo.cas:cas-server-support-ws-idp"
 implementation "org.apereo.cas:cas-server-support-saml-sp-integrations"
 ```
 
@@ -366,6 +376,20 @@ cas:
           - offline_access
       jwks:
         jwks-file: file:/etc/cas/oidc/jwks.json
+      # OIDC 签名加密密钥
+      crypto:
+        signing:
+          key: ${OIDC_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+        encryption:
+          key: ${OIDC_ENCRYPTION_KEY:changeme-changeme-changeme}
+```
+
+需要生成 OIDC JWKS 密钥集：
+```bash
+# CAS 启动时自动生成 jwks.json（如果文件不存在）
+# 或手动使用 CAS 命令行工具生成
+mkdir -p /etc/cas/oidc
+# 首次启动后 CAS 会自动在指定路径生成 JWKS 文件
 ```
 
 #### 2.4 WS-Federation 配置
@@ -373,10 +397,18 @@ cas:
 ```yaml
 cas:
   authn:
-    wsfed:
+    wsfed-idp:
       idp:
-        issuer: https://sso.beenest.club/cas/wsfed
-        realm: urn:beenest:cors
+        realm: urn:org:apereo:cas:ws:idp:realm-beenest
+        realm-name: Beenest
+      sts:
+        realm:
+          issuer: https://sso.beenest.club/cas/wsfed
+        crypto:
+          encryption:
+            key: ${WSFED_ENCRYPTION_KEY:changeme-changeme-changeme}
+          signing:
+            key: ${WSFED_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
 ```
 
 #### 2.5 服务注册（替代自定义 Controller）
@@ -415,7 +447,7 @@ cas:
 - 删除 `CasServiceCredentialDO` → 协议原生
 - 删除 `CasServiceCredentialMapper` → 协议原生
 - 删除 `CasServiceCredentialProperties` → 协议原生配置
-- 删除 Flyway `V1.0.5__create_cas_service_credential.sql`
+- 删除 Flyway `V1.0.5__create_cas_service_credential.sql`（保留文件，由 V2.0.1 删除表）
 - 删除 `CasServiceRegisterDTO`, `CasServiceDetailDTO`, `CasServiceSummaryDTO`, `CasServiceAuthMethodDTO`, `CasServiceRegisterResultDTO`
 
 ---
@@ -429,9 +461,8 @@ cas:
 #### 3.1 新增依赖
 
 ```groovy
-// MFA
-implementation "org.apereo.cas:cas-server-support-mfa-core"
-implementation "org.apereo.cas:cas-server-support-authentication-mfa"
+// MFA (gauth/webauthn 模块已传递引入 MFA 核心 API)
+implementation "org.apereo.cas:cas-server-core-authentication-mfa-api"
 implementation "org.apereo.cas:cas-server-support-gauth"
 implementation "org.apereo.cas:cas-server-support-gauth-jpa"
 implementation "org.apereo.cas:cas-server-support-webauthn"
@@ -446,6 +477,11 @@ implementation "org.apereo.cas:cas-server-support-person-directory"
 ```
 
 #### 3.2 密码管理配置
+
+> **注意**：以下配置中的密码策略属性（如 `password-length-min`、`password-require-upper` 等）
+> 需要在实施时与 CAS 7.3.x 官方配置元数据核实。CAS 密码策略可能通过 Groovy 脚本或
+> 自定义 `PasswordPolicy` Bean 实现，而非直接通过 YAML 属性。此处作为设计参考，
+> 具体属性名以 CAS 官方文档为准。
 
 ```yaml
 cas:
@@ -569,7 +605,7 @@ ALTER TABLE cas_user DROP COLUMN IF EXISTS mfa_secret_encrypted;
 - 删除 `CasAppAccessMapper` → 不再需要
 - 删除 `CasAppAccess.java` → 不再需要
 - 删除 `AppAccessGrantDTO` → 不再需要
-- 删除 Flyway `V1.0.1__create_cas_app_access.sql`
+- 删除 Flyway `V1.0.1__create_cas_app_access.sql`（保留文件，由 V2.0.1 删除表）
 
 ---
 
@@ -588,7 +624,7 @@ implementation "org.apereo.cas:cas-server-support-surrogate-authentication"
 implementation "org.apereo.cas:cas-server-support-surrogate-authentication-jdbc"
 implementation "org.apereo.cas:cas-server-support-adaptive-authentication"
 implementation "org.apereo.cas:cas-server-support-integration-pac4j"
-implementation "org.apereo.cas:cas-server-support-notifications"
+implementation "org.apereo.cas:cas-server-support-email-sending"
 implementation "org.apereo.cas:cas-server-support-sms"
 ```
 
@@ -654,12 +690,13 @@ cas:
     pac4j:
       core:
         enabled: true
+      # 注意：Pac4j 使用索引数组配置多个 Provider
       # 微信网页登录（注意：不同于小程序登录）
-      wechat:
+      wechat[0]:
         id: ${WECHAT_WEB_APPID:}
         secret: ${WECHAT_WEB_SECRET:}
       # Google
-      google:
+      google[0]:
         id: ${GOOGLE_CLIENT_ID:}
         secret: ${GOOGLE_CLIENT_SECRET:}
 ```
@@ -689,8 +726,8 @@ spring:
 - 删除 `CasUserChangeLog.java` → 不再需要
 - 删除 `SyncStrategyController` → 不再需要
 - 删除 `UserSyncController` → 不再需要
-- 删除 Flyway `V1.0.2__create_cas_user_change_log.sql`
-- 删除 Flyway `V1.0.3__create_cas_sync_strategy.sql`
+- 删除 Flyway `V1.0.2__create_cas_user_change_log.sql`（保留文件，由 V2.0.1 删除表）
+- 删除 Flyway `V1.0.3__create_cas_sync_strategy.sql`（保留文件，由 V2.0.1 删除表）
 - 删除相关 DTO: `UserSyncWebhookPayloadDTO`, `UserSyncPushFailureDTO`, `CasSyncStrategyDTO`, `UserIdRequestDTO`
 
 ---
@@ -768,17 +805,18 @@ public class BeenestAccessStrategy extends DefaultRegisteredServiceAccessStrateg
 
 ```sql
 -- V2.0.0__enhance_user_table_for_cas_native.sql
--- 增强 cas_user 表（Phase 3 已列出）
+-- （Phase 3 中已定义）
 
 -- V2.0.1__drop_deprecated_custom_tables.sql
 -- 删除被 CAS 原生替代的自定义表
+-- 注意：V1.0.x Flyway 脚本文件必须保留（Flyway checksum 校验需要）
 DROP TABLE IF EXISTS cas_auth_audit_log;
 DROP TABLE IF EXISTS cas_app_access;
 DROP TABLE IF EXISTS cas_sync_strategy;
 DROP TABLE IF EXISTS cas_user_change_log;
 DROP TABLE IF EXISTS cas_service_credential;
 
--- V2.0.2__create_surrogate_table.sql
+-- V2.0.2__create_surrogate_and_aup_tables.sql
 -- 模拟认证表
 CREATE TABLE IF NOT EXISTS cas_surrogate (
     id BIGSERIAL PRIMARY KEY,
@@ -788,7 +826,6 @@ CREATE TABLE IF NOT EXISTS cas_surrogate (
     UNIQUE(principal, surrogate_user)
 );
 
--- V2.0.3__create_aup_table.sql
 -- 使用条款接受记录
 CREATE TABLE IF NOT EXISTS cas_user_aup (
     id BIGSERIAL PRIMARY KEY,
@@ -798,13 +835,15 @@ CREATE TABLE IF NOT EXISTS cas_user_aup (
     created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 注意：以下表由 CAS 原生模块自动创建（ddl-auto: update）：
+-- 注意：以下表由 CAS 原生模块自动创建（ddl-auto: update，仅开发环境使用）：
 -- - COM_AUDIT_TRAIL (Inspektr)
 -- - registered_service + related (JPA Service Registry)
 -- - SamlIdPMetadata (SAML2 JPA)
 -- - MFA 设备注册表 (gauth/webauthn JPA)
 -- - 用户同意表 (consent JPA)
 -- - OAuth2/OIDC 相关表
+-- 生产环境部署前，应从开发环境导出这些 DDL 生成正式的 Flyway 脚本，
+-- 并将所有 ddl-auto 切换为 validate。
 ```
 
 ---
@@ -906,7 +945,7 @@ CREATE TABLE IF NOT EXISTS cas_user_aup (
 | Filter | `CasServiceCredentialFilter.java` | 协议原生 |
 | Config | `CasServiceCredentialProperties.java` | 协议原生配置 |
 | DTO | ~15 个 DTO 类 | 对应的 Controller 被删除 |
-| Migration | `V1.0.1` ~ `V1.0.5` | 被新迁移脚本替代 |
+| Migration | `V1.0.1` ~ `V1.0.5` | **保留文件**（Flyway 校验需要），其创建的表由 V2.0.1 删除 |
 
 ---
 
@@ -926,9 +965,36 @@ CREATE TABLE IF NOT EXISTS cas_user_aup (
 
 1. **版本锁定**: 所有 `cas-server-support-*` 模块不指定版本号，由 CAS BOM 统一管理
 2. **ddl-auto 策略**: 开发环境可用 `update`（自动建表），生产环境必须用 `validate` + Flyway
-3. **密钥管理**: 所有加密密钥（TGC、Ticket、SAML、OIDC）必须通过环境变量注入，不得硬编码
+3. **密钥管理**: 所有加密密钥（TGC、Ticket、SAML、OIDC、WS-Fed STS）必须通过环境变量注入，不得硬编码
 4. **测试策略**: 每个 Phase 完成后必须通过集成测试验证
 5. **文档更新**: 每个 Phase 完成后更新 CLAUDE.md 和 README
+6. **Flyway 脚本保留**: V1.0.x 脚本文件不得删除——即使其创建的表已被 V2.0.1 DROP，Flyway 需要这些文件做 checksum 校验。全新环境部署时，V1.0.x 先执行建表、V2.0.1 再删表，保证迁移链完整。
+
+### 5.3 CAS Service Management Webapp 部署说明
+
+CAS 原生的服务管理 UI 是一个**独立的 WAR overlay**（`cas-management`），并非 CAS Server 内置模块。部署方式：
+
+1. **独立部署**：作为单独的 Spring Boot 应用运行，连接同一个 Service Registry 数据库
+2. **嵌入 CAS Server**：将 `cas-server-support-reports` 的管理功能用于基础服务查看，但完整的服务 CRUD 需要独立部署 Management Webapp
+3. **推荐方案**：先阶段使用 `cas-server-support-reports` 提供的基础管理能力 + 直接通过 Service Registry JSON/数据库管理服务；后续根据需要部署独立的 Management Webapp
+
+### 5.4 客户端 Starter 影响分析
+
+**`beenest-cas-client-spring-security-starter`（39 个 Java 文件）**需要在服务端重构后进行适配：
+
+| 客户端组件 | 当前实现 | 重构后方案 | 优先级 |
+|---|---|---|---|
+| Bearer Token 过滤器 | 自定义 TGT 验证 | 保留（CAS Protocol 兼容）+ 新增 OIDC Token 验证 | 高 |
+| SLO 单点登出 | CAS Protocol Back-Channel | 保留 + 新增 OIDC Front-Channel | 中 |
+| 用户同步 (Pull) | 定时调用 `/api/user/changes` | 过渡保留，长期切换为 OIDC UserInfo 端点 | 低 |
+| 用户同步 (Webhook) | 接收推送通知 | 过渡保留，长期切换为事件驱动 | 低 |
+| Token 刷新 | 自定义 refreshToken | 保留 + 新增 OAuth2 Refresh Token 标准流程 | 高 |
+| 权限同步 | 从 CAS 获取权限属性 | 通过 OIDC Scope + Claims 标准化 | 中 |
+
+**兼容策略**：
+- Phase 1-4 重构不影响客户端（CAS Protocol 不变）
+- Phase 5 认证处理器重构需验证 Token 兼容性
+- 客户端新增 OIDC/OAuth2 支持可在 Phase 5 之后独立进行
 
 ---
 
