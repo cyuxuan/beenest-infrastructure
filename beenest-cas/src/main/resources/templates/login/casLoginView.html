@@ -114,6 +114,8 @@
                     </label>
                 </section>
 
+                <div th:if="${recaptchaSiteKey}" class="g-recaptcha" th:attr="data-sitekey=${recaptchaSiteKey}" data-theme="dark" style="margin-top: 0.2rem;"></div>
+
                 <button type="submit" class="submit-button">
                     <span class="submit-label">进入系统</span>
                     <span class="submit-hint">CAS / beenest routing</span>

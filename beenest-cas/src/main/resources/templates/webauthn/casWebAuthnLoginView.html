@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" lang="zh-CN">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+    <title>WebAuthn 认证</title>
+</head>
+<body>
+<main class="container mt-3 mb-3">
+    <div layout:fragment="content">
+        <div class="cas-page-card" style="text-align: center;">
+            <h2>WebAuthn 安全认证</h2>
+            <p>请使用已注册的安全密钥或生物识别完成认证。</p>
+
+            <form method="post" id="fm1" th:object="${credential}" th:action="@{/login}">
+                <input type="hidden" name="_eventId" value="submit"/>
+                <input type="hidden" name="execution" th:value="${flowExecutionKey}"/>
+                <input type="hidden" name="geolocation"/>
+
+                <div class="alert alert-danger" th:if="${#fields.hasErrors('*')}">
+                    <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}"/>
+                </div>
+
+                <div style="margin: 2rem 0;">
+                    <div style="width: 80px; height: 80px; margin: 0 auto; border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 2rem;">&#x1F511;</span>
+                    </div>
+                    <p style="color: var(--muted); margin-top: 1rem;">等待安全密钥...</p>
+                </div>
+
+                <div class="cas-btn-group" style="justify-content: center;">
+                    <button type="submit" class="cas-btn cas-btn-primary">使用安全密钥</button>
+                    <button type="button" class="cas-btn cas-btn-outline" onclick="location.href = location.href;">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+</body>
+</html>

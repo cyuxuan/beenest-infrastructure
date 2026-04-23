@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" lang="zh-CN">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+    <title th:text="#{cas.acceptableusagepolicyview.pagetitle}">使用条款</title>
+</head>
+<body>
+<main class="container mt-3 mb-3">
+    <div layout:fragment="content">
+        <div class="cas-page-card">
+            <h2 th:text="#{screen.aup.heading}">使用条款</h2>
+
+            <div class="aup" style="margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--line); border-radius: 1rem; background: rgba(255,255,255,0.02); line-height: 1.8;">
+                <div th:if="${aupPolicy}">
+                    <p id="policyTextByCode" th:if="${aupPolicy.code}"
+                       th:utext="#{${aupPolicy.code}}">条款内容</p>
+                    <p id="policyDefaultText" th:if="${aupPolicy.defaultText}"
+                       th:utext="${aupPolicy.defaultText}">默认条款</p>
+                </div>
+                <div th:unless="${aupPolicy}">
+                    <p th:utext="#{screen.aup.policyterms}">使用条款</p>
+                </div>
+            </div>
+
+            <form method="post" id="fm1">
+                <input type="hidden" name="execution" th:value="${flowExecutionKey}"/>
+                <input type="hidden" name="_eventId" value="submit"/>
+
+                <div class="cas-btn-group" style="justify-content: flex-end;">
+                    <button class="cas-btn cas-btn-primary" name="submit" id="aupSubmit" type="submit"
+                            th:text="#{screen.aup.button.accept}">接受并继续</button>
+                    <button class="cas-btn cas-btn-outline" name="cancel" id="aupCancel" type="button"
+                            onclick="location.href = location.href;"
+                            th:text="#{screen.aup.button.cancel}">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+</body>
+</html>

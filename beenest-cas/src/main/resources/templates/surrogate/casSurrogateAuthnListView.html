@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" lang="zh-CN">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+    <title>代理登录</title>
+</head>
+<body>
+<main class="container mt-3 mb-3">
+    <div layout:fragment="content">
+        <div class="cas-page-card">
+            <h2>代理登录</h2>
+            <p>选择要代理登录的目标用户。此操作将被审计记录。</p>
+
+            <div class="alert alert-warning">
+                <p>代理登录将以目标用户身份创建会话，请仅在排查问题时使用。</p>
+            </div>
+
+            <form method="post" id="fm1" th:object="${credential}" th:action="@{/login}">
+                <input type="hidden" name="_eventId" value="submit"/>
+                <input type="hidden" name="execution" th:value="${flowExecutionKey}"/>
+
+                <div id="msg" class="alert alert-danger" th:if="${#fields.hasErrors('*')}">
+                    <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}"/>
+                </div>
+
+                <section>
+                    <label for="surrogateTarget">目标用户</label>
+                    <select id="surrogateTarget" name="surrogateUser" th:field="*{surrogateUser}" required>
+                        <option value="" disabled selected>请选择要代理的用户</option>
+                        <option th:each="account : ${surrogateAccounts}"
+                                th:value="${account}"
+                                th:text="${account}">username</option>
+                    </select>
+                </section>
+
+                <div class="cas-btn-group" style="margin-top: 1.5rem;">
+                    <button type="submit" class="cas-btn cas-btn-primary">代理登录</button>
+                    <button type="button" class="cas-btn cas-btn-outline" onclick="history.back()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+</body>
+</html>
