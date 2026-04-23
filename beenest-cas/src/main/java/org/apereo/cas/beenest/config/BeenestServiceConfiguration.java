@@ -1,7 +1,6 @@
 package org.apereo.cas.beenest.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apereo.cas.beenest.mapper.CasAppAccessMapper;
 import org.apereo.cas.beenest.mapper.CasSyncStrategyMapper;
 import org.apereo.cas.beenest.mapper.CasUserChangeLogMapper;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
@@ -9,7 +8,6 @@ import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.SmsService;
 import org.apereo.cas.beenest.service.SyncStrategyService;
-import org.apereo.cas.beenest.service.UserAdminService;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import org.apereo.cas.beenest.service.UserSyncPushService;
 import org.apereo.cas.beenest.service.UserSyncService;
@@ -41,9 +39,8 @@ public class BeenestServiceConfiguration {
     }
 
     @Bean
-    public AppAccessService appAccessService(final CasAppAccessMapper appAccessMapper,
-                                             final UserSyncService userSyncService) {
-        return new AppAccessService(appAccessMapper, userSyncService);
+    public AppAccessService appAccessService() {
+        return new AppAccessService();
     }
 
     @Bean
@@ -52,13 +49,6 @@ public class BeenestServiceConfiguration {
                                                    @Value("${beenest.user.auto-grant-service-ids:10001}") final String autoGrantServiceIds,
                                                    final AppAccessService appAccessService) {
         return new UserIdentityService(userMapper, userSyncService, appAccessService, autoGrantServiceIds);
-    }
-
-    @Bean
-    public UserAdminService userAdminService(final UnifiedUserMapper userMapper,
-                                             final UserSyncService userSyncService,
-                                             final AppAccessService appAccessService) {
-        return new UserAdminService(userMapper, userSyncService, appAccessService);
     }
 
     @Bean
