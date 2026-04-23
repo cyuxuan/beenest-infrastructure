@@ -348,6 +348,17 @@ dependencies {
     // Spring Boot Actuator（Palantir 依赖）
     implementation "org.springframework.boot:spring-boot-starter-actuator"
 
+    // ===== Phase 2: 协议层（企业级统一身份提供商） =====
+    implementation "org.apereo.cas:cas-server-support-saml-idp"
+    implementation "org.apereo.cas:cas-server-support-saml-idp-metadata-jpa"
+    implementation "org.apereo.cas:cas-server-support-saml-sp-integrations"
+    implementation "org.apereo.cas:cas-server-support-oauth-webflow"
+    implementation "org.apereo.cas:cas-server-support-oidc"
+    implementation "org.apereo.cas:cas-server-support-oidc-jpa"
+    implementation "org.apereo.cas:cas-server-support-ws-idp"
+    implementation "org.apereo.cas:cas-server-support-wsfederation-webflow"
+    implementation "org.apereo.cas:cas-server-support-rest-services"
+
     testImplementation "org.springframework.boot:spring-boot-starter-test"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
