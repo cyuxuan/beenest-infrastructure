@@ -47,6 +47,19 @@
 | **委托认证** | ❌ 无 | `cas-server-support-integration-pac4j` | 需新增 |
 | **监控/Metrics** | ❌ 无 | Spring Boot Actuator | 需新增 |
 | **小程序认证** | ✅ 自定义 Handler | 无原生替代 | **必须保留** |
+| **JWT 认证** | ❌ 无 | `cas-server-support-jwt-authentication` | 需新增 |
+| **JWT Service Ticket** | ❌ 无 | CAS 原生 JWT ST（按服务配置） | 需新增 |
+| **OAuth2 JWT Access Token** | ❌ 无 | CAS 原生（按服务配置） | 需新增 |
+| **Token Introspection** | ❌ 无 | CAS 原生 OAuth2 内省端点 | 需新增 |
+| **QR Code 扫码登录** | ❌ 无 | `cas-server-support-qr-authn` | 需新增 |
+| **无密码认证 (Passwordless)** | ❌ 无 | `cas-server-support-passwordless` | 需新增 |
+| **认证节流/防暴力破解** | 🔶 自定义 lockout 逻辑 | `cas-server-support-authentication-throttle` | 应替换 |
+| **用户自注册** | 🔶 自定义 Controller | `cas-server-support-account-registration` | 应替换 |
+| **自动 Provisioning** | 🔶 自定义 UserIdentityService | CAS Groovy/REST/SCIM Provisioning | 整合 |
+| **用户账户管理** | ❌ 无 | CAS Account Profile Management | 需新增 |
+| **服务访问策略** | 🔶 自定义 AppAccessService | CAS Service Access Strategy（属性/角色/REST） | 应替换 |
+| **会话管理/踢人下线** | ❌ 无 | TGT 销毁 + SLO 级联 | 需新增（自定义端点） |
+| **属性解析 (Person Directory)** | ❌ 无 | `cas-server-support-person-directory` | 需新增 |
 
 ### 1.3 可删除的自定义代码
 
@@ -220,6 +233,23 @@ MFA:
 
 SAML SP 集成:
 └── cas-server-support-saml-sp-integrations       (新增)
+
+JWT 与 Token:
+├── cas-server-support-jwt-authentication          (新增, JWT 认证)
+├── cas-server-support-jwt-service-ticket          (新增, JWT Service Ticket)
+├── cas-server-support-oauth-core-api              (新增, Token Introspection)
+└── cas-server-support-rest-tokens                 (新增, REST JWT Token)
+
+扫码与无密码认证:
+├── cas-server-support-qr-authn                    (新增, QR Code 扫码登录)
+└── cas-server-support-passwordless                (新增, 无密码认证)
+
+认证安全:
+└── cas-server-support-authentication-throttle     (新增, 防暴力破解)
+
+用户注册与账户管理:
+├── cas-server-support-account-registration        (新增, 用户自注册)
+└── cas-server-support-account-management          (新增, 账户 Profile 管理)
 ```
 
 ---
@@ -230,10 +260,11 @@ SAML SP 集成:
 > - Phase 1（基础设施）→ 无前置依赖，最先执行
 > - Phase 2（协议层）→ 依赖 Phase 1 的审计模块
 > - Phase 3（MFA + 密码管理）→ 可与 Phase 2 并行，依赖 Phase 1
-> - Phase 4（企业功能）→ 依赖 Phase 2（属性发布需要协议层）和 Phase 3（MFA 触发器）
-> - Phase 5（认证重构 + 客户端）→ 依赖 Phase 2-4 全部完成
-> - Phase 6（数据库整合）→ 贯穿 Phase 3-4，每个 Phase 的自定义表由对应的 V2.0.x 脚本处理
-> - Phase 7（UI 定制）→ 可与 Phase 4-5 并行
+> - Phase 4（企业功能：用户同意/AUP/通知/委托认证/模拟认证/自适应认证）→ 依赖 Phase 2 和 Phase 3
+> - Phase 4.5（JWT 全链路/扫码登录/无密码认证/防暴力破解/会话管理）→ 依赖 Phase 2（JWT 需要协议层）
+> - Phase 5（认证重构 + 用户注册/Provisioning + 客户端兼容）→ 依赖 Phase 2-4.5 全部完成
+> - Phase 6（数据库整合）→ 贯穿 Phase 3-4.5，每个 Phase 的自定义表由对应的 V2.0.x 脚本处理
+> - Phase 7（UI 定制）→ 可与 Phase 4.5-5 并行
 >
 > **回滚策略**：每个 Phase 在 git 上创建独立分支。如果某个 Phase 出现严重问题，可 revert 该分支的合并。数据库回滚脚本放在 `db/rollback/` 目录下。
 
@@ -732,11 +763,235 @@ spring:
 
 ---
 
-### Phase 5: 认证处理器重构 + 客户端兼容
+### Phase 4.5: JWT/Token 全链路 + 扫码登录 + 无密码认证 + 认证安全
 
-**目标**: 重构保留的认证处理器，确保客户端 starter 兼容新的 CAS 原生功能。
+**目标**: 建立 JWT 全链路支持（资源服务认证）、QR Code 扫码登录、无密码认证、防暴力破解。
 
-**预估工时**: 5-7 天
+**预估工时**: 5-6 天
+
+#### 4.5.1 新增依赖
+
+```groovy
+// JWT 全链路
+implementation "org.apereo.cas:cas-server-support-jwt-authentication"
+implementation "org.apereo.cas:cas-server-support-jwt-service-ticket"
+implementation "org.apereo.cas:cas-server-support-rest-tokens"
+
+// QR Code 扫码登录
+implementation "org.apereo.cas:cas-server-support-qr-authn"
+
+// 无密码认证（Magic Link）
+implementation "org.apereo.cas:cas-server-support-passwordless"
+
+// 认证节流/防暴力破解
+implementation "org.apereo.cas:cas-server-support-authentication-throttle"
+```
+
+#### 4.5.2 JWT 认证配置
+
+CAS 支持三种 JWT 模式，全部通过 Service 定义配置：
+
+**JWT 认证（使用 JWT 作为凭证直接登录）**：
+```yaml
+cas:
+  authn:
+    jwt:
+      core:
+        enabled: true
+      crypto:
+        signing:
+          key: ${JWT_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+        encryption:
+          key: ${JWT_ENCRYPTION_KEY:changeme-changeme-changeme}
+```
+
+**JWT Service Ticket（按服务配置，替代传统 opaque ST）**：
+```json
+// 在 Service 注册时配置
+{
+  "@class": "org.apereo.cas.services.CasRegisteredService",
+  "serviceId": "https://app.example.com/.*",
+  "name": "JWT ST Enabled App",
+  "id": 3000,
+  "properties": {
+    "jwtAsServiceTicket": {
+      "@class": "org.apereo.cas.services.DefaultRegisteredServiceProperty",
+      "values": ["true"]
+    }
+  }
+}
+```
+
+**OAuth2 JWT Access Token（按服务配置）**：
+```json
+{
+  "@class": "org.apereo.cas.support.oauth.services.OAuthRegisteredService",
+  "serviceId": "https://api.example.com/.*",
+  "name": "JWT Access Token API",
+  "id": 3001,
+  "clientId": "api-client",
+  "clientSecret": "hashed-secret",
+  "jwtAccessToken": true,
+  "properties": {
+    "accessTokenAsJwt": {
+      "@class": "org.apereo.cas.services.DefaultRegisteredServiceProperty",
+      "values": ["true"]
+    },
+    "accessTokenAsJwtSigningKey": {
+      "@class": "org.apereo.cas.services.DefaultRegisteredServiceProperty",
+      "values": ["${JWT_ACCESS_TOKEN_SIGNING_KEY}"]
+    }
+  }
+}
+```
+
+**Token Introspection 端点**（供资源服务器验证 Token）：
+- `POST /cas/oauth2.0/introspect` — OAuth2 Token 内省
+- 支持 JWT 和 opaque token 两种格式
+- 资源服务器无需回调 CAS 即可本地验证 JWT Access Token
+
+#### 4.5.3 QR Code 扫码登录
+
+CAS 原生 QR Code 认证模块提供完整的扫码登录 Webflow：
+- PC 端显示 QR Code，移动端扫码确认登录
+- 内置 WebSocket 长连接通知机制
+- 可与移动端已登录 Session 关联
+
+```yaml
+cas:
+  authn:
+    qr:
+      core:
+        enabled: true
+        # QR Code 有效期（秒）
+        ttl: 300
+        # QR Code 尺寸
+        qr-size: 256
+        # 验证端点（移动端调用确认登录）
+        verify-url: ${cas.server.prefix}/qr/verify
+```
+
+> **重要**：CAS QR Code 认证模块要求移动端已通过其他方式（如小程序、App）认证。
+> 对于 beenest 场景，移动端用户已通过小程序登录后，扫码 PC 端 QR Code 即可完成 PC 端登录。
+> 这与现有的小程序认证流程互补而非替代。
+
+#### 4.5.4 无密码认证 (Passwordless)
+
+CAS 原生 Passwordless 模块支持 Magic Link 邮件/短信认证：
+- 用户输入手机号或邮箱
+- CAS 发送一次性 Token（短信/邮件）
+- 用户输入 Token 或点击 Magic Link 完成认证
+
+```yaml
+cas:
+  authn:
+    passwordless:
+      core:
+        enabled: true
+        # Token 有效期（秒）
+        token-expire-seconds: 300
+        # 是否允许多次使用同一 Token
+        multiple-token-usage: false
+      # 用户存储（通过 Groovy 脚本查询用户信息）
+      groovy:
+        location: classpath:passwordlessUserStore.groovy
+```
+
+Groovy 脚本 `passwordlessUserStore.groovy` 示例（连接 cas_user 表）：
+```groovy
+import org.apereo.cas.authentication.principal.Principal
+import org.apereo.cas.authentication.Credential
+import org.springframework.jdbc.core.JdbcTemplate
+import javax.sql.DataSource
+
+def run(Object[] args) {
+    def (username, logger) = args
+    def dataSource = applicationContext.getBean("dataSource", DataSource.class)
+    def jdbc = new JdbcTemplate(dataSource)
+    def user = jdbc.queryForMap(
+        "SELECT user_id, phone, email FROM cas_user WHERE username = ? OR phone = ? AND status = 1",
+        username, username
+    )
+    if (user) {
+        return [
+            username: user.user_id,
+            email   : user.email,
+            phone   : user.phone,
+            name    : user.user_id
+        ]
+    }
+    return null
+}
+```
+
+#### 4.5.5 认证节流/防暴力破解
+
+替换自定义的 `failed_login_count` + `lock_until_time` 逻辑：
+
+```yaml
+cas:
+  authn:
+    throttle:
+      core:
+        enabled: true
+        # 失败次数阈值
+        failure-threshold: 5
+        # 失败后锁定时间（秒）
+        failure-range-in-seconds: 300
+        # 使用 ExponentialBackoff 策略：失败越多等待越长
+        username-parameter: username
+        # Redis 后端存储失败记录
+      redis:
+        host: ${REDIS_HOST:localhost}
+        port: ${REDIS_PORT:6379}
+        password: ${REDIS_PASSWORD:}
+```
+
+> **注意**：CAS 原生节流是**基于 IP 或用户名**的临时限制，不等同于永久账户锁定。
+> 如果业务需要"超过 N 次失败永久锁定账户"，仍需自定义 AuthenticationPostProcessor。
+> 推荐：CAS 原生节流处理短期防暴力 + 自定义 PostProcessor 处理长期锁定。
+
+#### 4.5.6 会话管理/踢人下线
+
+CAS 通过 TGT 管理实现会话控制：
+
+**原生能力**：
+- `DELETE /cas/ticket/{tgtId}` — 销毁 TGT，级联 SLO 到所有已登录应用
+- Redis Ticket Registry 支持查询所有活跃 TGT
+- `track-descendant-tickets: true`（已配置）确保登出时清理所有 ST
+
+**需要自定义的管理端点**（CAS 无原生踢人 UI）：
+```java
+@RestController
+@RequestMapping("/api/admin/session")
+public class SessionManagementController {
+    // 踢人下线：销毁指定用户的所有 TGT
+    // 需要通过 Redis Ticket Registry 查询 tgtId
+    // 然后调用 ticketRegistry.deleteTicket(tgtId)
+    // CAS 会自动触发 SLO 到所有关联应用
+}
+```
+
+此 Controller 需要**保留为自定义代码**，但实现非常轻量（~50 行）。
+
+---
+
+### Phase 5: 认证处理器重构 + 用户注册/Provisioning + 服务访问策略 + 客户端兼容
+
+**目标**: 重构保留的认证处理器、实现用户自注册与自动授权、完善服务级访问控制、确保客户端兼容。
+
+**预估工时**: 7-9 天
+
+#### 5.0 新增依赖
+
+```groovy
+// 用户注册与账户管理
+implementation "org.apereo.cas:cas-server-support-account-registration"
+implementation "org.apereo.cas:cas-server-support-account-management"
+
+// 属性解析（Service Access Strategy 需要）
+implementation "org.apereo.cas:cas-server-support-person-directory"
+```
 
 #### 5.1 保留并重构的认证处理器
 
@@ -769,7 +1024,161 @@ public class BeenestAccessStrategy extends DefaultRegisteredServiceAccessStrateg
 }
 ```
 
-#### 5.3 CasOverlayOverrideConfiguration 瘦身
+#### 5.3 用户自注册与自动 Provisioning
+
+CAS 原生支持用户自注册（Account Registration），并可在注册时自动 Provisioning 到目标系统。
+
+**配置**：
+```yaml
+cas:
+  account-registration:
+    core:
+      enabled: true
+      # 注册后自动创建用户
+      auto-create-accounts: true
+    # 使用 Groovy 脚本处理注册请求（写入 cas_user 表）
+    provisioning:
+      groovy:
+        location: classpath:accountRegistrationProvisioning.groovy
+```
+
+**Groovy Provisioning 脚本**（整合 `UserIdentityService` 的自动注册逻辑）：
+```groovy
+// accountRegistrationProvisioning.groovy
+// CAS 注册流程 → 此脚本 → 写入 cas_user 表 + 自动授权服务
+def run(Object[] args) {
+    def (registrationRequest, logger) = args
+    def dataSource = applicationContext.getBean("dataSource", DataSource.class)
+    def jdbc = new JdbcTemplate(dataSource)
+
+    // 1. 检查用户是否已存在
+    def existing = jdbc.queryForList(
+        "SELECT user_id FROM cas_user WHERE phone = ? OR email = ? AND status != 4",
+        registrationRequest.phone, registrationRequest.email
+    )
+    if (existing) {
+        // 已存在，执行合并逻辑
+        return existing[0].user_id
+    }
+
+    // 2. 创建新用户
+    def userId = UUID.randomUUID().toString().replace("-", "").substring(0, 32)
+    jdbc.update("""
+        INSERT INTO cas_user (user_id, username, phone, email, password_hash,
+                              phone_verified, email_verified, status, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'WEB')
+    """, userId, registrationRequest.username, registrationRequest.phone,
+         registrationRequest.email, registrationRequest.passwordHash,
+         registrationRequest.phone != null, registrationRequest.email != null)
+
+    // 3. 自动授权默认服务（替代 cas_app_access 表逻辑）
+    // 通过 CAS Service Access Strategy 的 requiredAttributes 实现
+    // 或通过 REST 调用 Service Management API 注册用户-服务关系
+
+    return userId
+}
+```
+
+**自动授权机制**：
+- CAS Service Access Strategy 支持按属性控制访问：用户注册后自动获得特定属性（如 `memberOf=app-10001`）
+- 在 Service 定义中配置 `requiredAttributes`，只有包含该属性的用户才能访问
+- 自定义认证处理器（微信/支付宝等）认证成功后，`UserIdentityService` 在返回的 Principal 中附带 `memberOf` 属性
+
+**自动注册能力矩阵**（各认证渠道的自动注册支持）：
+
+| 认证渠道 | 自动注册 | 实现方式 |
+|---|---|---|
+| 微信小程序 | ✅ 支持 | `UserIdentityService` 自动创建（openid → cas_user） |
+| 抖音小程序 | ✅ 支持 | 同上（douyin_openid → cas_user） |
+| 支付宝小程序 | ✅ 支持 | 同上（alipay_uid → cas_user） |
+| SMS OTP | ✅ 支持 | CAS Passwordless + Groovy Provisioning |
+| App Token | ❌ 需先注册 | 不支持自动注册，需先通过其他渠道创建账户 |
+| JDBC 用户名密码 | ✅ 支持 | CAS Account Registration Webflow |
+| QR Code 扫码 | ❌ 需先登录 | 移动端已认证后才能扫码 |
+| 委托认证（社交登录）| ✅ 支持 | CAS Delegate Authentication + Provisioning |
+
+#### 5.4 Service Access Strategy（用户-应用访问控制）
+
+CAS 原生 Service Access Strategy 替代自定义的 `cas_app_access` 表，提供更强大的细粒度访问控制。
+
+**模式一：基于属性的访问控制（推荐）**：
+```json
+{
+  "@class": "org.apereo.cas.services.CasRegisteredService",
+  "serviceId": "https://drone-system.beenest.club/.*",
+  "name": "Drone System",
+  "id": 10001,
+  "accessStrategy": {
+    "@class": "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
+    "enabled": true,
+    "ssoEnabled": true,
+    "requiredAttributes": {
+      "@class": "java.util.HashMap",
+      "memberOf": ["java.util.HashSet", ["DRONE_SYSTEM_USER"]]
+    },
+    "unauthorizedRedirectUrl": "https://sso.beenest.club/cas/login"
+  }
+}
+```
+
+**模式二：REST 远程授权（最灵活）**：
+```json
+{
+  "accessStrategy": {
+    "@class": "org.apereo.cas.services.RestRegisteredServiceAccessStrategy",
+    "endpointUrl": "https://internal-api.beenest.club/cas/access-check",
+    "acceptableResponseCodes": "200"
+  }
+}
+```
+CAS 将用户 Principal 信息 POST 到远程端点，端点返回 200（允许）或 403（拒绝）。
+
+**模式三：自定义扩展（BeenestAccessStrategy）**：
+保留轻量自定义扩展，用于复杂业务逻辑（如时间段限制、设备限制等）：
+```java
+public class BeenestAccessStrategy extends DefaultRegisteredServiceAccessStrategy {
+    // 扩展 CAS 原生策略
+    // 可组合属性检查 + REST 远程检查
+}
+```
+
+#### 5.5 会话管理/踢人下线
+
+CAS 原生通过 TGT 销毁 + SLO 级联实现会话管理。需要自定义一个轻量管理端点：
+
+```java
+// 需要保留为自定义代码（CAS 无原生踢人 UI/API）
+@RestController
+@RequestMapping("/api/admin/session")
+public class SessionManagementController {
+    private final TicketRegistry ticketRegistry;
+
+    // 1. 查询指定用户的所有活跃会话
+    @GetMapping("/user/{userId}/sessions")
+    public List<SessionInfo> getUserSessions(@PathVariable String userId) {
+        // 从 Redis Ticket Registry 查询该用户的所有 TGT
+    }
+
+    // 2. 踢人下线：销毁指定 TGT，级联 SLO
+    @DeleteMapping("/ticket/{tgtId}")
+    public void kickOut(@PathVariable String tgtId) {
+        ticketRegistry.deleteTicket(tgtId);
+        // CAS 自动触发 SLO 到所有关联应用
+    }
+
+    // 3. 踢指定用户的所有会话
+    @DeleteMapping("/user/{userId}/sessions")
+    public void kickAll(@PathVariable String userId) {
+        // 查询并删除该用户所有 TGT
+    }
+}
+```
+
+> **关键原理**：Redis Ticket Registry 存储了所有活跃 TGT，TGT 关联了用户 Principal。
+> 销毁 TGT 时 CAS `LogoutManager` 自动向所有注册服务发送 SLO 请求。
+> 已配置的 `track-descendant-tickets: true` 确保级联清理。
+
+#### 5.6 CasOverlayOverrideConfiguration 瘦身
 
 原配置类注册了 5 个 Handler + 9 个 Controller + BeenestAccessStrategy。
 重构后只需要注册：
@@ -778,7 +1187,7 @@ public class BeenestAccessStrategy extends DefaultRegisteredServiceAccessStrateg
 - BeenestAccessStrategy 扩展
 - Person Directory 自定义属性解析器
 
-#### 5.4 客户端 Starter 兼容性
+#### 5.7 客户端 Starter 兼容性
 
 **`beenest-cas-client-spring-security-starter`**（39 个 Java 文件）：
 
@@ -885,11 +1294,14 @@ CREATE TABLE IF NOT EXISTS cas_user_aup (
 | 配置 | `src/main/resources/oidc/jwks.json` | OIDC JWKS 密钥集 |
 | 迁移 | `V2.0.0__enhance_user_table.sql` | 用户表增强 |
 | 迁移 | `V2.0.1__drop_deprecated_tables.sql` | 删除废弃表 |
-| 迁移 | `V2.0.2__create_surrogate_table.sql` | 模拟认证表 |
-| 迁移 | `V2.0.3__create_aup_table.sql` | 使用条款表 |
+| 迁移 | `V2.0.2__create_surrogate_and_aup_tables.sql` | 模拟认证表 + AUP 表 |
 | 模板 | `templates/casLoginView.html` 等 | CAS UI 定制 |
 | 认证 | `BeenestAccessStrategy` (重构) | CAS 原生扩展 |
 | 认证 | Person Directory 配置 | 自定义属性解析 |
+| Groovy | `passwordlessUserStore.groovy` | 无密码认证用户查询 |
+| Groovy | `accountRegistrationProvisioning.groovy` | 用户注册 Provisioning |
+| 会话管理 | `SessionManagementController.java` | 踢人下线/会话查询 API |
+| 属性解析 | 自定义 `PersonDirectoryAttributeResolver` | 从 cas_user 解析角色/权限属性 |
 
 ### 4.2 保留并重构的文件
 
@@ -960,6 +1372,9 @@ CREATE TABLE IF NOT EXISTS cas_user_aup (
 | OIDC JWKS 轮换 | 已有 Token 失效 | 提前规划密钥轮换策略 |
 | 客户端 Starter 不兼容 | 下游服务中断 | 保留 CAS Protocol 兼容，OIDC/OAuth2 作为新增选项 |
 | Inspektr 表结构与业务需求不匹配 | 审计数据不完整 | 可通过自定义 AuditActionResolver 扩展 |
+| QR Code 扫码登录需要移动端配合 | 前后端联动开发 | QR Code 端点由 CAS 原生提供，移动端只需调用确认 API |
+| JWT Service Ticket 跨域验证 | 资源服务需配置公钥 | 使用 JWKS 端点分发公钥，资源服务本地验证 |
+| Groovy Provisioning 脚本出错 | 用户注册失败 | 充分测试 Groovy 脚本，添加异常处理和日志 |
 
 ### 5.2 注意事项
 
@@ -1003,11 +1418,15 @@ CAS 原生的服务管理 UI 是一个**独立的 WAR overlay**（`cas-managemen
 | 指标 | 目标 |
 |---|---|
 | 支持的协议 | CAS + SAML2 + OAuth2 + OIDC + REST + WS-Federation |
-| 认证方式 | 5 种自定义（微信/抖音/支付宝/SMS/AppToken）+ JDBC + LDAP + 社交登录 |
+| 认证方式 | 5 种自定义（微信/抖音/支付宝/SMS/AppToken）+ JDBC + LDAP + 社交登录 + QR Code 扫码 + 无密码 Magic Link |
 | MFA | Google Authenticator + FIDO2/WebAuthn |
+| JWT 全链路 | JWT 认证 + JWT Service Ticket + JWT OAuth2 Access Token + Token Introspection |
 | 审计覆盖 | 100% 认证/票据/服务操作审计 |
 | 密码管理 | 重置/策略/历史/过期 |
 | 企业级功能 | 用户同意/AUP/模拟认证/自适应认证/监控 |
-| 自定义代码减少 | 从 ~90 个 Java 文件减少到 ~45 个 |
-| CAS 原生模块数 | 从 13 个增加到 ~35 个 |
-| Admin 能力 | Dashboard + Service Management UI + Actuator |
+| 用户管理 | 自注册/自动 Provisioning/账户 Profile/会话管理/踢人下线 |
+| 服务访问控制 | 属性/角色/REST 远程授权/自定义策略 |
+| 认证安全 | 防暴力破解(ExponentialBackoff)/自适应风险认证 |
+| 自定义代码减少 | 从 ~90 个 Java 文件减少到 ~40 个 |
+| CAS 原生模块数 | 从 13 个增加到 ~45 个 |
+| Admin 能力 | Dashboard + Service Management UI + Actuator + 会话管理 |
