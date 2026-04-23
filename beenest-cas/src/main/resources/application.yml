@@ -346,6 +346,15 @@ cas:
       enabled: true
       endpoint: /cas/websocket
 
+  # ===== 用户注册与账户管理 =====
+  account-registration:
+    core:
+      enabled: true
+      auto-create-accounts: true
+    provisioning:
+      groovy:
+        location: classpath:accountRegistrationProvisioning.groovy
+
 # ============================================================
 # Spring Boot 配置
 # ============================================================
