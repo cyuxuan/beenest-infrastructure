@@ -336,6 +336,18 @@ dependencies {
     implementation "com.alipay.sdk:alipay-sdk-java:4.39.79.ALL"
     implementation "org.flywaydb:flyway-database-postgresql"
 
+    // ===== Phase 1: 企业级基础设施 =====
+    implementation "org.apereo.cas:cas-server-support-audit-jdbc"
+    implementation "org.apereo.cas:cas-server-support-events-jpa"
+    implementation "org.apereo.cas:cas-server-support-reports"
+    implementation "org.apereo.cas:cas-server-support-palantir"
+    implementation "org.apereo.cas:cas-server-webapp-resources"
+    implementation "org.apereo.cas:cas-server-support-captcha"
+    implementation "org.apereo.cas:cas-server-support-interrupt-webflow"
+
+    // Spring Boot Actuator（Palantir 依赖）
+    implementation "org.springframework.boot:spring-boot-starter-actuator"
+
     testImplementation "org.springframework.boot:spring-boot-starter-test"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
