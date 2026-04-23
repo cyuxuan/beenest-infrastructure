@@ -8,6 +8,7 @@ import org.apereo.cas.beenest.authn.handler.SmsOtpAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.WechatMiniAuthenticationHandler;
 import org.apereo.cas.beenest.controller.AppLoginController;
 import org.apereo.cas.beenest.controller.MiniAppLoginController;
+import org.apereo.cas.beenest.controller.SessionManagementController;
 import org.apereo.cas.beenest.controller.SmsController;
 import org.apereo.cas.beenest.controller.TokenRefreshController;
 import org.apereo.cas.beenest.controller.TokenValidationController;
@@ -287,6 +288,18 @@ public class CasOverlayOverrideConfiguration {
             userMapper,
             redisTemplate,
             tokenTtlProperties);
+    }
+
+    /**
+     * 注册会话管理控制器（踢人下线）。
+     *
+     * @param ticketRegistry 票据仓库
+     * @return 会话管理控制器
+     */
+    @Bean
+    public SessionManagementController sessionManagementController(
+        final TicketRegistry ticketRegistry) {
+        return new SessionManagementController(ticketRegistry);
     }
 
     // ===== API 路径安全：禁用 CSRF =====
