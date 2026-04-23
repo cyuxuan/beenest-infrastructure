@@ -359,6 +359,17 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-wsfederation-webflow"
     implementation "org.apereo.cas:cas-server-support-rest-services"
 
+    // ===== Phase 3: MFA + 密码管理 + 用户属性 =====
+    implementation "org.apereo.cas:cas-server-core-authentication-mfa-api"
+    implementation "org.apereo.cas:cas-server-support-gauth"
+    implementation "org.apereo.cas:cas-server-support-gauth-jpa"
+    implementation "org.apereo.cas:cas-server-support-webauthn"
+    implementation "org.apereo.cas:cas-server-support-webauthn-jpa"
+    implementation "org.apereo.cas:cas-server-support-trusted-mfa-jdbc"
+    implementation "org.apereo.cas:cas-server-support-pm-jdbc"
+    implementation "org.apereo.cas:cas-server-support-pm-webflow"
+    implementation "org.apereo.cas:cas-server-support-person-directory"
+
     testImplementation "org.springframework.boot:spring-boot-starter-test"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }

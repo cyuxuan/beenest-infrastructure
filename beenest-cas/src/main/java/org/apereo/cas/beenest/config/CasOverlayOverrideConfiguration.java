@@ -7,7 +7,6 @@ import org.apereo.cas.beenest.authn.handler.DouyinMiniAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.SmsOtpAuthenticationHandler;
 import org.apereo.cas.beenest.authn.handler.WechatMiniAuthenticationHandler;
 import org.apereo.cas.beenest.controller.AppLoginController;
-import org.apereo.cas.beenest.controller.CasUserAdminController;
 import org.apereo.cas.beenest.controller.MiniAppLoginController;
 import org.apereo.cas.beenest.controller.SmsController;
 import org.apereo.cas.beenest.controller.SyncStrategyController;
@@ -21,7 +20,6 @@ import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.beenest.service.SmsService;
 import org.apereo.cas.beenest.service.SyncStrategyService;
-import org.apereo.cas.beenest.service.UserAdminService;
 import org.apereo.cas.beenest.service.UserSyncService;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
@@ -268,20 +266,6 @@ public class CasOverlayOverrideConfiguration {
         final UserSyncService userSyncService,
         final StringRedisTemplate redisTemplate) {
         return new UserSyncController(userMapper, userSyncService, redisTemplate);
-    }
-
-    /**
-     * 注册用户管理控制器。
-     *
-     * @param userAdminService 用户管理服务
-     * @param appAccessService 应用访问控制服务
-     * @return 用户管理控制器
-     */
-    @Bean
-    public CasUserAdminController casUserAdminController(
-        final UserAdminService userAdminService,
-        final AppAccessService appAccessService) {
-        return new CasUserAdminController(userAdminService, appAccessService);
     }
 
     /**

@@ -161,6 +161,87 @@ cas:
           signing:
             key: ${WSFED_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
 
+    # ===== 密码管理 =====
+    pm:
+      enabled: true
+      jdbc:
+        driver-class: org.postgresql.Driver
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+        user: ${DB_USER:postgres}
+        password: ${DB_PASSWORD:changeme}
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        ddl-auto: update
+      password-encoder:
+        type: BCRYPT
+        strength: 12
+      history:
+        enabled: true
+        max-passwords-to-keep: 6
+      reset:
+        enabled: true
+        security-questions-enabled: false
+
+    # ===== JDBC 用户名密码认证 =====
+    jdbc:
+      query[0]:
+        driver-class: org.postgresql.Driver
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+        user: ${DB_USER:postgres}
+        password: ${DB_PASSWORD:changeme}
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        sql: SELECT password_hash FROM cas_user WHERE username=? AND status=1
+        field-password: password_hash
+        password-encoder:
+          type: BCRYPT
+          strength: 12
+
+    # ===== MFA: Google Authenticator =====
+    mfa:
+      gauth:
+        core:
+          window-size: 3
+          time-step-size: 30
+          codes: 6
+          scratch-codes:
+            count: 5
+            length: 8
+        jpa:
+          driver-class: org.postgresql.Driver
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD:changeme}
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          ddl-auto: update
+      # ===== MFA: WebAuthn (FIDO2) =====
+      webauthn:
+        core:
+          relying-party-name: Beenest CAS
+          relying-party-id: sso.beenest.club
+          allow-primary-authentication: false
+        jpa:
+          driver-class: org.postgresql.Driver
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD:changeme}
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          ddl-auto: update
+      # 信任设备（跳过 MFA）
+      trusted:
+        core:
+          enabled: true
+          device-registration-enabled: true
+        jdbc:
+          driver-class: org.postgresql.Driver
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD:changeme}
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          ddl-auto: update
+      # 全局 MFA 触发策略
+      triggers:
+        global:
+          global-provider-id: mfa-gauth
+
 # ============================================================
 # Spring Boot 配置
 # ============================================================
