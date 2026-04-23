@@ -398,6 +398,10 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-throttle-redis"
     implementation "org.apereo.cas:cas-server-support-electrofence"
 
+    // ===== Phase 5: 用户注册/账户管理 =====
+    // account-registration 模块在 CAS 7.3.6 BOM 中不存在，使用 account-mgmt
+    implementation "org.apereo.cas:cas-server-support-account-mgmt"
+
     testImplementation "org.springframework.boot:spring-boot-starter-test"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
