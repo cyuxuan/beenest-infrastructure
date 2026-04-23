@@ -11,6 +11,7 @@ import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.MiniAppLoginDTO;
 import org.apereo.cas.beenest.dto.MiniAppLogoutDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
+import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.AppAccessService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -53,6 +54,7 @@ public class MiniAppLoginController {
     private final DefaultTicketFactory defaultTicketFactory;
     private final AuthAuditService auditService;
     private final AppAccessService appAccessService;
+    private final UnifiedUserMapper userMapper;
     private final StringRedisTemplate redisTemplate;
     private final TokenTtlProperties tokenTtlProperties;
 
@@ -189,18 +191,28 @@ public class MiniAppLoginController {
             }
 
             // 2. 创建 TGT
-            TicketGrantingTicketFactory tgtFactory = (TicketGrantingTicketFactory) defaultTicketFactory.get(TicketGrantingTicket.class);
+            TicketGrantingTicketFactory<TicketGrantingTicket> tgtFactory =
+                    (TicketGrantingTicketFactory<TicketGrantingTicket>) defaultTicketFactory.get(TicketGrantingTicket.class);
             TicketGrantingTicket tgt = tgtFactory.create(authResult.getAuthentication(), null);
             ticketRegistry.addTicket(tgt);
+            LOGGER.info("小程序登录 TGT 签发成功: userId={}, authType={}, tgtId={}...",
+                    authPrincipal.getId(), authType, tgt.getId().substring(0, Math.min(tgt.getId().length(), 16)));
 
-            // 3. 生成 refreshToken
+            // 3. 更新用户最近登录信息
+            try {
+                userMapper.updateLoginInfo(authPrincipal.getId(), clientIp, userAgent, null, authType);
+            } catch (Exception e) {
+                LOGGER.warn("更新用户登录信息失败: userId={}", authPrincipal.getId(), e);
+            }
+
+            // 4. 生成 refreshToken
             String refreshToken = generateRefreshToken(authPrincipal.getId());
 
-            // 4. 记录成功审计日志
+            // 5. 记录成功审计日志
             auditService.record(authPrincipal.getId(), principal, authType, "SUCCESS", null,
                     clientIp, userAgent, null, String.valueOf(serviceId), authType);
 
-            // 5. 构建返回数据
+            // 6. 构建返回数据
             return R.ok(buildTokenResponse(tgt.getId(), refreshToken, authPrincipal));
 
         } catch (BusinessException e) {

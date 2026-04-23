@@ -9,6 +9,7 @@ import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.AppLoginRequestDTO;
 import org.apereo.cas.beenest.dto.AppLogoutRequestDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
+import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.beenest.service.AppAccessService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -53,6 +54,7 @@ public class AppLoginController {
     private final StringRedisTemplate redisTemplate;
     private final AuthAuditService auditService;
     private final AppAccessService appAccessService;
+    private final UnifiedUserMapper userMapper;
     private final TokenTtlProperties tokenTtlProperties;
 
     /**
@@ -118,21 +120,31 @@ public class AppLoginController {
             }
 
             // 2. 创建 TGT
-            TicketGrantingTicketFactory tgtFactory = (TicketGrantingTicketFactory) defaultTicketFactory.get(TicketGrantingTicket.class);
+            TicketGrantingTicketFactory<TicketGrantingTicket> tgtFactory =
+                    (TicketGrantingTicketFactory<TicketGrantingTicket>) defaultTicketFactory.get(TicketGrantingTicket.class);
             TicketGrantingTicket tgt = tgtFactory.create(authResult.getAuthentication(), null);
             ticketRegistry.addTicket(tgt);
+            LOGGER.info("APP 登录 TGT 签发成功: userId={}, authType={}, tgtId={}...",
+                    principal.getId(), authType, tgt.getId().substring(0, Math.min(tgt.getId().length(), 16)));
 
-            // 3. 生成 refreshToken（统一使用单一前缀）
+            // 3. 更新用户最近登录信息
+            try {
+                userMapper.updateLoginInfo(principal.getId(), clientIp, userAgent, deviceId, authType);
+            } catch (Exception e) {
+                LOGGER.warn("更新用户登录信息失败: userId={}", principal.getId(), e);
+            }
+
+            // 4. 生成 refreshToken（统一使用单一前缀）
             String refreshToken = UUID.randomUUID().toString().replace("-", "");
             long refreshTtl = tokenTtlProperties.getRefreshTokenTtlSeconds();
             String refreshKey = CasConstant.REDIS_REFRESH_TOKEN_PREFIX + "refresh:" + refreshToken;
             redisTemplate.opsForValue().set(refreshKey, principal.getId(), refreshTtl, TimeUnit.SECONDS);
 
-            // 4. 记录成功审计日志
+            // 5. 记录成功审计日志
             auditService.record(principal.getId(), loginPrincipal, authType, "SUCCESS", null,
                 clientIp, userAgent, deviceId, String.valueOf(serviceId), "appTokenAuthenticationHandler");
 
-            // 5. 构建返回数据
+            // 6. 构建返回数据
             return R.ok(buildTokenResponse(tgt.getId(), refreshToken, principal));
 
         } catch (BusinessException e) {

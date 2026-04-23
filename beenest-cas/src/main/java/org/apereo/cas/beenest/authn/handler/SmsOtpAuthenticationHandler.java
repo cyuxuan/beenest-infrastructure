@@ -73,7 +73,7 @@ public class SmsOtpAuthenticationHandler implements AuthenticationHandler {
         }
 
         if (!otpCode.equals(storedCode)) {
-            LOGGER.info("SMS otp mismatch: phone={}", phone);
+            LOGGER.info("SMS otp mismatch: phone={}****", phone.substring(0, 3));
             // 验证失败，递增失败计数
             long ttl = redisTemplate.getExpire(failKey, TimeUnit.SECONDS);
             if (ttl > 0) {

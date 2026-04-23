@@ -4,6 +4,7 @@ import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.AppLoginRequestDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
 import org.apereo.cas.beenest.service.AuthAuditService;
+import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.AuthenticationResult;
@@ -39,6 +40,7 @@ class AppLoginControllerTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         AuthAuditService auditService = mock(AuthAuditService.class);
         AppAccessService appAccessService = mock(AppAccessService.class);
+        UnifiedUserMapper userMapper = mock(UnifiedUserMapper.class);
         TokenTtlProperties ttlProperties = new TokenTtlProperties();
         ttlProperties.setAccessTokenTtlSeconds(3600);
         ttlProperties.setRefreshTokenTtlSeconds(7200);
@@ -67,7 +69,7 @@ class AppLoginControllerTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         AppLoginController controller = new AppLoginController(
-                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, ttlProperties
+                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, userMapper, ttlProperties
         );
 
         AppLoginRequestDTO request = new AppLoginRequestDTO();
@@ -104,10 +106,11 @@ class AppLoginControllerTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         AuthAuditService auditService = mock(AuthAuditService.class);
         AppAccessService appAccessService = mock(AppAccessService.class);
+        UnifiedUserMapper userMapper = mock(UnifiedUserMapper.class);
         TokenTtlProperties ttlProperties = new TokenTtlProperties();
 
         AppLoginController controller = new AppLoginController(
-                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, ttlProperties
+                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, userMapper, ttlProperties
         );
 
         AppLoginRequestDTO request = new AppLoginRequestDTO();
@@ -132,10 +135,11 @@ class AppLoginControllerTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         AuthAuditService auditService = mock(AuthAuditService.class);
         AppAccessService appAccessService = mock(AppAccessService.class);
+        UnifiedUserMapper userMapper = mock(UnifiedUserMapper.class);
         TokenTtlProperties ttlProperties = new TokenTtlProperties();
 
         AppLoginController controller = new AppLoginController(
-                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, ttlProperties
+                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, userMapper, ttlProperties
         );
 
         AppLoginRequestDTO request = new AppLoginRequestDTO();
@@ -161,10 +165,11 @@ class AppLoginControllerTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         AuthAuditService auditService = mock(AuthAuditService.class);
         AppAccessService appAccessService = mock(AppAccessService.class);
+        UnifiedUserMapper userMapper = mock(UnifiedUserMapper.class);
         TokenTtlProperties ttlProperties = new TokenTtlProperties();
 
         AppLoginController controller = new AppLoginController(
-                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, ttlProperties
+                authSupport, ticketRegistry, defaultTicketFactory, redisTemplate, auditService, appAccessService, userMapper, ttlProperties
         );
 
         AppLoginRequestDTO request = new AppLoginRequestDTO();

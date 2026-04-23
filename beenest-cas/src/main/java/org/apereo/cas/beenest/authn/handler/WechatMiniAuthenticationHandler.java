@@ -57,7 +57,8 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
 
         String openid = session.getOpenid();
         String unionid = session.getUnionid();
-        LOGGER.info("微信登录: openid={}, unionid={}", openid, unionid);
+        LOGGER.info("微信登录: openid={}***, unionid={}***",
+                mask(openid), mask(unionid));
 
         // 2. 尝试获取手机号
         String phone = null;
@@ -140,5 +141,15 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
             attrs.put("email", List.of(user.getEmail()));
         }
         return attrs;
+    }
+
+    /**
+     * 脱敏处理：取前6位 + ***，用于日志输出
+     */
+    private static String mask(String value) {
+        if (value == null || value.length() <= 6) {
+            return value != null ? value : "";
+        }
+        return value.substring(0, 6) + "***";
     }
 }

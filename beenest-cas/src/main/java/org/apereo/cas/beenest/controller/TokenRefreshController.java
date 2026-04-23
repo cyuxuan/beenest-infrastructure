@@ -11,6 +11,7 @@ import org.apereo.cas.beenest.common.util.CasAttributeUtils;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.TokenRefreshRequestDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
+import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.authentication.AuthenticationResult;
@@ -44,6 +45,7 @@ public class TokenRefreshController {
     private final TicketRegistry ticketRegistry;
     private final DefaultTicketFactory defaultTicketFactory;
     private final AuthAuditService auditService;
+    private final UnifiedUserMapper userMapper;
     private final StringRedisTemplate redisTemplate;
     private final TokenTtlProperties tokenTtlProperties;
 
@@ -90,19 +92,28 @@ public class TokenRefreshController {
             Principal principal = authResult.getAuthentication().getPrincipal();
 
             // 3. 创建新 TGT
-            TicketGrantingTicketFactory tgtFactory =
-                    (TicketGrantingTicketFactory) defaultTicketFactory.get(TicketGrantingTicket.class);
+            TicketGrantingTicketFactory<TicketGrantingTicket> tgtFactory =
+                    (TicketGrantingTicketFactory<TicketGrantingTicket>) defaultTicketFactory.get(TicketGrantingTicket.class);
             TicketGrantingTicket tgt = tgtFactory.create(authResult.getAuthentication(), null);
             ticketRegistry.addTicket(tgt);
+            LOGGER.info("Token 续期 TGT 签发成功: userId={}, tgtId={}...",
+                    principal.getId(), tgt.getId().substring(0, Math.min(tgt.getId().length(), 16)));
 
-            // 4. 生成新的 refreshToken，统一存入同一个前缀
+            // 4. 更新用户最近登录信息
+            try {
+                userMapper.updateLoginInfo(principal.getId(), clientIp, userAgent, null, "TOKEN_REFRESH");
+            } catch (Exception e) {
+                LOGGER.warn("更新用户登录信息失败: userId={}", principal.getId(), e);
+            }
+
+            // 5. 生成新的 refreshToken，统一存入同一个前缀
             String newRefreshToken = generateRefreshToken(principal.getId());
 
-            // 5. 记录审计日志
+            // 6. 记录审计日志
             auditService.record(principal.getId(), principal.getId(), "TOKEN_REFRESH", "SUCCESS", null,
                     clientIp, userAgent, null, null, "tokenRefresh");
 
-            // 6. 构建返回数据
+            // 7. 构建返回数据
             return R.ok(buildTokenResponse(tgt.getId(), newRefreshToken, principal));
 
         } catch (BusinessException e) {

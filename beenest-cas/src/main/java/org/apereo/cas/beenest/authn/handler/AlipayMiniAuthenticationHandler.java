@@ -115,7 +115,7 @@ public class AlipayMiniAuthenticationHandler implements AuthenticationHandler {
 
             alipayUserId = tokenResponse.getUserId();
             alipayOpenid = tokenResponse.getOpenId();
-            LOGGER.info("支付宝登录: alipayUserId={}", alipayUserId);
+            LOGGER.info("支付宝登录: alipayUserId={}***", alipayUserId != null && alipayUserId.length() > 6 ? alipayUserId.substring(0, 6) : alipayUserId);
         } catch (FailedLoginException e) {
             throw e;
         } catch (AlipayApiException e) {

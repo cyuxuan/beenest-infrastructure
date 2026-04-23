@@ -197,6 +197,7 @@ public class CasOverlayOverrideConfiguration {
         final DefaultTicketFactory defaultTicketFactory,
         final AuthAuditService auditService,
         final AppAccessService appAccessService,
+        final UnifiedUserMapper userMapper,
         final StringRedisTemplate redisTemplate,
         final TokenTtlProperties tokenTtlProperties) {
         return new MiniAppLoginController(
@@ -205,6 +206,7 @@ public class CasOverlayOverrideConfiguration {
             defaultTicketFactory,
             auditService,
             appAccessService,
+            userMapper,
             redisTemplate,
             tokenTtlProperties);
     }
@@ -229,6 +231,7 @@ public class CasOverlayOverrideConfiguration {
         final StringRedisTemplate redisTemplate,
         final AuthAuditService auditService,
         final AppAccessService appAccessService,
+        final UnifiedUserMapper userMapper,
         final TokenTtlProperties tokenTtlProperties) {
         return new AppLoginController(
             authenticationSystemSupport,
@@ -237,6 +240,7 @@ public class CasOverlayOverrideConfiguration {
             redisTemplate,
             auditService,
             appAccessService,
+            userMapper,
             tokenTtlProperties);
     }
 
@@ -334,6 +338,7 @@ public class CasOverlayOverrideConfiguration {
         final TicketRegistry ticketRegistry,
         final DefaultTicketFactory defaultTicketFactory,
         final AuthAuditService auditService,
+        final UnifiedUserMapper userMapper,
         final StringRedisTemplate redisTemplate,
         final TokenTtlProperties tokenTtlProperties) {
         return new TokenRefreshController(
@@ -341,6 +346,7 @@ public class CasOverlayOverrideConfiguration {
             ticketRegistry,
             defaultTicketFactory,
             auditService,
+            userMapper,
             redisTemplate,
             tokenTtlProperties);
     }

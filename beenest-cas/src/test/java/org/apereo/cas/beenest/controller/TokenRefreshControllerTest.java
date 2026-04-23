@@ -4,6 +4,7 @@ import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.TokenRefreshRequestDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
+import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.AuthenticationResult;
@@ -40,6 +41,7 @@ class TokenRefreshControllerTest {
     private TicketRegistry ticketRegistry;
     private DefaultTicketFactory defaultTicketFactory;
     private AuthAuditService auditService;
+    private UnifiedUserMapper userMapper;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private TokenTtlProperties ttlProperties;
@@ -51,6 +53,7 @@ class TokenRefreshControllerTest {
         ticketRegistry = mock(TicketRegistry.class);
         defaultTicketFactory = mock(DefaultTicketFactory.class);
         auditService = mock(AuthAuditService.class);
+        userMapper = mock(UnifiedUserMapper.class);
         redisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -60,7 +63,7 @@ class TokenRefreshControllerTest {
         ttlProperties.setRefreshTokenTtlSeconds(7200);
 
         controller = new TokenRefreshController(
-                authSupport, ticketRegistry, defaultTicketFactory, auditService, redisTemplate, ttlProperties);
+                authSupport, ticketRegistry, defaultTicketFactory, auditService, userMapper, redisTemplate, ttlProperties);
     }
 
     private MockHttpServletRequest stubRequest() {

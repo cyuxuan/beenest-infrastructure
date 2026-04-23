@@ -36,8 +36,6 @@ public class PaymentMqConfig {
     public static final String DLX_EXCHANGE = "payment.exchange.dlx";
     /** 死信路由键前缀 */
     private static final String DLX_ROUTING_KEY_PREFIX = "dlx.";
-    /** 消息 TTL（毫秒），超过未被消费则进入死信队列。设 24 小时 */
-    private static final int MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
 
     // ==================== Exchange ====================
 

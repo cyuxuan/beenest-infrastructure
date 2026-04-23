@@ -1578,18 +1578,6 @@ public class PaymentServiceImpl implements IPaymentService {
                 || StringUtils.hasText(MapValueUtils.stringValue(result.get("success_time")));
     }
 
-    private String firstNonBlank(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            if (StringUtils.hasText(value)) {
-                return value;
-            }
-        }
-        return null;
-    }
-
     /**
      * 保存支付参数到订单（安全写入，失败仅 warn 不影响主流程）
      */

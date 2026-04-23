@@ -7,6 +7,7 @@ import org.apereo.cas.beenest.dto.MiniAppLoginDTO;
 import org.apereo.cas.beenest.dto.MiniAppLogoutDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
 import org.apereo.cas.beenest.service.AppAccessService;
+import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AuthAuditService;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.AuthenticationResult;
@@ -54,6 +55,7 @@ class MiniAppLoginControllerTest {
     private DefaultTicketFactory defaultTicketFactory;
     private AuthAuditService auditService;
     private AppAccessService appAccessService;
+    private UnifiedUserMapper userMapper;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private TokenTtlProperties ttlProperties;
@@ -66,6 +68,7 @@ class MiniAppLoginControllerTest {
         defaultTicketFactory = mock(DefaultTicketFactory.class);
         auditService = mock(AuthAuditService.class);
         appAccessService = mock(AppAccessService.class);
+        userMapper = mock(UnifiedUserMapper.class);
         redisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -76,7 +79,7 @@ class MiniAppLoginControllerTest {
 
         controller = new MiniAppLoginController(
                 authSupport, ticketRegistry, defaultTicketFactory,
-                auditService, appAccessService, redisTemplate, ttlProperties
+                auditService, appAccessService, userMapper, redisTemplate, ttlProperties
         );
     }
 

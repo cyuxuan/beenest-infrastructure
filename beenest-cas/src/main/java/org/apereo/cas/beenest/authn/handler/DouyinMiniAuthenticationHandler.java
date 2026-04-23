@@ -73,7 +73,7 @@ public class DouyinMiniAuthenticationHandler implements AuthenticationHandler {
 
             openid = json.path("data").path("openid").asText();
             unionid = json.path("data").path("unionid").asText();
-            LOGGER.info("抖音登录: openid={}", openid);
+            LOGGER.info("抖音登录: openid={}***", openid != null && openid.length() > 6 ? openid.substring(0, 6) : openid);
         } catch (FailedLoginException e) {
             throw e;
         } catch (Exception e) {
