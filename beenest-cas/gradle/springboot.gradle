@@ -91,7 +91,7 @@ springBoot {
 }
 
 def wireOverlayDependency = { Task t ->
-    ["extractCasBootWarOverlay", "processTestResources", "compileJava", "compileGraalJava"]
+    ["extractCasBootWarOverlay", "processTestResources", "compileJava", "compileGraalJava", "jar"]
             .collect { tasks.findByName(it) }
             .findAll { it != null }
             .each { t.dependsOn(it) }
