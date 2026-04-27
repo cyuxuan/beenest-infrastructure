@@ -72,17 +72,17 @@ public class CasLogoutFilter implements Filter {
 
                                 // 2. 再销毁本地 session，触发 HttpSessionListener 清理 session 索引
                                 targetSession.invalidate();
-                                LOGGER.info("SLO: Session 已销毁, sessionId={}", sessionId);
+                                log.info("SLO: Session 已销毁, sessionId={}", sessionId);
                             } else {
                                 if (bearerTokenCache != null && userId != null && !userId.isBlank()) {
                                     bearerTokenCache.removeByUserId(userId);
                                 }
-                                LOGGER.debug("SLO: Session 已过期或不存在, sessionId={}", sessionId);
+                                log.debug("SLO: Session 已过期或不存在, sessionId={}", sessionId);
                             }
                         } catch (IllegalStateException e) {
-                            LOGGER.debug("SLO: Session 已失效, sessionId={}", sessionId);
+                            log.debug("SLO: Session 已失效, sessionId={}", sessionId);
                         } catch (Exception e) {
-                            LOGGER.warn("SLO: Session 销毁失败: sessionId={}, error={}", sessionId, e.getMessage());
+                            log.warn("SLO: Session 销毁失败: sessionId={}, error={}", sessionId, e.getMessage());
                         }
                     }
                 }

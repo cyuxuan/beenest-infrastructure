@@ -6,7 +6,7 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 /**
  * Bearer Token 认证令牌
  * <p>
- * 用于 APP/小程序场景下的 CAS TGT 认证。
+ * 用于小程序和兼容场景下的 CAS TGT 认证。
  * 携带 accessToken (TGT)、可选的 refreshToken 和验证后的用户详情。
  * <p>
  * 无感刷新：当 accessToken 过期时，若携带了 refreshToken，

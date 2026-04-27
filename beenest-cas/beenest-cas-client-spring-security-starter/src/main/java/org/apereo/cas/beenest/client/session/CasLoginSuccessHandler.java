@@ -16,7 +16,7 @@ import java.io.IOException;
  * CAS 登录成功处理器。
  * <p>
  * 负责在 CAS 认证成功后，把当前 HTTP Session 与 ST / userId / 用户会话快照写入
- * {@link ActiveSessionRegistry}，确保后续单点登出、用户同步和会话定位都能命中同一条索引链路。
+ * {@link ActiveSessionRegistry}，确保后续单点登出和会话定位都能命中同一条索引链路。
  * <p>
  * 处理完成后再交给 Spring Security 的默认成功处理器，保留原有跳转行为。
  */
@@ -60,10 +60,10 @@ public class CasLoginSuccessHandler implements AuthenticationSuccessHandler {
             String serviceTicket = request.getParameter(SERVICE_TICKET_PARAM);
             HttpSession httpSession = request.getSession(true);
             activeSessionRegistry.registerAuthenticatedSession(httpSession, userSession, serviceTicket);
-            LOGGER.info("CAS 登录成功，已注册本地会话: userId={}, sessionId={}",
+            log.info("CAS 登录成功，已注册本地会话: userId={}, sessionId={}",
                     userSession.getUserId(), httpSession.getId());
         } else {
-            LOGGER.debug("CAS 登录成功，但 principal 不是 CasUserDetails，跳过会话注册");
+            log.debug("CAS 登录成功，但 principal 不是 CasUserDetails，跳过会话注册");
         }
 
         // 3. 保留 Spring Security 默认跳转逻辑

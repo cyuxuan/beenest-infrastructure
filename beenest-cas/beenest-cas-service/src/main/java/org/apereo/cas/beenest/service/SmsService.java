@@ -1,7 +1,7 @@
 package org.apereo.cas.beenest.service;
 
 import org.apereo.cas.beenest.common.constant.CasConstant;
-import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.config.SmsProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
  * 短信验证码服务
  * <p>
  * 生成、存储、校验短信验证码。实际短信发送需集成阿里云/腾讯云 SDK。
- * 使用 {@link BusinessException} 统一异常处理。
+ * 使用 {@link BizException} 统一异常处理。
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -36,13 +36,13 @@ public class SmsService {
         String limitKey = CasConstant.REDIS_SMS_LIMIT_PREFIX + phone;
         String limitCount = redisTemplate.opsForValue().get(limitKey);
         if (limitCount != null && Integer.parseInt(limitCount) >= smsProperties.getDailyLimit()) {
-            throw new BusinessException(429, "今日发送次数已达上限");
+            throw new BizException(429, "今日发送次数已达上限");
         }
 
         // 2. 间隔检查
         String intervalKey = CasConstant.REDIS_SMS_LIMIT_PREFIX + "interval:" + phone;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(intervalKey))) {
-            throw new BusinessException(429, "发送过于频繁，请稍后再试");
+            throw new BizException(429, "发送过于频繁，请稍后再试");
         }
 
         // 3. 生成验证码

@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 活跃 Session 注册表
  * <p>
  * 通过 {@link HttpSessionListener} 追踪所有活跃 HTTP Session，
- * 供 SLO 单点登出和用户同步时按 sessionId/userId 查找目标 session。
+ * 供 SLO 单点登出和会话刷新时按 sessionId/userId 查找目标 session。
  * <p>
  * 为什么需要这个？
  * CAS Server 的 SLO POST 来自后端 HTTP 调用，不携带用户的 JSESSIONID Cookie，
@@ -47,7 +47,7 @@ public class ActiveSessionRegistry implements HttpSessionListener {
     @Override
     public void sessionCreated(HttpSessionEvent se) {
         // Session 在 CAS 认证成功后通过 register() 显式注册
-        LOGGER.debug("Session 创建: id={}", se.getSession().getId());
+        log.debug("Session 创建: id={}", se.getSession().getId());
     }
 
     /**
@@ -69,7 +69,7 @@ public class ActiveSessionRegistry implements HttpSessionListener {
         // 清理 userId 索引中包含此 sessionId 的条目
         userIdToSessionIds.values().forEach(set -> set.remove(sessionId));
 
-        LOGGER.debug("Session 移除: id={}", sessionId);
+        log.debug("Session 移除: id={}", sessionId);
     }
 
     /**
@@ -104,7 +104,7 @@ public class ActiveSessionRegistry implements HttpSessionListener {
      * 注册 CAS 登录成功后的会话快照
      * <p>
      * 这个方法负责把“session 实体 / ST / userId / 会话属性”一次性写入注册表，
-     * 让后续的 SLO、用户同步和本地会话刷新都能沿着同一条索引链路工作。
+     * 让后续的 SLO 和本地会话刷新都能沿着同一条索引链路工作。
      *
      * @param session       HTTP Session
      * @param userSession   CAS 用户会话
@@ -132,7 +132,7 @@ public class ActiveSessionRegistry implements HttpSessionListener {
             registerStMapping(resolvedTicket, sessionId);
         }
 
-        LOGGER.debug("CAS 登录会话已注册: userId={}, sessionId={}, st={}", userId, sessionId, resolvedTicket);
+        log.debug("CAS 登录会话已注册: userId={}, sessionId={}, st={}", userId, sessionId, resolvedTicket);
     }
 
     /**

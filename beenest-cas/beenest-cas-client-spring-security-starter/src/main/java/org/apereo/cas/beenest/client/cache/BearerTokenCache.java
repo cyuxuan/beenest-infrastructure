@@ -6,13 +6,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Bearer Token 本地验证缓存
  * <p>
- * 缓存 TGT 验证结果，避免每次请求都调用 CAS Server 的 /cas/token/validate 端点。
+ * 缓存 TGT 验证结果，避免每次请求都重复触发 CAS 原生票据验证链路。
  * <p>
  * 缓存策略：
  * - 基于 ConcurrentHashMap，线程安全
@@ -105,7 +106,7 @@ public class BearerTokenCache {
         }
         // 清理后仍超限则跳过写入，防止内存无限增长
         if (cache.size() >= maxSize) {
-            LOGGER.warn("BearerTokenCache 已满 (size={}), 跳过缓存", cache.size());
+            log.warn("BearerTokenCache 已满 (size={}), 跳过缓存", cache.size());
             return;
         }
         CacheEntry entry = new CacheEntry(session, userDetails, System.currentTimeMillis());
@@ -180,9 +181,7 @@ public class BearerTokenCache {
     private void cleanup() {
         long now = System.currentTimeMillis();
         int removed = 0;
-        var it = cache.entrySet().iterator();
-        while (it.hasNext()) {
-            var entry = it.next();
+        for (Map.Entry<String, CacheEntry> entry : cache.entrySet()) {
             if (now - entry.getValue().timestamp > ttlMillis) {
                 if (cache.remove(entry.getKey(), entry.getValue())) {
                     removeTokenFromUserIndex(entry.getKey(), entry.getValue());
@@ -191,7 +190,7 @@ public class BearerTokenCache {
             }
         }
         if (removed > 0) {
-            LOGGER.debug("BearerTokenCache 清理: 移除 {} 条过期条目, 剩余 {}", removed, cache.size());
+            log.debug("BearerTokenCache 清理: 移除 {} 条过期条目, 剩余 {}", removed, cache.size());
         }
     }
 

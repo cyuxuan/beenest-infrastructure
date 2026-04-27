@@ -31,7 +31,6 @@ public class CasDefaultSecurityConfiguration {
             HttpSecurity http,
             CasAuthenticationConfigurer casConfigurer,
             CasSecurityProperties properties) throws Exception {
-        String businessProxyBasePath = normalizeBasePath(properties.getBusinessLoginProxy().getBasePath());
         boolean exposeLoginEndpoints = shouldExposeLoginEndpoints(properties);
 
         http
@@ -41,18 +40,12 @@ public class CasDefaultSecurityConfiguration {
                     String[] patterns = properties.getIgnorePattern().split(",");
                     auth.requestMatchers(patterns).permitAll();
                 }
-                if (properties.getBusinessLoginProxy().isEnabled() && exposeLoginEndpoints) {
-                    auth.requestMatchers(businessProxyBasePath + "/**").permitAll();
-                }
                 // CAS 内部路径始终放行
                 if (exposeLoginEndpoints) {
                     auth.requestMatchers(
                         properties.getLoginPath() + "/**",
-                        properties.getSlo().getCallbackPath(),
-                        properties.getSync().getWebhookPath()
+                        properties.getSlo().getCallbackPath()
                     ).permitAll();
-                } else if (properties.getSync().isEnabled()) {
-                    auth.requestMatchers(properties.getSync().getWebhookPath()).permitAll();
                 }
                 auth.anyRequest().authenticated();
             })
@@ -60,7 +53,7 @@ public class CasDefaultSecurityConfiguration {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(resolveSessionCreationPolicy(properties)))
             .csrf(csrf -> csrf.ignoringRequestMatchers(
-                buildCsrfIgnoreMatchers(properties, businessProxyBasePath, exposeLoginEndpoints)
+                buildCsrfIgnoreMatchers(properties, exposeLoginEndpoints)
             ));
 
         if (!shouldEnableLoginRedirect(properties)) {
@@ -112,23 +105,15 @@ public class CasDefaultSecurityConfiguration {
      * 构建 CSRF 忽略路径列表。
      *
      * @param properties Starter 配置
-     * @param businessProxyBasePath 登录代理基础路径
      * @param exposeLoginEndpoints 是否暴露登录端点
      * @return 忽略路径数组
      */
     private String[] buildCsrfIgnoreMatchers(CasSecurityProperties properties,
-                                             String businessProxyBasePath,
                                              boolean exposeLoginEndpoints) {
         java.util.List<String> matchers = new java.util.ArrayList<>();
-        if (properties.getBusinessLoginProxy().isEnabled() && exposeLoginEndpoints) {
-            matchers.add(businessProxyBasePath + "/**");
-        }
         if (exposeLoginEndpoints) {
             matchers.add(properties.getLoginPath() + "/**");
             matchers.add(properties.getSlo().getCallbackPath());
-        }
-        if (properties.getSync().isEnabled()) {
-            matchers.add(properties.getSync().getWebhookPath());
         }
         return matchers.toArray(String[]::new);
     }
@@ -143,17 +128,4 @@ public class CasDefaultSecurityConfiguration {
         return properties != null && properties.isResourceServerMode();
     }
 
-    /**
-     * 规范化代理基础路径，确保以 / 开头且不以 / 结尾。
-     *
-     * @param basePath 原始路径
-     * @return 规范化后的路径
-     */
-    private String normalizeBasePath(String basePath) {
-        if (basePath == null || basePath.isBlank()) {
-            return "/cas";
-        }
-        String normalized = basePath.startsWith("/") ? basePath : "/" + basePath;
-        return normalized.endsWith("/") ? normalized.substring(0, normalized.length() - 1) : normalized;
-    }
 }

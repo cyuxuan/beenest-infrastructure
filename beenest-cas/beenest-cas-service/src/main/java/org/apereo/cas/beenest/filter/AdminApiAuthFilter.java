@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -35,14 +36,11 @@ public class AdminApiAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                     HttpServletResponse response,
-                                     FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         String requestToken = request.getHeader(CasConstant.ADMIN_TOKEN_HEADER);
 
         if (!isValidToken(requestToken)) {
-            LOGGER.warn("Admin API 未授权访问: path={}, remoteAddr={}",
-                    request.getRequestURI(), request.getRemoteAddr());
+            LOGGER.warn("Admin API 未授权访问: path={}, remoteAddr={}", request.getRequestURI(), request.getRemoteAddr());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":401,\"message\":\"管理接口未授权\",\"data\":null}");

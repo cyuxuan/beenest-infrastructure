@@ -51,7 +51,7 @@ public final class CasAttributeUtils {
             List<Object> normalizedValues = collection.stream()
                     .map(CasAttributeUtils::normalizeAttributeValue)
                     .toList();
-            return normalizedValues.size() == 1 ? normalizedValues.get(0) : normalizedValues;
+            return normalizedValues.size() == 1 ? normalizedValues.getFirst() : normalizedValues;
         }
 
         // 2. 兼容数组属性，避免序列化时继续暴露为嵌套数组结构。
@@ -65,7 +65,7 @@ public final class CasAttributeUtils {
             for (int index = 0; index < length; index++) {
                 normalizedValues.add(normalizeAttributeValue(Array.get(value, index)));
             }
-            return normalizedValues.size() == 1 ? normalizedValues.get(0) : normalizedValues;
+            return normalizedValues.size() == 1 ? normalizedValues.getFirst() : normalizedValues;
         }
 
         // 3. 标量值原样返回，由 Jackson 按真实类型序列化。

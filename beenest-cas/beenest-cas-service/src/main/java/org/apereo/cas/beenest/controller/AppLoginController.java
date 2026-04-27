@@ -11,9 +11,10 @@ import org.apereo.cas.authentication.credential.UsernamePasswordCredential;
 import org.apereo.cas.authentication.principal.Principal;
 import org.apereo.cas.beenest.authn.credential.SmsOtpCredential;
 import org.apereo.cas.beenest.common.constant.CasConstant;
-import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.response.R;
 import org.apereo.cas.beenest.common.util.CasAttributeUtils;
+import org.apereo.cas.beenest.common.util.CasRequestContextUtils;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.dto.AppLoginRequestDTO;
 import org.apereo.cas.beenest.dto.AppLogoutRequestDTO;
@@ -82,8 +83,7 @@ public class AppLoginController {
             if (StringUtils.isBlank(request.getOtpCode())) {
                 return R.fail(400, "短信验证码不能为空");
             }
-            SmsOtpCredential smsCredential = new SmsOtpCredential(loginPrincipal, request.getOtpCode());
-            credential = smsCredential;
+            credential = new SmsOtpCredential(loginPrincipal, request.getOtpCode());
             authType = "APP_SMS";
         } else {
             if (StringUtils.isBlank(request.getPassword())) {
@@ -129,7 +129,7 @@ public class AppLoginController {
                     TimeUnit.SECONDS);
 
             return R.ok(buildTokenResponse(tgt.getId(), refreshToken, principal));
-        } catch (BusinessException e) {
+        } catch (BizException e) {
             return R.fail(e.getCode(), e.getMessage());
         } catch (Throwable e) {
             LOGGER.error("APP 登录失败", e);
@@ -141,11 +141,10 @@ public class AppLoginController {
      * APP 登出。
      *
      * @param request 登出请求
-     * @param httpRequest 当前 HTTP 请求
      * @return 登出结果
      */
     @PostMapping("/logout")
-    public R<Void> logout(@RequestBody AppLogoutRequestDTO request, HttpServletRequest httpRequest) {
+    public R<Void> logout(@RequestBody AppLogoutRequestDTO request) {
         String refreshToken = request.getRefreshToken();
         String accessToken = request.getAccessToken();
 
@@ -214,16 +213,6 @@ public class AppLoginController {
      * @return 客户端 IP
      */
     private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (StringUtils.isBlank(ip) || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("X-Real-IP");
-        }
-        if (StringUtils.isBlank(ip) || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-        return ip;
+        return CasRequestContextUtils.resolveClientIp(request);
     }
 }

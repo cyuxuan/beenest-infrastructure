@@ -35,6 +35,7 @@ buildscript {
         classpath "io.freefair.gradle:lombok-plugin:${project.gradleFreeFairPluginVersion}"
         classpath "com.google.cloud.tools:jib-gradle-plugin:${project.jibVersion}"
         classpath "com.bmuschko:gradle-docker-plugin:${project.gradleDockerPluginVersion}"
+        classpath "org.graalvm.buildtools:native-gradle-plugin:${project.gradleGraalVmNativePluginVersion}"
         classpath "org.cyclonedx:cyclonedx-gradle-plugin:${project.gradleCyclonePluginVersion}"
         classpath "de.undercouch:gradle-download-task:${project.gradleDownloadTaskVersion}"
         classpath "org.apereo.cas:cas-server-core-api-configuration-model:${project.'cas.version'}"
@@ -77,8 +78,11 @@ repositories {
     }
 }
 
-apply plugin: "io.freefair.war-overlay"
-apply plugin: "war"
+def nativeImage = project.hasProperty("nativeImage") && Boolean.valueOf(project.getProperty("nativeImage"))
+if (!nativeImage) {
+    apply plugin: "io.freefair.war-overlay"
+    apply plugin: "war"
+}
 
 apply plugin: "org.springframework.boot"
 apply plugin: "io.freefair.lombok"
@@ -88,6 +92,7 @@ lombok {
 
 apply plugin: "org.cyclonedx.bom"
 
+apply plugin: "org.graalvm.buildtools.native"
 
 apply from: rootProject.file("gradle/springboot.gradle")
 apply plugin: "com.google.cloud.tools.jib"
@@ -123,34 +128,22 @@ configurations {
         exclude(group: "org.slf4j", module: "slf4j-simple")
         exclude(group: "org.slf4j", module: "jcl-over-slf4j")
         exclude(group: "org.apache.logging.log4j", module: "log4j-to-slf4j")
-        // 排除 Logback（Spring Boot starter-logging 带入），CAS 使用 Log4j2 作为日志实现
-        exclude(group: "ch.qos.logback", module: "logback-classic")
-        exclude(group: "ch.qos.logback", module: "logback-core")
-        // 排除内嵌 HSQL 数据库，强制使用 PostgreSQL
-        exclude(group: "org.hsqldb", module: "hsqldb")
+        if (nativeImage) {
+            exclude(group: "org.apache.groovy", module: "groovy-templates")
+        }
     }
 }
 
-war {
-    entryCompression = ZipEntryCompression.STORED
-    enabled = false
+if (!nativeImage) {
+    war {
+        entryCompression = ZipEntryCompression.STORED
+        enabled = false
+    }
 }
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(project.targetCompatibility)
-
-        def chosenJvmVendor = null
-        if (project.jvmVendor != null) {
-            out.withStyle(Style.Info).println("JVM vendor ${project.jvmVendor} is requested for the Java toolchain")
-            chosenJvmVendor = JvmVendorSpec.of(project.jvmVendor?.toUpperCase())
-        }
-        if (chosenJvmVendor != null) {
-            vendor = chosenJvmVendor
-            out.withStyle(Style.Success).println("Using ${chosenJvmVendor} as the JVM vendor for the Java toolchain")
-        } else {
-            out.withStyle(Style.Info).println("JVM vendor ${project.jvmVendor} is not recognized")
-        }
     }
 }
 
@@ -158,6 +151,117 @@ bootBuildImage {
     imageName = "${project.'containerImageOrg'}/${project.'containerImageName'}:${project.version}"
 }
 
+if (nativeImage) {
+    sourceSets {
+        graal {
+            java {
+                srcDirs("src/main/graal")
+            }
+        }
+    }
+}
+
+configurations {
+    nativeImageClasspath.extendsFrom(graalImplementation)
+}
+
+graalvmNative {
+    metadataRepository {
+        enabled = true
+        version = "${graalVmMetadataRepositoryVersion}"
+    }
+
+    /*
+    The toolchain detection cannot distinguish between
+    GraalVM JDKs and standard JDKs without Native Image support.
+    */
+    toolchainDetection = false
+
+    binaries {
+        main {
+            imageName = "cas"
+            quickBuild = false
+            debug = true
+            verbose = false
+            richOutput = true
+
+            configurationFileDirectories.from(file('src/graal'))
+
+            buildArgs.add('--allow-incomplete-classpath')
+            buildArgs.add('-H:+ReportExceptionStackTraces')
+            buildArgs.add('-H:+InlineBeforeAnalysis')
+            buildArgs.add('-H:+TraceSecurityServices')
+            buildArgs.add('-H:+UnlockExperimentalVMOptions')
+
+            buildArgs.add('-J-Xmx14G')
+            buildArgs.add('-J-Xms4G')
+            buildArgs.add('--native-image-info')
+            buildArgs.add('--enable-monitoring=jfr')
+            buildArgs.add('-march=native')
+
+            buildArgs.add('--trace-class-initialization=true')
+
+            buildArgs.add('--initialize-at-build-time=java.beans')
+            buildArgs.add('--initialize-at-build-time=com.sun.beans')
+            buildArgs.add('--initialize-at-build-time=groovyjarjarantlr4.v4.runtime')
+            buildArgs.add('--initialize-at-build-time=org.codehaus.groovy')
+            buildArgs.add('--initialize-at-build-time=org.apache.groovy')
+            buildArgs.add('--initialize-at-build-time=groovy.lang')
+
+            buildArgs.add('--initialize-at-run-time=com.sun.xml.ws')
+            buildArgs.add('--initialize-at-run-time=groovy.grape.GrapeIvy')
+            buildArgs.add("--initialize-at-run-time=org.bouncycastle.jcajce.provider.drbg.DRBG\$Default")
+            buildArgs.add("--initialize-at-run-time=org.bouncycastle.jcajce.provider.drbg.DRBG\$NonceAndIV")
+
+            buildArgs.add('--features=org.apereo.cas.nativex.features.DefaultNativeImageFeature')
+            buildArgs.add('--enable-url-protocols=jar,file,resource,http,https')
+
+            /*
+            buildArgs.add("-g")
+            buildArgs.add("-O0")
+            */
+        }
+    }
+}
+
+if (nativeImage) {
+    afterEvaluate {
+        tasks.named("processAot") {
+            def list = []
+            list.add("--add-opens")
+            list.add("java.base/java.lang=ALL-UNNAMED")
+            list.add("--add-opens")
+            list.add("java.base/java.util=ALL-UNNAMED")
+            list.add("--add-opens")
+            list.add("java.base/java.time=ALL-UNNAMED")
+            list.add("--add-opens")
+            list.add("java.base/java.net=ALL-UNNAMED")
+            list.add("--add-opens")
+            list.add("java.base/sun.security.action=jdk.crypto.ec")
+            list.add("--add-opens")
+            list.add("java.base/java.nio=ALL-UNNAMED")
+            list.add("--add-opens")
+            list.add("java.base/sun.nio.ch=ALL-UNNAMED")
+            list.add("--add-opens")
+            list.add("java.management/sun.management=ALL-UNNAMED")
+            list.add("--add-opens")
+            list.add("jdk.management/com.sun.management.internal=ALL-UNNAMED")
+            list.add("-Xdebug")
+            list.add("-Xrunjdwp:transport=dt_socket,address=*:5005,server=y,suspend=n")
+
+            jvmArgs = list
+            systemProperties System.properties
+
+            args(
+                '--spring.profiles.active=native',
+                '--logging.level.org.apereo.cas=info',
+                '--logging.level.org.springframework.core.env=info',
+                '--logging.level.org.springframework.boot=info',
+                '--logging.level.org.springframework.security=warn'
+            )
+        }
+    }
+}
 
 ['jibDockerBuild', 'jibBuildTar', 'jib'].each { taskName ->
     getTasksByName(taskName, true).each(it -> {
@@ -196,6 +300,11 @@ jib {
     }
     to {
         image = "${project.'containerImageOrg'}/${project.'containerImageName'}:${project.version}"
+        /**
+             ecr-login: Amazon Elastic Container Registry (ECR)
+             gcr: Google Container Registry (GCR)
+             osxkeychain: Docker Hub
+         */
         credHelper = "osxkeychain"
         if (dockerUsername != null && dockerPassword != null) {
             auth {
@@ -218,7 +327,7 @@ jib {
             from = file('src/main/jib')
           }
           path {
-            from = file(rootProject.file('etc/cas'))
+            from = file('etc/cas')
             into = '/etc/cas'
           }
           path {
@@ -238,7 +347,7 @@ tasks.register("casBuildDockerImage", DockerBuildImage) {
     dependsOn("build")
 
     def imageTag = "${project.'cas.version'}"
-    inputDir = rootProject.projectDir
+    inputDir = project.projectDir
     images.add("apereo/cas:${imageTag}${imageTagPostFix}")
     images.add("apereo/cas:latest${imageTagPostFix}")
     if (dockerUsername != null && dockerPassword != null) {
@@ -275,17 +384,38 @@ if (project.hasProperty("appServer")) {
 }
 
 dependencies {
+    /**
+    * Do NOT modify the lines below or else you will risk breaking dependency management.
+    **/
     implementation enforcedPlatform("org.apereo.cas:cas-server-support-bom:${project.'cas.version'}")
     implementation platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
 
-    implementation "org.apereo.cas:cas-server-core-api-configuration-model"
-    implementation "org.apereo.cas:cas-server-webapp-init"
+    if (nativeImage) {
+        nativeImageCompileOnly sourceSets.graal.output.classesDirs
 
-    if (appServer == '-tomcat') {
-        implementation "org.apereo.cas:cas-server-webapp-init-tomcat"
+        graalCompileOnly "org.graalvm.nativeimage:svm:${graalVmVersion}"
+        graalCompileOnly "org.graalvm.sdk:graal-sdk:${graalVmVersion}"
+
+        implementation "org.apereo.cas:cas-server-webapp-native"
+    } else {
+        /**
+         * Do NOT modify the lines below or else you will risk breaking the build.
+         */
+        implementation "org.apereo.cas:cas-server-core-api-configuration-model"
+        implementation "org.apereo.cas:cas-server-webapp-init"
+
+        developmentOnly "org.springframework.boot:spring-boot-devtools:${project.springBootVersion}"
     }
-
-    developmentOnly "org.springframework.boot:spring-boot-devtools:${project.springBootVersion}"
+    // developmentOnly "org.springframework.boot:spring-boot-docker-compose:${project.springBootVersion}"
+        
+    /**
+     * CAS dependencies and modules may be listed here.
+     *
+     * There is no need to specify the version number for each dependency
+     * since versions are all resolved and controlled by the dependency management
+     * plugin via the CAS bom.
+     **/
+    implementation "org.springframework.boot:spring-boot-starter-actuator"
 
     // ===== Beenest 核心 API 模块（自定义认证/服务管理需要） =====
     implementation "org.apereo.cas:cas-server-core-authentication-api"
@@ -305,6 +435,7 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-generic"
     implementation "org.apereo.cas:cas-server-support-rest"
     implementation "org.apereo.cas:cas-server-support-thymeleaf"
+    implementation "org.apereo.cas:cas-server-support-interrupt-webflow"
 
     // ===== Beenest 业务依赖 =====
     implementation "org.springframework.boot:spring-boot-starter-jdbc"
@@ -313,17 +444,17 @@ dependencies {
     implementation "org.springframework.security:spring-security-config"
     implementation "org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4"
     runtimeOnly 'org.postgresql:postgresql:42.7.7'
-    implementation "com.github.binarywang:weixin-java-miniapp:4.6.0"
-    implementation "com.alipay.sdk:alipay-sdk-java:4.39.79.ALL"
+    implementation "com.github.binarywang:weixin-java-miniapp:4.8.2-20260420.104332"
+    implementation "com.alipay.sdk:alipay-sdk-java:4.40.763.ALL"
 
     // ===== Phase 1: 企业级基础设施 =====
+    implementation "org.apereo.cas:cas-server-support-account-mgmt"
+    implementation "org.apereo.cas:cas-server-support-pm-webflow"
     implementation "org.apereo.cas:cas-server-support-audit-jdbc"
     implementation "org.apereo.cas:cas-server-support-events-jpa"
     implementation "org.apereo.cas:cas-server-support-reports"
     implementation "org.apereo.cas:cas-server-support-palantir"
     implementation "org.apereo.cas:cas-server-webapp-resources"
-
-    implementation "org.springframework.boot:spring-boot-starter-actuator"
 
     // ===== Phase 2: 协议层（企业级统一身份提供商） =====
     implementation "org.apereo.cas:cas-server-support-saml-idp"

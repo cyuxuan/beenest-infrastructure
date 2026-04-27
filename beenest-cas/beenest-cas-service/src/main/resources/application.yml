@@ -73,6 +73,28 @@ cas:
   logout:
     follow-service-redirects: true
 
+  # 官方原生账号开户注册
+  account-registration:
+    core:
+      crypto:
+        enabled: true
+        encryption:
+          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY:${CAS_WEBFLOW_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}}
+        signing:
+          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY:${CAS_WEBFLOW_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}}
+      registration-properties:
+        location: classpath:/account-registration/account-registration.json
+    mail:
+      attribute-name: email
+      from: ${ACCOUNT_REGISTRATION_FROM:no-reply@beenest.club}
+      subject: ${ACCOUNT_REGISTRATION_SUBJECT:Beenest 账号注册激活}
+
+  # 官方原生 Interrupt Webflow
+  interrupt:
+    core:
+      force-execution: ${CAS_INTERRUPT_FORCE_EXECUTION:false}
+      trigger-mode: "${CAS_INTERRUPT_TRIGGER_MODE:AFTER_AUTHENTICATION}"
+
   # Inspektr 审计（替代自定义 AuthAuditService）
   audit:
     jdbc:
@@ -96,18 +118,27 @@ cas:
       dialect: org.hibernate.dialect.PostgreSQLDialect
       ddl-auto: update
 
-  # ===== SAML2 IdP =====
+  # ===== 认证配置（合并为单段，避免 YAML 重复键） =====
   authn:
+    # 密码管理
+    pm:
+      core:
+        enabled: true
+        auto-login: false
+        password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,64}$}"
+      webflow:
+        enabled: true
     accept:
       enabled: false
       users: ""
+    # SAML2 IdP
     saml-idp:
       core:
         entity-id: https://sso.beenest.club/cas/idp
       metadata:
         file-system:
           location: file:/etc/cas/saml
-    # ===== OAuth2 / OIDC =====
+    # OAuth2 / OIDC
     oauth:
       access-token:
         time-to-kill-in-seconds: 7200
@@ -119,8 +150,7 @@ cas:
       jwks:
         file-system:
           jwks-file: file:/etc/cas/oidc/jwks.json
-
-    # ===== JDBC 用户名密码认证 =====
+    # JDBC 用户名密码认证
     jdbc:
       query[0]:
         driver-class: org.postgresql.Driver
@@ -169,8 +199,11 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
 
-CasFeatureModule.Palantir.enabled: false
-CasFeatureModule.Palantir.cas-authentication.enabled: false
+CasFeatureModule:
+  Palantir:
+    enabled: false
+    cas-authentication:
+      enabled: false
 
 logging:
   level:

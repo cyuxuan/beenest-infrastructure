@@ -6,14 +6,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apereo.cas.beenest.client.cache.BearerTokenCache;
 import org.apereo.cas.beenest.client.cache.BearerTokenRevocationService;
 import org.apereo.cas.beenest.client.proxy.CasBusinessLoginProxyService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -21,8 +21,7 @@ import java.io.IOException;
 /**
  * 业务系统登录代理控制器。
  * <p>
- * 业务系统使用 starter 后，对外暴露与 CAS 相同的登录入口，
- * 由控制器接住请求并透明转发到 CAS Server。
+ * 业务系统对外暴露自身域名下的登录入口，由 starter 接住请求并透明转发到 CAS Server。
  */
 @RestController
 @RequestMapping("${cas.client.business-login-proxy.base-path:/cas}")
@@ -35,10 +34,6 @@ public class CasBusinessLoginProxyController {
     private final BearerTokenRevocationService bearerTokenRevocationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public CasBusinessLoginProxyController(CasBusinessLoginProxyService proxyService) {
-        this(proxyService, null, null);
-    }
-
     /**
      * 构造业务系统登录代理控制器。
      *
@@ -46,7 +41,6 @@ public class CasBusinessLoginProxyController {
      * @param bearerTokenCacheProvider Bearer Token 缓存（可选）
      * @param bearerTokenRevocationServiceProvider Bearer Token 撤销服务（可选）
      */
-    @Autowired
     public CasBusinessLoginProxyController(CasBusinessLoginProxyService proxyService,
                                            ObjectProvider<BearerTokenCache> bearerTokenCacheProvider,
                                            ObjectProvider<BearerTokenRevocationService> bearerTokenRevocationServiceProvider) {
@@ -66,7 +60,7 @@ public class CasBusinessLoginProxyController {
      */
     @PostMapping("/app/login")
     public ResponseEntity<String> proxyAppLogin(@RequestBody(required = false) String body,
-                                                HttpServletRequest request) {
+                                                 HttpServletRequest request) {
         return proxyService.proxy(request, body, "/cas/app/login");
     }
 
@@ -110,6 +104,19 @@ public class CasBusinessLoginProxyController {
     }
 
     /**
+     * 代理短信验证码发送请求。
+     *
+     * @param body 请求体
+     * @param request 当前请求
+     * @return CAS Server 原始响应
+     */
+    @RequestMapping(value = "/sms/send", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<String> proxySmsSend(@RequestBody(required = false) String body,
+                                               HttpServletRequest request) {
+        return proxyService.proxy(request, body, "/cas/sms/send");
+    }
+
+    /**
      * 代理统一 refresh 请求。
      *
      * @param body 请求体
@@ -118,7 +125,7 @@ public class CasBusinessLoginProxyController {
      */
     @PostMapping("/refresh")
     public ResponseEntity<String> proxyRefresh(@RequestBody(required = false) String body,
-                                               HttpServletRequest request) {
+                                                HttpServletRequest request) {
         return proxyService.proxy(request, body, "/cas/refresh");
     }
 

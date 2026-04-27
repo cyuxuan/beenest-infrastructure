@@ -1,7 +1,7 @@
 package org.apereo.cas.beenest.service;
 
 import org.apereo.cas.beenest.common.constant.CasConstant;
-import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.util.UserTypeUtils;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
@@ -238,10 +238,10 @@ public class UserIdentityService {
         }
         // 检查目标账号状态
         if (user.getStatus() != null && user.getStatus() == CasConstant.USER_STATUS_LOCKED) {
-            throw new BusinessException(403, "关联账号已被锁定，请联系管理员");
+            throw new BizException(403, "关联账号已被锁定，请联系管理员");
         }
         if (user.getStatus() != null && user.getStatus() == CasConstant.USER_STATUS_DISABLED) {
-            throw new BusinessException(403, "关联账号已被禁用，请联系管理员");
+            throw new BizException(403, "关联账号已被禁用，请联系管理员");
         }
         LOGGER.info("通过手机号合并账号: userId={}, phone={}", user.getUserId(), phone);
         return user;
@@ -272,7 +272,7 @@ public class UserIdentityService {
                 }
             }
             LOGGER.error("并发注册但无法合并，抛出异常", e);
-            throw new BusinessException(500, "注册失败，请重试");
+            throw new BizException(500, "注册失败，请重试");
         }
     }
 

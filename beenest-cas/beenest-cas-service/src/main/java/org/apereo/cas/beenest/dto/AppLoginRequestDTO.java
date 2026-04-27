@@ -8,7 +8,7 @@ import lombok.Data;
  * 支持用户名密码与短信验证码两种模式。
  */
 @Data
-public class AppLoginRequestDTO {
+public final class AppLoginRequestDTO {
 
     private String principal;
     private String password;

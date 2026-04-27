@@ -21,7 +21,7 @@ import java.util.Map;
  * Token 刷新器
  * <p>
  * 调用 CAS Server 的 refresh 端点，使用 refreshToken 换取新的 accessToken + refreshToken。
- * 用于无感刷新场景：当 accessToken (TGT) 过期时，Client Starter 自动调用此刷新器。
+ * 用于小程序和兼容场景：当 accessToken 过期时，Client Starter 自动调用此刷新器。
  * <p>
  * 使用带超时的 RestTemplate，防止 CAS Server 响应慢导致业务请求阻塞。
  */
@@ -71,7 +71,7 @@ public class CasTokenRefresher {
 
             return parseResponse(response.getBody());
         } catch (Exception e) {
-            LOGGER.warn("Token 刷新请求失败: {}", e.getMessage());
+            log.warn("Token 刷新请求失败: {}", e.getMessage());
             return null;
         }
     }
@@ -117,7 +117,7 @@ public class CasTokenRefresher {
 
             int code = root.path("code").asInt(-1);
             if (code != 200) {
-                LOGGER.debug("Token 刷新失败: code={}, message={}",
+                log.debug("Token 刷新失败: code={}, message={}",
                         code, root.path("message").asText("未知错误"));
                 return null;
             }
@@ -129,7 +129,7 @@ public class CasTokenRefresher {
             long expiresIn = data.path("expiresIn").asLong(0);
 
             if (newAccessToken == null || userId == null) {
-                LOGGER.warn("Token 刷新响应缺少必要字段");
+                log.warn("Token 刷新响应缺少必要字段");
                 return null;
             }
 
@@ -162,7 +162,7 @@ public class CasTokenRefresher {
 
             return new TokenRefreshResult(newAccessToken, newRefreshToken, expiresIn, session);
         } catch (Exception e) {
-            LOGGER.error("解析 Token 刷新响应失败", e);
+            log.error("解析 Token 刷新响应失败", e);
             return null;
         }
     }

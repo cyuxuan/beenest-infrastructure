@@ -30,7 +30,7 @@ public class CasAssertionUserDetailsService
             throws UsernameNotFoundException {
         Assertion assertion = token.getAssertion();
         String userId = assertion.getPrincipal().getName();
-        LOGGER.debug("通过 CAS Assertion 加载用户: userId={}", userId);
+        log.debug("通过 CAS Assertion 加载用户: userId={}", userId);
         return delegate.loadUserByCasAssertion(userId, assertion);
     }
 }

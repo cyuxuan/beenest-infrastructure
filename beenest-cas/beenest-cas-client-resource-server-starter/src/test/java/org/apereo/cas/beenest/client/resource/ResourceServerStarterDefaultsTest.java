@@ -19,8 +19,8 @@ class ResourceServerStarterDefaultsTest {
                 new ClassPathResource("application.properties").getInputStream(),
                 StandardCharsets.UTF_8);
 
+        assertThat(content).contains("cas.client.enabled=true");
         assertThat(content).contains("cas.client.mode=resource-server");
-        assertThat(content).contains("cas.client.business-login-proxy.enabled=false");
         assertThat(content).contains("cas.client.token-auth.enabled=true");
         assertThat(content).contains("cas.client.redirect-login=false");
         assertThat(content).contains("cas.client.use-session=false");

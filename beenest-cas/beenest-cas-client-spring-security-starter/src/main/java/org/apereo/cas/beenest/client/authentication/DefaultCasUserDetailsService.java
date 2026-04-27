@@ -65,10 +65,10 @@ public class DefaultCasUserDetailsService implements CasUserDetailsService {
                 if (StringUtils.hasText(localUserId)) {
                     session.setUserId(localUserId);
                 }
-                LOGGER.info("CAS 默认用户详情加载器已自动注册本地用户: userId={}", session.getUserId());
+                log.info("CAS 默认用户详情加载器已自动注册本地用户: userId={}", session.getUserId());
             }
         } catch (Exception e) {
-            LOGGER.warn("CAS 默认用户详情加载器自动注册失败: userId={}", session.getUserId(), e);
+            log.warn("CAS 默认用户详情加载器自动注册失败: userId={}", session.getUserId(), e);
         }
     }
 
@@ -117,7 +117,7 @@ public class DefaultCasUserDetailsService implements CasUserDetailsService {
         }
 
         String[] values = StringUtils.tokenizeToStringArray(rawValue.toString(), ",; \t\r\n");
-        if (values == null || values.length == 0) {
+        if (values.length == 0) {
             addAuthorityToken(rawValue.toString(), granted, roleMode);
             return;
         }

@@ -16,6 +16,6 @@ class CasSecurityPropertiesTest {
         assertThat(properties.getMode()).isEqualTo(CasMode.LOGIN_GATEWAY);
         assertThat(properties.isLoginGatewayMode()).isTrue();
         assertThat(properties.isResourceServerMode()).isFalse();
-        assertThat(properties.getBusinessLoginProxy().isEnabled()).isFalse();
+        assertThat(properties.getProxy().isEnabled()).isFalse();
     }
 }

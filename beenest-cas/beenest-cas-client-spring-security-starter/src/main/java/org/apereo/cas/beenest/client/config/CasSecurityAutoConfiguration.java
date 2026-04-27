@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Import;
  *   <li>Proxy Ticket 支持（条件：cas.client.proxy.enabled=true）</li>
  *   <li>Bearer Token 认证（条件：cas.client.token-auth.enabled=true）</li>
  *   <li>SLO 单点登出（默认启用）</li>
- *   <li>用户同步（条件：cas.client.sync.enabled=true）</li>
  * </ul>
  */
 @Slf4j
@@ -33,11 +32,10 @@ import org.springframework.context.annotation.Import;
     CasProxyConfiguration.class,
     CasBearerTokenConfiguration.class,
     CasSloConfiguration.class,
-    CasSyncConfiguration.class,
 })
 public class CasSecurityAutoConfiguration {
 
     public CasSecurityAutoConfiguration() {
-        LOGGER.info("beenest-cas-client-spring-security-starter 已激活");
+        log.info("beenest-cas-client-spring-security-starter 已激活");
     }
 }

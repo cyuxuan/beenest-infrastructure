@@ -156,18 +156,18 @@ services:
       SMS_SECRET_KEY: ${SMS_SECRET_KEY:-}
       CAS_TOKEN_VALIDATION_SECRET: ${CAS_TOKEN_VALIDATION_SECRET:-beenest-cas-token-secret}
       # 日志级别（需要调试时改为 TRACE/DEBUG，无需重新打包）
-      LOG_LEVEL_CAS: ${LOG_LEVEL_CAS:-INFO}
-      LOG_LEVEL_BEENEST: ${LOG_LEVEL_BEENEST:-INFO}
-      LOG_LEVEL_SPRING_SECURITY: ${LOG_LEVEL_SPRING_SECURITY:-INFO}
-      LOG_LEVEL_SPRING_WEB: ${LOG_LEVEL_SPRING_WEB:-INFO}
+      LOG_LEVEL_CAS: ${LOG_LEVEL_CAS:-DEBUG}
+      LOG_LEVEL_BEENEST: ${LOG_LEVEL_BEENEST:-DEBUG}
+      LOG_LEVEL_SPRING_SECURITY: ${LOG_LEVEL_SPRING_SECURITY:-DEBUG}
+      LOG_LEVEL_SPRING_WEB: ${LOG_LEVEL_SPRING_WEB:-DEBUG}
       # JVM
       JAVA_OPTS: -Xms256m -Xmx512m
     ports:
       - "8081:8081"
     volumes:
       - ./beenest-cas/beenest-cas-service/build/libs/cas.war:/app/app.war
-      - ./beenest-cas/etc/oidc/jwks.json:/etc/cas/oidc/jwks.json:ro
-      - ./beenest-cas/etc/saml:/etc/cas/saml
+      - ./beenest-cas/beenest-cas-service/etc/cas/oidc/jwks.json:/etc/cas/oidc/jwks.json:ro
+      - ./beenest-cas/beenest-cas-service/etc/cas/saml:/etc/cas/saml
       - beenest-cas-logs:/app/logs
     working_dir: /app
     entrypoint: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.war"]

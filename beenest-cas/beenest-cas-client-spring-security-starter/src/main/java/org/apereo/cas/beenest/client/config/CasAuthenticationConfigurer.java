@@ -56,11 +56,11 @@ public class CasAuthenticationConfigurer
         // 2. 如果 Bearer Token 启用，注册 BearerTokenAuthenticationProvider
         if (bearerTokenProvider != null) {
             http.authenticationProvider(bearerTokenProvider);
-            LOGGER.info("CAS Bearer Token 认证已启用");
+            log.info("CAS Bearer Token 认证已启用");
         }
 
         if (casProvider != null) {
-            LOGGER.info("CAS AuthenticationProvider 已注册");
+            log.info("CAS AuthenticationProvider 已注册");
         }
     }
 
@@ -91,6 +91,6 @@ public class CasAuthenticationConfigurer
             http.addFilter(casFilter);
         }
 
-        LOGGER.info("CAS Filter Chain 已配置");
+        log.info("CAS Filter Chain 已配置");
     }
 }

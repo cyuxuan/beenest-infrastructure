@@ -1,8 +1,8 @@
 package org.apereo.cas.beenest.client.config;
 
-import org.apereo.cas.beenest.client.controller.CasBusinessLoginProxyController;
 import org.apereo.cas.beenest.client.cache.BearerTokenCache;
 import org.apereo.cas.beenest.client.cache.BearerTokenRevocationService;
+import org.apereo.cas.beenest.client.controller.CasBusinessLoginProxyController;
 import org.apereo.cas.beenest.client.proxy.CasBusinessLoginProxyService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -12,9 +12,10 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * 业务系统登录代理配置。
+ * 业务系统登录代理自动配置。
  * <p>
- * 提供转发 CAS 登录请求所需的 RestTemplate、Service 和 Controller。
+ * 仅在登录网关模式且显式开启 business-login-proxy 时生效，
+ * 将业务系统域名下的登录请求转发到 CAS Server。
  */
 @Configuration
 @ConditionalOnProperty(prefix = "cas.client", name = "enabled", havingValue = "true")

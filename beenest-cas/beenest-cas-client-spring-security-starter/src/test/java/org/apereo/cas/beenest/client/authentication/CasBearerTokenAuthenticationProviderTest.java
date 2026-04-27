@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
  */
 class CasBearerTokenAuthenticationProviderTest {
 
-    private final CasTgtValidator tgtValidator = mock(CasTgtValidator.class);
+    private final CasNativeTicketValidator nativeTicketValidator = mock(CasNativeTicketValidator.class);
     private final CasSecurityProperties properties = new CasSecurityProperties();
     private final BearerTokenCache tokenCache = mock(BearerTokenCache.class);
     private final BearerTokenRevocationService revocationService = mock(BearerTokenRevocationService.class);
@@ -34,7 +34,7 @@ class CasBearerTokenAuthenticationProviderTest {
 
     private CasBearerTokenAuthenticationProvider newProvider() {
         return new CasBearerTokenAuthenticationProvider(
-                tgtValidator,
+                nativeTicketValidator,
                 properties,
                 tokenCache,
                 revocationService,
@@ -54,13 +54,13 @@ class CasBearerTokenAuthenticationProviderTest {
                 .hasMessageContaining("accessToken 已注销");
 
         verify(tokenCache, never()).get("revoked-access");
-        verify(tgtValidator, never()).validate("revoked-access");
+        verify(nativeTicketValidator, never()).validate("revoked-access");
     }
 
     @Test
     void shouldRejectRevokedRefreshTokenBeforeAutoRefresh() {
         when(tokenCache.get("expired-access")).thenReturn(null);
-        when(tgtValidator.validate("expired-access")).thenReturn(null);
+        when(nativeTicketValidator.validate("expired-access")).thenReturn(null);
         when(revocationService.isAccessTokenRevoked("expired-access")).thenReturn(false);
         when(revocationService.isRefreshTokenRevoked("revoked-refresh")).thenReturn(true);
 
@@ -89,7 +89,7 @@ class CasBearerTokenAuthenticationProviderTest {
         Authentication result = newProvider().authenticate(new CasBearerTokenAuthenticationToken("access-ok"));
 
         verify(tokenCache).get("access-ok");
-        verify(tgtValidator, never()).validate("access-ok");
+        verify(nativeTicketValidator, never()).validate("access-ok");
         org.assertj.core.api.Assertions.assertThat(result.isAuthenticated()).isTrue();
     }
 
@@ -97,7 +97,7 @@ class CasBearerTokenAuthenticationProviderTest {
     void shouldReuseCachedAuthoritiesForSameAccessToken() {
         BearerTokenCache realTokenCache = new BearerTokenCache(300, 100);
         CasBearerTokenAuthenticationProvider provider = new CasBearerTokenAuthenticationProvider(
-                tgtValidator,
+                nativeTicketValidator,
                 properties,
                 realTokenCache,
                 revocationService,
@@ -110,7 +110,7 @@ class CasBearerTokenAuthenticationProviderTest {
         CasUserDetails userDetails = new CasUserDetails(session, List.of());
 
         when(revocationService.isAccessTokenRevoked("access-cached")).thenReturn(false);
-        when(tgtValidator.validate("access-cached")).thenReturn(session);
+        when(nativeTicketValidator.validate("access-cached")).thenReturn(session);
         when(userDetailsService.loadUserByCasAssertion(org.mockito.ArgumentMatchers.eq("u101"), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(userDetails);
 
@@ -119,7 +119,7 @@ class CasBearerTokenAuthenticationProviderTest {
 
         org.assertj.core.api.Assertions.assertThat(first.isAuthenticated()).isTrue();
         org.assertj.core.api.Assertions.assertThat(second.isAuthenticated()).isTrue();
-        verify(tgtValidator, times(1)).validate("access-cached");
+        verify(nativeTicketValidator, times(1)).validate("access-cached");
         verify(userDetailsService, times(1))
                 .loadUserByCasAssertion(org.mockito.ArgumentMatchers.eq("u101"), org.mockito.ArgumentMatchers.any());
     }
@@ -128,7 +128,7 @@ class CasBearerTokenAuthenticationProviderTest {
     void shouldReloadAuthoritiesWhenCachedVersionIsStale() {
         BearerTokenCache realTokenCache = new BearerTokenCache(300, 100);
         CasBearerTokenAuthenticationProvider provider = new CasBearerTokenAuthenticationProvider(
-                tgtValidator,
+                nativeTicketValidator,
                 properties,
                 realTokenCache,
                 revocationService,
@@ -148,7 +148,7 @@ class CasBearerTokenAuthenticationProviderTest {
         CasUserDetails userDetailsV2 = new CasUserDetails(sessionV2, List.of());
 
         when(revocationService.isAccessTokenRevoked("access-stale")).thenReturn(false);
-        when(tgtValidator.validate("access-stale")).thenReturn(sessionV1, sessionV2);
+        when(nativeTicketValidator.validate("access-stale")).thenReturn(sessionV1, sessionV2);
         when(authorityVersionService.isVersionStale("u300", "v1")).thenReturn(true);
         when(authorityVersionService.isVersionStale("u300", "v2")).thenReturn(false);
         when(userDetailsService.loadUserByCasAssertion(org.mockito.ArgumentMatchers.eq("u300"), org.mockito.ArgumentMatchers.any()))
@@ -159,7 +159,7 @@ class CasBearerTokenAuthenticationProviderTest {
 
         org.assertj.core.api.Assertions.assertThat(first.isAuthenticated()).isTrue();
         org.assertj.core.api.Assertions.assertThat(second.isAuthenticated()).isTrue();
-        verify(tgtValidator, times(2)).validate("access-stale");
+        verify(nativeTicketValidator, times(2)).validate("access-stale");
         verify(userDetailsService, times(2))
                 .loadUserByCasAssertion(org.mockito.ArgumentMatchers.eq("u300"), org.mockito.ArgumentMatchers.any());
     }

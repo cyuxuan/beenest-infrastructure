@@ -19,8 +19,8 @@ class LoginGatewayStarterDefaultsTest {
                 new ClassPathResource("application.properties").getInputStream(),
                 StandardCharsets.UTF_8);
 
+        assertThat(content).contains("cas.client.enabled=true");
         assertThat(content).contains("cas.client.mode=login-gateway");
-        assertThat(content).contains("cas.client.business-login-proxy.enabled=true");
         assertThat(content).contains("cas.client.token-auth.enabled=true");
         assertThat(content).contains("cas.client.slo.enabled=true");
     }

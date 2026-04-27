@@ -9,7 +9,7 @@ import lombok.Data;
  * 各平台使用不同的授权码字段名。
  */
 @Data
-public class MiniAppLoginDTO {
+public final class MiniAppLoginDTO {
 
     /** 微信授权码（微信小程序登录时必填） */
     private String code;

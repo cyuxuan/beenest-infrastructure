@@ -2,6 +2,7 @@ package org.apereo.cas.beenest.client.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,11 +29,8 @@ public class CasSecurityProperties {
     /** 注册的服务 ID（对应 CAS Server 中的 serviceId） */
     private String serviceId;
 
-    /** CAS Server 签名密钥（用于 Webhook 签名验证和拉取 API 请求签名） */
+    /** CAS Server 签名密钥（用于 Bearer Token 相关请求签名） */
     private String signKey;
-
-    /** TGT 校验接口共享密钥（用于 /token/validate 内部调用鉴权） */
-    private String tokenValidationSecret;
 
     /** 不需要认证的 URL 模式（逗号分隔，用于默认 SecurityFilterChain 的 permitAll 配置） */
     private String ignorePattern;
@@ -55,18 +53,11 @@ public class CasSecurityProperties {
     /** Proxy Ticket 配置 */
     private ProxyConfig proxy = new ProxyConfig();
 
-    /** 业务系统登录代理配置 */
-    private BusinessLoginProxyConfig businessLoginProxy = new BusinessLoginProxyConfig();
-
-    /** Bearer Token 认证配置（APP/小程序场景） */
+    /** Bearer Token 认证配置（小程序/兼容场景） */
     private TokenAuthConfig tokenAuth = new TokenAuthConfig();
 
     /** SLO 配置 */
     private SloConfig slo = new SloConfig();
-
-    /** 用户同步配置（已弃用 — CAS Server 已移除同步端点） */
-    @Deprecated(since = "2.0")
-    private SyncConfig sync = new SyncConfig();
 
     /** Spring Security 集成配置 */
     private SecurityConfig security = new SecurityConfig();
@@ -87,22 +78,11 @@ public class CasSecurityProperties {
     }
 
     /**
-     * 业务系统登录代理配置
-     */
-    @Data
-    public static class BusinessLoginProxyConfig {
-        /** 是否启用业务系统登录代理 */
-        private boolean enabled = false;
-        /** 业务系统对外暴露的登录代理前缀 */
-        private String basePath = "/cas";
-    }
-
-    /**
      * Bearer Token 认证配置
      */
     @Data
     public static class TokenAuthConfig {
-        /** 是否启用 Bearer Token 认证（APP/小程序场景） */
+        /** 是否启用 Bearer Token 认证（小程序/兼容场景） */
         private boolean enabled = false;
         /** TGT 验证结果本地缓存时间（秒） */
         private long validateCacheTtlSeconds = 300;
@@ -141,6 +121,20 @@ public class CasSecurityProperties {
     }
 
     /**
+     * 解析用于 CAS 原生票据校验的目标服务地址。
+     * <p>
+     * 优先使用业务系统自身地址；如果未配置，则回退到 CAS 服务器地址。
+     *
+     * @return 验证服务地址
+     */
+    public String resolveValidationServiceUrl() {
+        if (StringUtils.hasText(clientHostUrl)) {
+            return trimTrailingSlash(clientHostUrl);
+        }
+        return trimTrailingSlash(serverUrl);
+    }
+
+    /**
      * SLO 配置
      */
     @Data
@@ -152,29 +146,6 @@ public class CasSecurityProperties {
     }
 
     /**
-     * 用户同步配置（已弃用）
-     * <p>
-     * CAS Server 全面原生化后已移除自定义同步端点。
-     * 用户属性通过每次 Token 验证自动获取最新值，无需额外同步。
-     *
-     * @deprecated 请移除 {@code cas.client.sync.*} 配置
-     */
-    @Data
-    @Deprecated(since = "2.0")
-    public static class SyncConfig {
-        /** 是否启用用户同步（需显式开启） */
-        private boolean enabled = false;
-        /** Webhook 接收路径 */
-        private String webhookPath = "/cas/sync/webhook";
-        /** 是否启用拉取模式 */
-        private boolean pullEnabled = false;
-        /** 拉取间隔（秒） */
-        private long pullIntervalSeconds = 60;
-        /** 收到变更时是否自动刷新 Session 中的用户信息 */
-        private boolean autoRefreshSession = true;
-    }
-
-    /**
      * Spring Security 集成配置
      */
     @Data
@@ -183,5 +154,18 @@ public class CasSecurityProperties {
         private String authenticationProviderKey = "beenest-cas-provider";
         /** Session 固定保护策略 */
         private String sessionFixationProtection = "migrateSession";
+    }
+
+    /**
+     * 去除字符串尾部斜杠。
+     *
+     * @param value 原始字符串
+     * @return 标准化后的字符串
+     */
+    private String trimTrailingSlash(String value) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 }

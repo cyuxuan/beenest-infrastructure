@@ -1,0 +1,43 @@
+{
+  "@class": "java.util.HashMap",
+  "username": {
+    "@class": "org.apereo.cas.acct.AccountRegistrationProperty",
+    "order": 0,
+    "name": "username",
+    "type": "text",
+    "pattern": ".+",
+    "required": true,
+    "label": "cas.screen.acct.label.username",
+    "title": "cas.screen.acct.title.username"
+  },
+  "firstName": {
+    "@class": "org.apereo.cas.acct.AccountRegistrationProperty",
+    "order": 1,
+    "name": "firstName",
+    "type": "text",
+    "pattern": ".+",
+    "required": true,
+    "label": "cas.screen.acct.label.firstname",
+    "title": "cas.screen.acct.title.firstname"
+  },
+  "lastName": {
+    "@class": "org.apereo.cas.acct.AccountRegistrationProperty",
+    "order": 2,
+    "name": "lastName",
+    "type": "text",
+    "pattern": ".+",
+    "required": true,
+    "label": "cas.screen.acct.label.lastname",
+    "title": "cas.screen.acct.title.lastname"
+  },
+  "email": {
+    "@class": "org.apereo.cas.acct.AccountRegistrationProperty",
+    "order": 3,
+    "name": "email",
+    "type": "email",
+    "pattern": "^\\S+@\\S+\\.\\S+$",
+    "required": true,
+    "label": "cas.screen.acct.label.email",
+    "title": "cas.screen.acct.title.email"
+  }
+}

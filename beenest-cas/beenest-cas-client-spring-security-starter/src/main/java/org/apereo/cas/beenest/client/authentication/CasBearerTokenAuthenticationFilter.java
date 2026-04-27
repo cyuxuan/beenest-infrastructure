@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apereo.cas.beenest.client.details.CasUserDetails;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -24,7 +25,7 @@ import java.util.function.Supplier;
  * <p>
  * 无感刷新机制：
  * - 当 accessToken (TGT) 过期时，如果请求携带了 X-Refresh-Token 头，
- *   Provider 会自动调用 CAS Server 刷新端点换取新 token
+ * Provider 会自动调用 CAS Server 刷新端点换取新 token
  * - 刷新成功后，通过响应头返回新 token 供客户端保存：
  *   <ul>
  *     <li>{@code X-New-Access-Token}: 新的 accessToken</li>
@@ -43,7 +44,9 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String REFRESH_TOKEN_HEADER = "X-Refresh-Token";
 
-    /** 刷新成功后写入的响应头 */
+    /**
+     * 刷新成功后写入的响应头
+     */
     private static final String NEW_ACCESS_TOKEN_HEADER = "X-New-Access-Token";
     private static final String NEW_REFRESH_TOKEN_HEADER = "X-New-Refresh-Token";
     private static final String TOKEN_REFRESHED_HEADER = "X-Token-Refreshed";
@@ -58,9 +61,7 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                     HttpServletResponse response,
-                                     FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         // 仅处理携带 Bearer Token 的请求
         String bearerToken = extractBearerToken(request);
@@ -84,18 +85,18 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
             CasBearerTokenAuthenticationProvider authenticationProvider = resolveAuthenticationProvider();
             if (authenticationProvider != null) {
                 Authentication result = authenticationProvider.authenticate(
-                        new CasBearerTokenAuthenticationToken(bearerToken, refreshToken));
+                    new CasBearerTokenAuthenticationToken(bearerToken, refreshToken));
                 SecurityContextHolder.getContext().setAuthentication(result);
                 writeRefreshHeadersIfNeeded(response, result);
-                LOGGER.debug("Bearer Token 认证成功: userId={}",
-                        result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
+                log.debug("Bearer Token 认证成功: userId={}",
+                    result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
                 filterChain.doFilter(request, response);
                 return;
             }
 
             AuthenticationManager authenticationManager = resolveAuthenticationManager();
             if (authenticationManager == null) {
-                LOGGER.warn("CAS Bearer Token 过滤器无法获取 AuthenticationManager");
+                log.warn("CAS Bearer Token 过滤器无法获取 AuthenticationManager");
                 response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write("{\"code\":503,\"message\":\"Bearer 认证组件未初始化\",\"data\":null}");
@@ -103,25 +104,25 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
             }
 
             Authentication result = authenticationManager.authenticate(
-                    new CasBearerTokenAuthenticationToken(bearerToken, refreshToken));
+                new CasBearerTokenAuthenticationToken(bearerToken, refreshToken));
             SecurityContextHolder.getContext().setAuthentication(result);
             writeRefreshHeadersIfNeeded(response, result);
-            LOGGER.debug("Bearer Token 认证成功: userId={}",
-                    result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
+            log.debug("Bearer Token 认证成功: userId={}",
+                result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
         } catch (AuthenticationException e) {
             // 关键：捕获异常，写入 401 响应，不传播到 ExceptionTranslationFilter
-            LOGGER.debug("Bearer Token 认证失败: {}", e.getMessage());
+            log.debug("Bearer Token 认证失败: {}", e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             String message = e.getMessage() != null ? e.getMessage() : "Token 已过期或无效";
             String jsonResponse = String.format(
-                    "{\"code\":401,\"message\":\"%s\",\"data\":null}", message);
+                "{\"code\":401,\"message\":\"%s\",\"data\":null}", message);
             response.getWriter().write(jsonResponse);
             return; // 不继续 Filter Chain
         } catch (RuntimeException e) {
             // 某些 Spring Security 代理/适配层可能把认证异常包装成运行时异常，
             // 这里统一收敛为 503，避免把内部实现细节泄露给客户端。
-            LOGGER.error("Bearer Token 认证组件异常", e);
+            log.error("Bearer Token 认证组件异常", e);
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":503,\"message\":\"Bearer 认证组件异常，请稍后重试\",\"data\":null}");
@@ -135,16 +136,16 @@ public class CasBearerTokenAuthenticationFilter extends OncePerRequestFilter {
      * 写入自动刷新后的响应头。
      *
      * @param response HTTP 响应
-     * @param result 认证结果
+     * @param result   认证结果
      */
     private void writeRefreshHeadersIfNeeded(HttpServletResponse response, Authentication result) {
         if (result instanceof CasBearerTokenAuthenticationToken casToken
-                && casToken.getRefreshToken() != null) {
+            && casToken.getRefreshToken() != null) {
             response.setHeader(NEW_ACCESS_TOKEN_HEADER, casToken.getAccessToken());
             response.setHeader(NEW_REFRESH_TOKEN_HEADER, casToken.getRefreshToken());
             response.setHeader(TOKEN_REFRESHED_HEADER, "true");
-            LOGGER.debug("Token 已自动刷新并写入响应头: userId={}",
-                    result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
+            log.debug("Token 已自动刷新并写入响应头: userId={}",
+                result.getPrincipal() instanceof CasUserDetails d ? d.getUserId() : "unknown");
         }
     }
 

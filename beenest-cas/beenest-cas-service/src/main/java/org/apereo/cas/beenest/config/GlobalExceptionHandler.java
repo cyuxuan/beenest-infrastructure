@@ -1,6 +1,6 @@
 package org.apereo.cas.beenest.config;
 
-import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.response.R;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -21,11 +21,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(basePackages = "org.apereo.cas.beenest.controller")
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<R<Void>> handleBusinessException(BusinessException e) {
+    @ExceptionHandler(BizException.class)
+    public ResponseEntity<R<Void>> handleBusinessException(BizException e) {
         LOGGER.warn("业务异常: code={}, message={}", e.getCode(), e.getMessage());
         HttpStatus status = HttpStatus.resolve(e.getCode());
-        if (status == null || status.isError() == false && e.getCode() >= 400) {
+        if (status == null || !status.isError() && e.getCode() >= 400) {
             status = HttpStatus.BAD_REQUEST;
         }
         return ResponseEntity.status(status)

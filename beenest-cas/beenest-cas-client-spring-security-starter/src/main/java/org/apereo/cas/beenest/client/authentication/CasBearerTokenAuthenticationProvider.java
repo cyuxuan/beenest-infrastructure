@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Bearer Token 认证提供者
  * <p>
- * 处理 {@link CasBearerTokenAuthenticationToken}，通过 CasTgtValidator 验证 TGT，
+ * 处理 {@link CasBearerTokenAuthenticationToken}，通过 CAS 原生票据验证器验证 TGT，
  * 委托 CasUserDetailsService 加载权限。
  * <p>
  * 无感刷新：当 accessToken (TGT) 过期时，如果 Token 中携带了 refreshToken，
@@ -40,10 +40,12 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class CasBearerTokenAuthenticationProvider implements AuthenticationProvider {
 
-    /** 等待并发刷新结果的最大时长（秒） */
+    /**
+     * 等待并发刷新结果的最大时长（秒）
+     */
     private static final long REFRESH_AWAIT_TIMEOUT_SECONDS = 30;
 
-    private final CasTgtValidator tgtValidator;
+    private final CasNativeTicketValidator nativeTicketValidator;
     private final CasSecurityProperties properties;
     private final BearerTokenCache tokenCache;
     private final BearerTokenRevocationService revocationService;
@@ -60,23 +62,23 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
      */
     private final ConcurrentHashMap<String, CompletableFuture<Authentication>> inflightRefreshes = new ConcurrentHashMap<>();
 
-    public CasBearerTokenAuthenticationProvider(CasTgtValidator tgtValidator,
-                                                 CasSecurityProperties properties,
-                                                 BearerTokenCache tokenCache,
-                                                 BearerTokenRevocationService revocationService,
-                                                 CasUserDetailsService userDetailsService,
-                                                 CasTokenRefresher tokenRefresher) {
-        this(tgtValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, null);
+    public CasBearerTokenAuthenticationProvider(CasNativeTicketValidator nativeTicketValidator,
+                                                CasSecurityProperties properties,
+                                                BearerTokenCache tokenCache,
+                                                BearerTokenRevocationService revocationService,
+                                                CasUserDetailsService userDetailsService,
+                                                CasTokenRefresher tokenRefresher) {
+        this(nativeTicketValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, null);
     }
 
-    public CasBearerTokenAuthenticationProvider(CasTgtValidator tgtValidator,
-                                                 CasSecurityProperties properties,
-                                                 BearerTokenCache tokenCache,
-                                                 BearerTokenRevocationService revocationService,
-                                                 CasUserDetailsService userDetailsService,
-                                                 CasTokenRefresher tokenRefresher,
-                                                 BearerAuthorityVersionService authorityVersionService) {
-        this.tgtValidator = tgtValidator;
+    public CasBearerTokenAuthenticationProvider(CasNativeTicketValidator nativeTicketValidator,
+                                                CasSecurityProperties properties,
+                                                BearerTokenCache tokenCache,
+                                                BearerTokenRevocationService revocationService,
+                                                CasUserDetailsService userDetailsService,
+                                                CasTokenRefresher tokenRefresher,
+                                                BearerAuthorityVersionService authorityVersionService) {
+        this.nativeTicketValidator = nativeTicketValidator;
         this.properties = properties;
         this.tokenCache = tokenCache;
         this.revocationService = revocationService;
@@ -96,8 +98,8 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             throw new BadCredentialsException("CAS accessToken 已注销，请重新登录");
         }
         if (refreshToken != null && !refreshToken.isBlank()
-                && revocationService != null
-                && revocationService.isRefreshTokenRevoked(refreshToken)) {
+            && revocationService != null
+            && revocationService.isRefreshTokenRevoked(refreshToken)) {
             throw new BadCredentialsException("CAS refreshToken 已注销，请重新登录");
         }
 
@@ -107,23 +109,23 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             if (cached != null) {
                 String cachedVersion = resolveAuthorityVersion(cached);
                 if (authorityVersionService != null
-                        && authorityVersionService.isVersionStale(cached.getUserId(), cachedVersion)) {
-                    LOGGER.debug("Bearer Token 权限版本已过期，准备重新校验: userId={}, token={}",
-                            cached.getUserId(), accessToken);
+                    && authorityVersionService.isVersionStale(cached.getUserId(), cachedVersion)) {
+                    log.debug("Bearer Token 权限版本已过期，准备重新校验: userId={}, token={}",
+                        cached.getUserId(), accessToken);
                     tokenCache.remove(accessToken);
                 } else {
-                LOGGER.debug("Bearer Token 缓存命中");
-                CasUserDetails cachedUserDetails = tokenCache.getUserDetails(accessToken);
-                if (cachedUserDetails != null) {
-                    return buildAuthenticatedToken(accessToken, null, cached, cachedUserDetails);
-                }
-                return buildAuthenticatedToken(accessToken, null, cached, null);
+                    log.debug("Bearer Token 缓存命中");
+                    CasUserDetails cachedUserDetails = tokenCache.getUserDetails(accessToken);
+                    if (cachedUserDetails != null) {
+                        return buildAuthenticatedToken(accessToken, null, cached, cachedUserDetails);
+                    }
+                    return buildAuthenticatedToken(accessToken, null, cached, null);
                 }
             }
         }
 
         // 2. 远程验证 TGT
-        CasUserSession session = tgtValidator.validate(accessToken);
+        CasUserSession session = nativeTicketValidator.validate(accessToken);
         if (session != null) {
             // TGT 有效，构建认证结果并缓存
             session.setAuthTime(System.currentTimeMillis());
@@ -132,7 +134,7 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
 
         // 3. TGT 过期 — 通过 Singleflight 机制尝试无感刷新
         if (properties.getTokenAuth().isAutoRefreshEnabled() && refreshToken != null && !refreshToken.isBlank()) {
-            LOGGER.debug("accessToken 过期，尝试使用 refreshToken 自动刷新");
+            log.debug("accessToken 过期，尝试使用 refreshToken 自动刷新");
             Authentication refreshed = singleflightRefresh(accessToken, refreshToken);
             if (refreshed != null) {
                 return refreshed;
@@ -162,11 +164,11 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
 
         if (existing != null) {
             // 已有线程在刷新同一个 refreshToken，等待其结果
-            LOGGER.debug("已有并发刷新正在进行，等待结果: refreshToken={}...", refreshToken.substring(0, Math.min(8, refreshToken.length())));
+            log.debug("已有并发刷新正在进行，等待结果: refreshToken={}...", refreshToken.substring(0, Math.min(8, refreshToken.length())));
             try {
                 return existing.get(REFRESH_AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (Exception e) {
-                LOGGER.warn("等待并发刷新结果超时或异常: {}", e.getMessage());
+                log.warn("等待并发刷新结果超时或异常: {}", e.getMessage());
                 return null;
             }
         }
@@ -178,7 +180,7 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             return result;
         } catch (Exception e) {
             future.complete(null);
-            LOGGER.warn("Token 刷新执行失败: {}", e.getMessage());
+            log.warn("Token 刷新执行失败: {}", e.getMessage());
             return null;
         } finally {
             inflightRefreshes.remove(refreshToken);
@@ -195,20 +197,20 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
     private Authentication doRefresh(String expiredAccessToken, String refreshToken) {
         CasTokenRefresher.TokenRefreshResult result = tokenRefresher.refreshToken(refreshToken);
         if (result == null) {
-            LOGGER.warn("Token 自动刷新失败");
+            log.warn("Token 自动刷新失败");
             return null;
         }
 
-        LOGGER.info("Token 自动刷新成功: userId={}", result.getSession().getUserId());
+        log.info("Token 自动刷新成功: userId={}", result.getSession().getUserId());
 
         // 缓存新的 accessToken
         result.getSession().setAuthTime(System.currentTimeMillis());
 
         Authentication authResult = buildAuthenticatedToken(
-                result.getNewAccessToken(),
-                result.getNewRefreshToken(),
-                result.getSession(),
-                null);
+            result.getNewAccessToken(),
+            result.getNewRefreshToken(),
+            result.getSession(),
+            null);
 
         // 将新 token 的认证结果也缓存到旧 accessToken 下，使仍在使用旧 token 的并发请求能直接命中
         if (tokenCache != null && expiredAccessToken != null) {
@@ -226,8 +228,8 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
      * @param session         用户会话信息
      */
     private Authentication buildAuthenticatedToken(String accessToken, String newRefreshToken,
-                                                     CasUserSession session,
-                                                     CasUserDetails cachedUserDetails) {
+                                                   CasUserSession session,
+                                                   CasUserDetails cachedUserDetails) {
         CasUserDetails casUserDetails = cachedUserDetails;
 
         if (casUserDetails == null) {

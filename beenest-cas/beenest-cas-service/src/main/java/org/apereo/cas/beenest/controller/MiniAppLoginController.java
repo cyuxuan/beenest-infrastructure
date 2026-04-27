@@ -103,12 +103,10 @@ public class MiniAppLoginController {
      * 小程序登出。
      *
      * @param dto 登出参数
-     * @param httpRequest 当前 HTTP 请求
      * @return 空响应
      */
     @PostMapping("/logout")
-    public R<Void> logout(@RequestBody MiniAppLogoutDTO dto,
-                          HttpServletRequest httpRequest) {
+    public R<Void> logout(@RequestBody MiniAppLogoutDTO dto) {
         tokenLifecycleService.revokeTokens(dto.getAccessToken(), dto.getRefreshToken());
         return R.ok(null);
     }

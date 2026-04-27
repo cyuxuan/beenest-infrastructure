@@ -6,7 +6,7 @@ import lombok.Data;
  * 小程序登出请求 DTO
  */
 @Data
-public class MiniAppLogoutDTO {
+public final class MiniAppLogoutDTO {
 
     /** refreshToken */
     private String refreshToken;

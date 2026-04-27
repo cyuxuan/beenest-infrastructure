@@ -1,6 +1,6 @@
 package org.apereo.cas.beenest.filter;
 
-import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.dto.SmsSendResultDTO;
 import org.apereo.cas.beenest.service.SmsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -30,9 +31,7 @@ public class SmsSendEndpointFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         LOGGER.info("SMS send filter invoked: method={}, uri={}", request.getMethod(), request.getRequestURI());
         if (!"GET".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
@@ -54,7 +53,7 @@ public class SmsSendEndpointFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write(objectMapper.writeValueAsString(data));
-        } catch (BusinessException e) {
+        } catch (BizException e) {
             response.setStatus(e.getCode());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write("{\"timestamp\":null,\"status\":" + e.getCode() + ",\"error\":\"Forbidden\",\"message\":\"" + e.getMessage() + "\",\"path\":\"/sms/send\"}");
@@ -64,7 +63,6 @@ public class SmsSendEndpointFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String requestUri = request.getServletPath();
-        return requestUri == null
-                || !("/sms/send".equals(requestUri) || "/sms/send".equals(requestUri));
+        return !("/sms/send".equals(requestUri));
     }
 }

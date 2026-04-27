@@ -1,7 +1,6 @@
 package org.apereo.cas.beenest.client.config;
 
 import org.apereo.cas.beenest.client.authentication.CasBearerTokenAuthenticationProvider;
-import org.apereo.cas.beenest.client.controller.CasBusinessLoginProxyController;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -32,14 +31,11 @@ class CasSecurityAutoConfigurationModeTest {
                         "cas.client.client-host-url=https://api.example.com",
                         "cas.client.service-id=demo-service",
                         "cas.client.sign-key=test-sign-key",
-                        "cas.client.token-validation-secret=test-validation-secret",
                         "cas.client.token-auth.enabled=true",
-                        "cas.client.business-login-proxy.enabled=true",
                         "cas.client.slo.enabled=true")
                 .run(context -> {
                     assertThat(context).hasSingleBean(CasBearerTokenAuthenticationProvider.class);
                     assertThat(context).doesNotHaveBean(CasAuthenticationProvider.class);
-                    assertThat(context).doesNotHaveBean(CasBusinessLoginProxyController.class);
                 });
     }
 }

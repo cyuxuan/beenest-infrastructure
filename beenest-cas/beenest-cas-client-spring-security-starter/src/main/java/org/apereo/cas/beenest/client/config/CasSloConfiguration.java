@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
  * 不使用 Apereo 的 SingleSignOutFilter，避免双重 SLO 机制。
  * <p>
  * ActiveSessionRegistry 同时注册为 HttpSessionListener，追踪所有活跃 Session，
- * 维护 ST→SessionId 和 userId→SessionList 映射，供 SLO 和用户同步使用。
+ * 维护 ST→SessionId 和 userId→SessionList 映射，供 SLO 和会话定位使用。
  */
 @Configuration
 @ConditionalOnProperty(prefix = "cas.client", name = "enabled", havingValue = "true")

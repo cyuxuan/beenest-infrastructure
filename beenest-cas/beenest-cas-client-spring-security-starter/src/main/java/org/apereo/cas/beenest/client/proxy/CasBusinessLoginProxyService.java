@@ -43,21 +43,24 @@ public class CasBusinessLoginProxyService {
      *
      * @param request 当前 HTTP 请求
      * @param body 请求体
+     * @param targetPath CAS 目标路径
      * @return CAS Server 的原始响应
      */
     public ResponseEntity<String> proxy(HttpServletRequest request, String body, String targetPath) {
         String targetUrl = buildTargetUrl(targetPath, request.getQueryString());
+        HttpMethod httpMethod = resolveHttpMethod(request.getMethod());
         try {
             HttpHeaders headers = copyHeaders(request);
             appendSignatureHeaders(headers, body);
             HttpEntity<String> entity = new HttpEntity<>(body, headers);
-            ResponseEntity<String> response = restTemplate.exchange(targetUrl, HttpMethod.POST, entity, String.class);
-            LOGGER.info("业务系统登录请求已转发到 CAS: path={}, status={}", request.getRequestURI(), response.getStatusCode());
+            ResponseEntity<String> response = restTemplate.exchange(targetUrl, httpMethod, entity, String.class);
+            log.info("业务系统登录请求已转发到 CAS: path={}, method={}, status={}",
+                    request.getRequestURI(), httpMethod, response.getStatusCode());
             return ResponseEntity.status(response.getStatusCode())
                 .headers(filterResponseHeaders(response.getHeaders()))
                 .body(response.getBody());
         } catch (Exception e) {
-            LOGGER.error("转发 CAS 登录请求失败: path={}, targetUrl={}", request.getRequestURI(), targetUrl, e);
+            log.error("转发 CAS 登录请求失败: path={}, targetUrl={}", request.getRequestURI(), targetUrl, e);
             return ResponseEntity.status(502)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{\"code\":502,\"message\":\"CAS 登录服务暂不可用\"}");
@@ -69,7 +72,8 @@ public class CasBusinessLoginProxyService {
      * <p>
      * 当 serverUrl 已经包含 /cas 前缀时，避免与请求路径中的 /cas 重复拼接。
      *
-     * @param request 当前请求
+     * @param targetPath 目标路径
+     * @param queryString 查询串
      * @return CAS Server 目标 URL
      */
     private String buildTargetUrl(String targetPath, String queryString) {
@@ -121,7 +125,7 @@ public class CasBusinessLoginProxyService {
      * 满足 CAS Server 的 CasServiceCredentialFilter 校验要求。
      *
      * @param headers 转发请求头
-     * @param body    请求体
+     * @param body 请求体
      */
     private void appendSignatureHeaders(HttpHeaders headers, String body) {
         String serviceId = properties.getServiceId();
@@ -206,5 +210,22 @@ public class CasBusinessLoginProxyService {
             || HttpHeaders.CONTENT_LENGTH.equalsIgnoreCase(headerName)
             || HttpHeaders.TRAILER.equalsIgnoreCase(headerName)
             || HttpHeaders.UPGRADE.equalsIgnoreCase(headerName);
+    }
+
+    /**
+     * 解析 HTTP 方法。
+     *
+     * @param methodName 请求方法名
+     * @return HttpMethod
+     */
+    private HttpMethod resolveHttpMethod(String methodName) {
+        if (!StringUtils.hasText(methodName)) {
+            return HttpMethod.POST;
+        }
+        try {
+            return HttpMethod.valueOf(methodName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return HttpMethod.POST;
+        }
     }
 }

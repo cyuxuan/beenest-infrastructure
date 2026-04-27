@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apereo.cas.authentication.AuthenticationResult;
 import org.apereo.cas.authentication.AuthenticationSystemSupport;
 import org.apereo.cas.authentication.Credential;
-import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.response.R;
 import org.apereo.cas.beenest.common.util.CasRequestContextUtils;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
@@ -52,7 +52,7 @@ public class CasNativeLoginService {
             TokenResponseDTO response = tokenLifecycleService.issueToken(
                 authResult, authType, clientIp, userAgent, deviceId);
             return R.ok(response);
-        } catch (BusinessException e) {
+        } catch (BizException e) {
             return R.fail(e.getCode(), e.getMessage());
         } catch (Throwable e) {
             LOGGER.error("{} 登录失败", authType, e);
@@ -86,7 +86,7 @@ public class CasNativeLoginService {
             TokenResponseDTO response = tokenLifecycleService.issueTokenForUserId(
                 userId, "TOKEN_REFRESH", clientIp, userAgent, null);
             return R.ok(response);
-        } catch (BusinessException e) {
+        } catch (BizException e) {
             return R.fail(e.getCode(), e.getMessage());
         } catch (Throwable e) {
             LOGGER.error("Token 刷新失败: userId={}", userId, e);

@@ -9,7 +9,7 @@ import lombok.Data;
  * APP 与小程序共用同一个 refresh 入口，只携带 refreshToken 即可。
  */
 @Data
-public class TokenRefreshRequestDTO {
+public final class TokenRefreshRequestDTO {
 
     /** 刷新令牌 */
     @NotBlank(message = "refreshToken 不能为空")

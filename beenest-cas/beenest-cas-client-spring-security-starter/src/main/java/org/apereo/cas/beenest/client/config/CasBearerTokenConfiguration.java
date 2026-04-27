@@ -4,7 +4,6 @@ import org.apereo.cas.beenest.client.authentication.*;
 import org.apereo.cas.beenest.client.cache.BearerTokenCache;
 import org.apereo.cas.beenest.client.cache.BearerAuthorityVersionService;
 import org.apereo.cas.beenest.client.cache.BearerTokenRevocationService;
-import org.apereo.cas.beenest.client.sync.BearerAuthorityChangeListener;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,7 +15,7 @@ import org.springframework.cache.CacheManager;
  * Bearer Token 条件配置
  * <p>
  * 当 {@code cas.client.token-auth.enabled=true} 时激活。
- * 注册 CasBearerTokenAuthenticationFilter、Provider、Cache、TgtValidator 和 TokenRefresher。
+ * 注册 CasBearerTokenAuthenticationFilter、Provider、Cache、NativeTicketValidator 和 TokenRefresher。
  * <p>
  * 无感刷新：当 {@code cas.client.token-auth.auto-refresh-enabled=true}（默认）时，
  * accessToken 过期后自动用 refreshToken 调用 CAS Server 刷新端点。
@@ -45,16 +44,8 @@ public class CasBearerTokenConfiguration {
     }
 
     @Bean
-    public BearerAuthorityChangeListener bearerAuthorityChangeListener(
-            CasSecurityProperties properties,
-            BearerTokenCache bearerTokenCache,
-            BearerAuthorityVersionService authorityVersionService) {
-        return new BearerAuthorityChangeListener(properties, bearerTokenCache, authorityVersionService);
-    }
-
-    @Bean
-    public CasTgtValidator casTgtValidator(CasSecurityProperties properties) {
-        return new CasTgtValidator(properties);
+    public CasNativeTicketValidator casNativeTicketValidator(CasSecurityProperties properties) {
+        return new CasNativeTicketValidator(properties);
     }
 
     @Bean
@@ -64,7 +55,7 @@ public class CasBearerTokenConfiguration {
 
     @Bean
     public CasBearerTokenAuthenticationProvider casBearerTokenAuthenticationProvider(
-            CasTgtValidator tgtValidator,
+            CasNativeTicketValidator nativeTicketValidator,
             CasSecurityProperties properties,
             BearerTokenCache tokenCache,
             BearerTokenRevocationService revocationService,
@@ -72,7 +63,7 @@ public class CasBearerTokenConfiguration {
             CasTokenRefresher tokenRefresher,
             BearerAuthorityVersionService authorityVersionService) {
         return new CasBearerTokenAuthenticationProvider(
-            tgtValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, authorityVersionService);
+            nativeTicketValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, authorityVersionService);
     }
 
     /**
@@ -87,7 +78,7 @@ public class CasBearerTokenConfiguration {
             ObjectProvider<CasBearerTokenAuthenticationProvider> authenticationProviderProvider,
             ObjectProvider<org.springframework.security.authentication.AuthenticationManager> authenticationManagerProvider) {
         return new CasBearerTokenAuthenticationFilter(
-            () -> authenticationProviderProvider.getIfAvailable(),
+            authenticationProviderProvider::getIfAvailable,
             () -> {
             org.springframework.security.authentication.AuthenticationManager authenticationManager =
                     authenticationManagerProvider.getIfAvailable();

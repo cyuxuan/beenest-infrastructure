@@ -238,11 +238,11 @@ public class PalantirDashboardController extends AbstractController {
     private Map<String, Object> resolveSelectedService(final List<Map<String, Object>> serviceDefinitions,
                                                        final String serviceKey) {
         if (StringUtils.isBlank(serviceKey)) {
-            return serviceDefinitions.isEmpty() ? Map.of() : serviceDefinitions.get(0);
+            return serviceDefinitions.isEmpty() ? Map.of() : serviceDefinitions.getFirst();
         }
         return serviceDefinitions.stream()
             .filter(item -> serviceKey.equals(item.get("fileKey")))
             .findFirst()
-            .orElseGet(() -> serviceDefinitions.isEmpty() ? Map.of() : serviceDefinitions.get(0));
+            .orElseGet(() -> serviceDefinitions.isEmpty() ? Map.of() : serviceDefinitions.getFirst());
     }
 }

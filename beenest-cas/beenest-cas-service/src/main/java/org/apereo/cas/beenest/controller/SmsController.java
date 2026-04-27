@@ -1,6 +1,6 @@
 package org.apereo.cas.beenest.controller;
 
-import org.apereo.cas.beenest.common.exception.BusinessException;
+import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.response.R;
 import org.apereo.cas.beenest.dto.SmsSendDTO;
 import org.apereo.cas.beenest.dto.SmsSendResultDTO;
@@ -49,7 +49,7 @@ public class SmsController {
             SmsSendResultDTO data = new SmsSendResultDTO();
             data.setPhone(phone);
             return R.ok(data);
-        } catch (BusinessException e) {
+        } catch (BizException e) {
             return R.fail(e.getCode(), e.getMessage());
         }
     }
