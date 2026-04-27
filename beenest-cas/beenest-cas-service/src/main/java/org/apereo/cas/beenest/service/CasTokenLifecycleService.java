@@ -1,5 +1,7 @@
 package org.apereo.cas.beenest.service;
 
+import org.apereo.cas.authentication.AuthenticationHandler;
+import org.apereo.cas.authentication.DefaultAuthenticationHandlerExecutionResult;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.util.CasAttributeUtils;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
@@ -45,18 +47,15 @@ public class CasTokenLifecycleService {
     /**
      * 构造 Token 生命周期服务。
      *
-     * @param ticketRegistry 票据仓库
+     * @param ticketRegistry       票据仓库
      * @param defaultTicketFactory 默认票据工厂
-     * @param redisTemplate Redis 模板
-     * @param userMapper 统一用户映射器
-     * @param tokenTtlProperties Token 生命周期配置
+     * @param redisTemplate        Redis 模板
+     * @param userMapper           统一用户映射器
+     * @param tokenTtlProperties   Token 生命周期配置
      */
-    public CasTokenLifecycleService(TicketRegistry ticketRegistry,
-                                    DefaultTicketFactory defaultTicketFactory,
-                                    StringRedisTemplate redisTemplate,
-                                    UnifiedUserMapper userMapper,
-                                    TokenTtlProperties tokenTtlProperties,
-                                    PrincipalFactory principalFactory) {
+    public CasTokenLifecycleService(TicketRegistry ticketRegistry, DefaultTicketFactory defaultTicketFactory,
+                                    StringRedisTemplate redisTemplate, UnifiedUserMapper userMapper,
+                                    TokenTtlProperties tokenTtlProperties, PrincipalFactory principalFactory) {
         this.ticketRegistry = ticketRegistry;
         this.defaultTicketFactory = defaultTicketFactory;
         this.redisTemplate = redisTemplate;
@@ -69,10 +68,10 @@ public class CasTokenLifecycleService {
      * 认证成功后签发 TGT 和 refreshToken，并更新最近登录信息。
      *
      * @param authResult CAS 认证结果
-     * @param authType 登录类型标识
-     * @param clientIp 客户端 IP
-     * @param userAgent 客户端 UA
-     * @param deviceId 设备 ID，可为空
+     * @param authType   登录类型标识
+     * @param clientIp   客户端 IP
+     * @param userAgent  客户端 UA
+     * @param deviceId   设备 ID，可为空
      * @return 统一 Token 响应
      */
     public TokenResponseDTO issueToken(AuthenticationResult authResult,
@@ -91,10 +90,10 @@ public class CasTokenLifecycleService {
      * 按 CAS Principal 直接签发 Token。
      *
      * @param principal CAS 主体
-     * @param authType 登录类型标识
-     * @param clientIp 客户端 IP
+     * @param authType  登录类型标识
+     * @param clientIp  客户端 IP
      * @param userAgent 客户端 UA
-     * @param deviceId 设备 ID，可为空
+     * @param deviceId  设备 ID，可为空
      * @return 统一 Token 响应
      */
     public TokenResponseDTO issueToken(Principal principal,
@@ -102,19 +101,23 @@ public class CasTokenLifecycleService {
                                        String clientIp,
                                        String userAgent,
                                        String deviceId) {
-        Authentication authentication = new DefaultAuthenticationBuilder(principal).build();
+        String handlerName = "tokenRefreshAuthenticationHandler";
+        Authentication authentication = new DefaultAuthenticationBuilder(principal)
+                .addSuccess(handlerName, new DefaultAuthenticationHandlerExecutionResult(handlerName, principal))
+                .mergeAttribute(AuthenticationHandler.SUCCESSFUL_AUTHENTICATION_HANDLERS, List.of(handlerName))
+                .build();
 
         TicketGrantingTicket tgt;
         try {
             TicketGrantingTicketFactory<TicketGrantingTicket> tgtFactory =
-                (TicketGrantingTicketFactory<TicketGrantingTicket>) defaultTicketFactory.get(TicketGrantingTicket.class);
+                    (TicketGrantingTicketFactory<TicketGrantingTicket>) defaultTicketFactory.get(TicketGrantingTicket.class);
             tgt = tgtFactory.create(authentication, null);
             ticketRegistry.addTicket(tgt);
         } catch (Throwable e) {
             throw new IllegalStateException("签发 TGT 失败", e);
         }
         LOGGER.info("签发 TGT 成功: userId={}, authType={}, tgtId={}...",
-            principal.getId(), authType, tgt.getId().substring(0, Math.min(tgt.getId().length(), 16)));
+                principal.getId(), authType, tgt.getId().substring(0, Math.min(tgt.getId().length(), 16)));
 
         try {
             userMapper.updateLoginInfo(principal.getId(), clientIp, userAgent, deviceId, authType);
@@ -129,11 +132,11 @@ public class CasTokenLifecycleService {
     /**
      * 按用户 ID 直接续签 Token。
      *
-     * @param userId 用户 ID
-     * @param authType 登录类型标识
-     * @param clientIp 客户端 IP
+     * @param userId    用户 ID
+     * @param authType  登录类型标识
+     * @param clientIp  客户端 IP
      * @param userAgent 客户端 UA
-     * @param deviceId 设备 ID，可为空
+     * @param deviceId  设备 ID，可为空
      * @return 统一 Token 响应
      */
     public TokenResponseDTO issueTokenForUserId(String userId,
@@ -151,7 +154,7 @@ public class CasTokenLifecycleService {
     /**
      * 撤销 accessToken 和 refreshToken。
      *
-     * @param accessToken 访问令牌
+     * @param accessToken  访问令牌
      * @param refreshToken 刷新令牌
      */
     public void revokeTokens(String accessToken, String refreshToken) {
@@ -201,9 +204,9 @@ public class CasTokenLifecycleService {
     /**
      * 构建统一 Token 响应。
      *
-     * @param accessToken 访问令牌
+     * @param accessToken  访问令牌
      * @param refreshToken 刷新令牌
-     * @param principal 用户主体
+     * @param principal    用户主体
      * @return Token 响应
      */
     private TokenResponseDTO buildTokenResponse(String accessToken, String refreshToken, Principal principal) {
@@ -261,8 +264,8 @@ public class CasTokenLifecycleService {
      * 构造单值属性。
      *
      * @param attributes 属性容器
-     * @param key 属性名
-     * @param value 属性值
+     * @param key        属性名
+     * @param value      属性值
      */
     private void putAttribute(Map<String, List<Object>> attributes, String key, Object value) {
         if (value != null) {
@@ -273,7 +276,7 @@ public class CasTokenLifecycleService {
     /**
      * 按指定前缀消费 refreshToken。
      *
-     * @param prefix Redis 前缀
+     * @param prefix       Redis 前缀
      * @param refreshToken 刷新令牌
      * @return userId，未命中返回 null
      */

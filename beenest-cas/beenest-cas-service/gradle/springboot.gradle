@@ -11,7 +11,7 @@ sourceSets {
 configurations {
     bootRunConfig {
         extendsFrom compileClasspath
-        
+
         exclude(group: "org.springframework.boot", module: "spring-boot-starter-logging")
         exclude(group: "ch.qos.logback", module: "logback-core")
         exclude(group: "ch.qos.logback", module: "logback-classic")
@@ -86,8 +86,8 @@ springBoot {
         buildInfo()
         bootBuildInfo.mustRunAfter(compileJava)
     }
-    
-    
+
+
 }
 
 def wireOverlayDependency = { Task t ->
