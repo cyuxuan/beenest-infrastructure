@@ -1,0 +1,233 @@
+# ============================================================
+# Apereo CAS 7.3.x 主配置
+# ============================================================
+
+cas:
+  server:
+    name: https://sso.beenest.club
+    prefix: ${cas.server.name}/cas
+
+  # TGC Cookie 配置
+  tgc:
+    crypto:
+      encryption:
+        key: ${TGC_ENCRYPTION_KEY:changeme-changeme-changeme}
+      signing:
+        key: ${TGC_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+    path: /cas
+    http-only: true
+    secure: true
+
+  webflow:
+    crypto:
+      encryption:
+        key: ${CAS_WEBFLOW_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}
+      signing:
+        key: ${CAS_WEBFLOW_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}
+
+  # 票据注册表: Redis
+  ticket:
+    registry:
+      redis:
+        host: ${REDIS_HOST:localhost}
+        port: ${REDIS_PORT:6379}
+        password: ${REDIS_PASSWORD:}
+        database: 1
+        pool:
+          enabled: true
+          max-active: 20
+          max-idle: 10
+        # 票据加密密钥（必须固定，否则重启后无法解密已有 TGT）
+        crypto:
+          encryption:
+            key: ${TICKET_ENCRYPTION_KEY:changeme-changeme-changeme}
+          signing:
+            key: ${TICKET_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+    # 追踪子票据，确保登出时能一并清理 descendant tickets
+    track-descendant-tickets: true
+    # TGT 配置
+    tgt:
+      primary:
+        time-to-kill-in-seconds: 7200
+      remember-me:
+        enabled: true
+        time-to-kill-in-seconds: 2592000
+    # ST 配置
+    st:
+      time-to-kill-in-seconds: 10
+      number-of-uses: 1
+
+  # 服务注册: JPA (PostgreSQL)
+  service-registry:
+    jpa:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER:postgres}
+      password: ${DB_PASSWORD:changeme}
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      ddl-auto: update
+      pool:
+        maximum-lifetime: PT30M
+
+  # SLO 配置
+  logout:
+    follow-service-redirects: true
+
+  # Inspektr 审计（替代自定义 AuthAuditService）
+  audit:
+    jdbc:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER:postgres}
+      password: ${DB_PASSWORD:changeme}
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      ddl-auto: update
+      pool:
+        maximum-lifetime: PT30M
+      max-age-days: 180
+
+  # CAS 事件持久化
+  events:
+    jpa:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER:postgres}
+      password: ${DB_PASSWORD:changeme}
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      ddl-auto: update
+
+  # ===== SAML2 IdP =====
+  authn:
+    accept:
+      enabled: false
+      users: ""
+    saml-idp:
+      core:
+        entity-id: https://sso.beenest.club/cas/idp
+      metadata:
+        file-system:
+          location: file:/etc/cas/saml
+    # ===== OAuth2 / OIDC =====
+    oauth:
+      access-token:
+        time-to-kill-in-seconds: 7200
+      refresh-token:
+        time-to-kill-in-seconds: 2592000
+    oidc:
+      core:
+        issuer: https://sso.beenest.club/cas/oidc
+      jwks:
+        file-system:
+          jwks-file: file:/etc/cas/oidc/jwks.json
+
+    # ===== JDBC 用户名密码认证 =====
+    jdbc:
+      query[0]:
+        driver-class: org.postgresql.Driver
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+        user: ${DB_USER:postgres}
+        password: ${DB_PASSWORD:changeme}
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        sql: SELECT password_hash FROM cas_user WHERE username=? AND status=1
+        field-password: password_hash
+        password-encoder:
+          type: BCRYPT
+          strength: 12
+        pool:
+          maximum-lifetime: PT30M
+
+# ============================================================
+# Spring Boot 配置
+# ============================================================
+spring:
+  security:
+    user:
+      name: casuser
+      password: "{bcrypt}$2a$10$jhbjqwdgmpqB0MdJT9/KbuCV7m1NkU07eV6EyoVUwBBH/0IA.rXwq"
+      roles:
+        - ADMIN
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:changeme}
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+  # 邮件通知（CAS 密码重置、通知等功能依赖）
+  mail:
+    host: ${MAIL_HOST:smtp.beenest.club}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+CasFeatureModule.Palantir.enabled: false
+CasFeatureModule.Palantir.cas-authentication.enabled: false
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+# MyBatis
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ============================================================
+# 业务自定义配置
+# ============================================================
+beenest:
+  token:
+    access-token-ttl-seconds: ${ACCESS_TOKEN_TTL:604800}       # 7 天
+    refresh-token-ttl-seconds: ${REFRESH_TOKEN_TTL:31536000}   # 365 天（1 年）
+    refresh-token-rotation: true
+    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET:}
+  miniapp:
+    wechat:
+      appid: ${WECHAT_APPID:}
+      secret: ${WECHAT_SECRET:}
+    douyin:
+      appid: ${DOUYIN_APPID:}
+      secret: ${DOUYIN_SECRET:}
+    alipay:
+      appid: ${ALIPAY_APPID:}
+      private-key: ${ALIPAY_PRIVATE_KEY:}
+      public-key: ${ALIPAY_PUBLIC_KEY:}
+      # AES 内容加密密钥（用于手机号解密，在支付宝开放平台配置）
+      aes-key: ${ALIPAY_AES_KEY:}
+  sms:
+    provider: ${SMS_PROVIDER:aliyun}
+    access-key: ${SMS_ACCESS_KEY:}
+    secret-key: ${SMS_SECRET_KEY:}
+    sign-name: ${SMS_SIGN_NAME:Beenest}
+    template-code: ${SMS_TEMPLATE_CODE:}
+  user:
+    auto-grant-service-ids: ${BEENEST_AUTO_GRANT_SERVICE_IDS:10001}
+  mfa:
+    encryption-key: ${MFA_ENCRYPTION_KEY:changeme-changeme-changeme}
+  # Admin API 认证 Token（生产环境必须配置，否则管理接口无法访问）
+  admin:
+    token: ${CAS_ADMIN_TOKEN:}
+
+# ============================================================
+# Actuator 端点（Palantir 依赖）
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    ssoSessions:
+      enabled: true

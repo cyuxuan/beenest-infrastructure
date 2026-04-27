@@ -1,8 +1,9 @@
 plugins {
     id "org.gradle.toolchains.foojay-resolver-convention" version "${gradleFoojayPluginVersion}"
 }
-rootProject.name = 'cas'
+rootProject.name = 'beenest-cas'
 
+include 'beenest-cas-service'
 include 'beenest-cas-client-spring-security-starter'
 include 'beenest-cas-client-login-gateway-starter'
 include 'beenest-cas-client-resource-server-starter'

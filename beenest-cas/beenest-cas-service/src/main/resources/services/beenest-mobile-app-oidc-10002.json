@@ -1,0 +1,35 @@
+{
+  "@class": "org.apereo.cas.oidc.services.OidcRegisteredService",
+  "clientId": "beenest-mobile-app",
+  "clientSecret": "beenest-mobile-app-secret",
+  "serviceId": "^(https://app\\.beenest\\.club/oidc/callback|http://127\\.0\\.0\\.1:[0-9]+/oidc/callback|http://localhost:[0-9]+/oidc/callback|beenest-app://oidc/callback)$",
+  "name": "beenest-mobile-app",
+  "id": 10002,
+  "description": "Beenest 原生 APP OIDC 登录客户端，采用 Authorization Code + PKCE",
+  "evaluationOrder": 100,
+  "bypassApprovalPrompt": true,
+  "applicationType": "native",
+  "supportedGrantTypes": [
+    "java.util.HashSet",
+    [
+      "authorization_code",
+      "refresh_token"
+    ]
+  ],
+  "supportedResponseTypes": [
+    "java.util.HashSet",
+    [
+      "code"
+    ]
+  ],
+  "scopes": [
+    "java.util.HashSet",
+    [
+      "openid",
+      "profile",
+      "email",
+      "phone",
+      "offline_access"
+    ]
+  ]
+}

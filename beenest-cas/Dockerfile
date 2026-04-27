@@ -9,7 +9,8 @@ ARG JAVA_TOOL_OPTIONS="--enable-native-access=ALL-UNNAMED"
 ENV JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS}"
 
 WORKDIR /cas-overlay
-COPY ./src src/
+COPY ./beenest-cas-service/src beenest-cas-service/src/
+COPY ./beenest-cas-service/build.gradle beenest-cas-service/build.gradle
 COPY ./gradle/ gradle/
 COPY ./gradlew ./settings.gradle ./build.gradle ./gradle.properties ./lombok.config ./
 
@@ -19,9 +20,9 @@ RUN mkdir -p ~/.gradle \
     && chmod 750 ./gradlew \
     && ./gradlew --version;
 
-RUN ./gradlew clean build $EXT_BUILD_COMMANDS --parallel --no-daemon -Pexecutable=false $EXT_BUILD_OPTIONS;
+RUN ./gradlew :beenest-cas-service:clean :beenest-cas-service:build $EXT_BUILD_COMMANDS --parallel --no-daemon -Pexecutable=false $EXT_BUILD_OPTIONS;
 
-RUN java -Djarmode=tools -jar build/libs/cas.war extract \
+RUN java -Djarmode=tools -jar beenest-cas-service/build/libs/cas.war extract \
     && java -XX:ArchiveClassesAtExit=./cas/cas.jsa -Dspring.context.exit=onRefresh -jar cas/cas.war
 
 FROM $BASE_IMAGE AS cas
