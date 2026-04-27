@@ -9,6 +9,22 @@ cas:
 
   tgc:
     secure: false
+    crypto:
+      encryption:
+        # 仅用于本地开发；生产环境必须通过 TGC_ENCRYPTION_KEY 注入独立密钥。
+        key: ${TGC_ENCRYPTION_KEY:uKSf5OWRITmd/GKD0no9vT++e8jg63p+iD0fRFU5wDGfyG4nVGl6MCLyivV/wjoNuWJuaxVKWtXEAER6ZQDwfg==}
+      signing:
+        # 仅用于本地开发；生产环境必须通过 TGC_SIGNING_KEY 注入独立密钥。
+        key: ${TGC_SIGNING_KEY:KBddhmxNZna5vFW2NqEKyB3+nAvm/jpcdmav0Pj7dWzUp2ujVMtvLuBE3HFfXt4PPJ0CyzTIFMqQrReflPXEGw==}
+
+  webflow:
+    crypto:
+      encryption:
+        # 仅用于本地开发；生产环境必须通过 CAS_WEBFLOW_ENCRYPTION_KEY 注入独立密钥。
+        key: ${CAS_WEBFLOW_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}
+      signing:
+        # 仅用于本地开发；生产环境必须通过 CAS_WEBFLOW_SIGNING_KEY 注入独立密钥。
+        key: ${CAS_WEBFLOW_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}
 
   ticket:
     registry:
@@ -17,13 +33,154 @@ cas:
         port: ${REDIS_PORT:6379}
         database: 1
         enable-redis-search: false
+        crypto:
+          encryption:
+            # 仅用于本地开发；生产环境必须通过 TICKET_ENCRYPTION_KEY 注入独立密钥。
+            key: ${TICKET_ENCRYPTION_KEY:wkBxd7mNJygX7zm6jtgX4g==}
+          signing:
+            # 仅用于本地开发；生产环境必须通过 TICKET_SIGNING_KEY 注入独立密钥。
+            key: ${TICKET_SIGNING_KEY:aF2vB8mK1pR5wX9yC4fN7hJ2lA6bD0eG+sHoVtWxUkMnQpYrSzBiEwFdGcLaJuO}
 
-  # service-registry JPA 配置继承自 application.yml，无需重复
-  # Docker 环境通过环境变量 CAS_SERVICE_REGISTRY_JPA_* 覆盖
+  account-registration:
+    core:
+      crypto:
+        encryption:
+          # 仅用于本地开发；生产环境必须通过 CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY 注入独立密钥。
+          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}
+        signing:
+          # 仅用于本地开发；生产环境必须通过 CAS_ACCOUNT_REGISTRATION_SIGNING_KEY 注入独立密钥。
+          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}
+
+  # 本地开发允许 Hibernate 自动补齐 CAS 原生表；生产环境在 application.yml 中默认 validate。
+  service-registry:
+    jpa:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_SERVICE_REGISTRY_JPA_DDL_AUTO:update}
+
+  audit:
+    jdbc:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_AUDIT_JDBC_DDL_AUTO:update}
+
+  events:
+    jpa:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_EVENTS_JPA_DDL_AUTO:update}
+
+  consent:
+    jpa:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_CONSENT_JPA_DDL_AUTO:update}
+
+  acceptable-usage-policy:
+    jdbc:
+      password: ${DB_PASSWORD:postgres}
+
+  authn:
+    pm:
+      core:
+        # 本地联调允许常见字母数字密码，避免弱密码策略中断登录回跳测试。
+        password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[A-Za-z])(?=.*\\d).{8,64}$}"
+    accept:
+      enabled: ${CAS_AUTHN_ACCEPT_ENABLED:false}
+      users: ${CAS_AUTHN_ACCEPT_USERS:}
+    jdbc:
+      query[0]:
+        password: ${DB_PASSWORD:postgres}
+    throttle:
+      jdbc:
+        # 限流 JDBC 数据源在本地也使用开发密码兜底，避免未注入 DB_PASSWORD 时启动失败。
+        password: ${DB_PASSWORD:postgres}
+    mfa:
+      gauth:
+        crypto:
+          encryption:
+            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY 注入独立密钥。
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY:c_WZINuoQusJtcbfjexjw5NA8x0w98DtyIaY1JafAJ0oP8UTQzaytF10sK1FVyPvKXxNFepFEzl0dSZy33rFFQ}
+          signing:
+            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY 注入独立密钥。
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY:LN8XN86ctkv1wtHMzU1BwXv5ZHjlgPKGe4l9etHpL1YRUwvtIU5FZCelDzSwQDBxFLRlisl6azYkH2xsz_UDQQ}
+        core:
+          scratch-codes:
+            encryption:
+              # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY 注入独立密钥。
+              key: ${CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY:4/MqoE/ZbD3JtNQvc9Rfeg==}
+        jpa:
+          password: ${DB_PASSWORD:postgres}
+          ddl-auto: ${CAS_AUTHN_MFA_GAUTH_JPA_DDL_AUTO:update}
+      web-authn:
+        crypto:
+          encryption:
+            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY 注入独立密钥。
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY:e3ZAZ3V1C73QKQKUhNkwzF1iHliWceo9rYZL48DwDJkUcZMCVt8DARyBoV-K3Um_aL0W50LyBGCWSP8WmHdZRg}
+          signing:
+            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY 注入独立密钥。
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY:Pnkwn54CFYmLteupjZjun3oLYakoO9Klfbbp4iVgjaDE4C8AQcTehrTvH2exQy8bWGTWC1MIE1I75hpkutNPCQ}
+        jpa:
+          password: ${DB_PASSWORD:postgres}
+          ddl-auto: ${CAS_AUTHN_MFA_WEBAUTHN_JPA_DDL_AUTO:update}
+      trusted:
+        crypto:
+          encryption:
+            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY 注入独立密钥。
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY:PbDcXokBSdIAFJWI5N7n6UvxgumPTmMOeixzcuJEA4ZChW33X52iJ72VY09YfWbTy86BB_fb9v-yCd1gAlJWLw}
+          signing:
+            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY 注入独立密钥。
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY:M3wSdO6nK65EeqpNeDWADuKIWw3eBtoCCBoXBzqvblDEa2hm18B3eN_yHLoi_HEQWX3sBRzu1po9o5LFyK0Hew}
+        jpa:
+          password: ${DB_PASSWORD:postgres}
+          ddl-auto: ${CAS_AUTHN_MFA_TRUSTED_JPA_DDL_AUTO:update}
+
+  monitor:
+    endpoints:
+      form-login-enabled: true
+      endpoint:
+        defaults: &adminEndpointAccess
+          access: ROLE
+          required-roles: ADMIN
+        health:
+          access: ANONYMOUS
+        status:
+          access: ANONYMOUS
+        casFeatures:
+          <<: *adminEndpointAccess
+        registeredServices:
+          <<: *adminEndpointAccess
+
+# 本地 Palantir 控制台需要更完整的 actuator 暴露，
+# 生产环境继续使用 application.yml 的收口策略。
+management:
+  endpoints:
+    access:
+      default: unrestricted
+    web:
+      exposure:
+        include: info,health,status,metrics,threaddump,scheduledtasks,httpexchanges,loggers,heapdump,env,configprops,statistics,ticketExpirationPolicies,casFeatures,springWebflow,casModules,authenticationHandlers,authenticationPolicies,attributeDefinitions,resolveAttributes,releaseAttributes,auditevents,configurationMetadata,events,loggingConfig,gauthCredentialRepository,multifactorTrustedDevices,oidcJwks,passwordManagement,personDirectory,redisTicketsCache,multitenancy,mfaDevices,ticketRegistry,auditLog,registeredServices,serviceAccess,casConfig,ssoSessions,sso,casValidate,samlIdPRegisteredServiceMetadataCache,samlPostProfileResponse,samlValidate,throttles,webAuthnDevices,attributeConsent
+  endpoint:
+    health:
+      access: unrestricted
+    info:
+      access: unrestricted
+    metrics:
+      access: unrestricted
+    threaddump:
+      access: unrestricted
+    casFeatures:
+      access: unrestricted
+    registeredServices:
+      access: unrestricted
 
 spring:
   # datasource 配置继承自 application.yml，无需重复
   # Docker 环境通过环境变量 SPRING_DATASOURCE_* 覆盖
+  datasource:
+    password: ${DB_PASSWORD:postgres}
+  security:
+    user:
+      name: ${CAS_ADMIN_USERNAME:casuser}
+      # 本地开发也要求显式注入，避免管理口沿用仓库内固定密码。
+      password: ${CAS_ADMIN_PASSWORD_BCRYPT}
+      roles: ADMIN
   data:
     redis:
       database: 1
@@ -42,8 +199,10 @@ logging:
     org.springframework.web: ${LOG_LEVEL_SPRING_WEB:-INFO}
     org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: ${LOG_LEVEL_SPRING_WEB:-INFO}
 
-# Actuator 开发环境配置
-management:
-  endpoint:
-    health:
-      show-details: always
+beenest:
+  token:
+    # 仅用于本地开发；生产环境必须通过 CAS_TOKEN_VALIDATION_SECRET 注入独立密钥。
+    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET:beenest-cas-dev-token-secret}
+  mfa:
+    # 仅用于本地开发；生产环境必须通过 MFA_ENCRYPTION_KEY 注入独立密钥。
+    encryption-key: ${MFA_ENCRYPTION_KEY:qZ3vT8mK1pR5wX9yC4fN7hJ2lA6bD0eG+sHoVtWxUkMnQpYrSzBiEwFdGcLaJuO}

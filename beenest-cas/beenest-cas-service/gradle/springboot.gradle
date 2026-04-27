@@ -11,7 +11,7 @@ sourceSets {
 configurations {
     bootRunConfig {
         extendsFrom compileClasspath
-        
+
         exclude(group: "org.springframework.boot", module: "spring-boot-starter-logging")
         exclude(group: "ch.qos.logback", module: "logback-core")
         exclude(group: "ch.qos.logback", module: "logback-classic")
@@ -86,12 +86,14 @@ springBoot {
         buildInfo()
         bootBuildInfo.mustRunAfter(compileJava)
     }
-    
-    
+
+
 }
 
 def wireOverlayDependency = { Task t ->
-    ["extractCasBootWarOverlay", "processTestResources", "compileJava", "compileGraalJava"]
+    [tasks.named("processResources"), tasks.named("bootBuildInfo")]
+            .each { t.dependsOn(it) }
+    ["extractCasBootWarOverlay", "processTestResources", "compileJava", "compileGraalJava", "jar"]
         .collect { tasks.findByName(it) }
         .findAll { it != null }
         .each { t.dependsOn(it) }
@@ -100,6 +102,12 @@ tasks.named("cyclonedxBom").configure { wireOverlayDependency(delegate) }
 tasks.named("cyclonedxDirectBom").configure { wireOverlayDependency(delegate) }
 
 if (!nativeImage) {
+    ["cyclonedxBom", "cyclonedxDirectBom"].each { taskName ->
+        tasks.named(taskName).configure {
+            enabled = false
+        }
+    }
+
 bootWar {
     dependsOn cyclonedxBom
     def executable = project.hasProperty("executable") && Boolean.valueOf(project.getProperty("executable"))

@@ -8,22 +8,24 @@ cas:
     prefix: ${cas.server.name}/cas
 
   # TGC Cookie 配置
+  # encryption key 需要 512 bit (64 字节) 以满足 A256CBC-HS512 JWT 加密要求
   tgc:
     crypto:
       encryption:
-        key: ${TGC_ENCRYPTION_KEY:changeme-changeme-changeme}
+        key: ${TGC_ENCRYPTION_KEY}
       signing:
-        key: ${TGC_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+        key: ${TGC_SIGNING_KEY}
     path: /cas
     http-only: true
     secure: true
 
   webflow:
     crypto:
+      enabled: true
       encryption:
-        key: ${CAS_WEBFLOW_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}
+        key: ${CAS_WEBFLOW_ENCRYPTION_KEY}
       signing:
-        key: ${CAS_WEBFLOW_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}
+        key: ${CAS_WEBFLOW_SIGNING_KEY}
 
   # 票据注册表: Redis
   ticket:
@@ -39,10 +41,11 @@ cas:
           max-idle: 10
         # 票据加密密钥（必须固定，否则重启后无法解密已有 TGT）
         crypto:
+          enabled: ${CAS_TICKET_REGISTRY_REDIS_CRYPTO_ENABLED:true}
           encryption:
-            key: ${TICKET_ENCRYPTION_KEY:changeme-changeme-changeme}
+            key: ${TICKET_ENCRYPTION_KEY}
           signing:
-            key: ${TICKET_SIGNING_KEY:changeme-changeme-changeme-changeme-changeme-changeme-changeme}
+            key: ${TICKET_SIGNING_KEY}
     # 追踪子票据，确保登出时能一并清理 descendant tickets
     track-descendant-tickets: true
     # TGT 配置
@@ -63,9 +66,9 @@ cas:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD:changeme}
+      password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
-      ddl-auto: update
+      ddl-auto: ${CAS_SERVICE_REGISTRY_JPA_DDL_AUTO:validate}
       pool:
         maximum-lifetime: PT30M
 
@@ -79,9 +82,9 @@ cas:
       crypto:
         enabled: true
         encryption:
-          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY:${CAS_WEBFLOW_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}}
+          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY}
         signing:
-          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY:${CAS_WEBFLOW_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}}
+          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY}
       registration-properties:
         location: classpath:/account-registration/account-registration.json
     mail:
@@ -101,9 +104,9 @@ cas:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD:changeme}
+      password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
-      ddl-auto: update
+      ddl-auto: ${CAS_AUDIT_JDBC_DDL_AUTO:validate}
       pool:
         maximum-lifetime: PT30M
       max-age-days: 180
@@ -114,9 +117,11 @@ cas:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD:changeme}
+      password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
-      ddl-auto: update
+      ddl-auto: ${CAS_EVENTS_JPA_DDL_AUTO:validate}
+      pool:
+        maximum-lifetime: PT30M
 
   # ===== 认证配置（合并为单段，避免 YAML 重复键） =====
   authn:
@@ -125,12 +130,13 @@ cas:
       core:
         enabled: true
         auto-login: false
-        password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,64}$}"
+        # 生产默认强制大小写、数字和特殊字符，开发环境可在 application-dev.yml 中放宽。
+        password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{12,128}$}"
       webflow:
         enabled: true
     accept:
-      enabled: false
-      users: ""
+      enabled: ${CAS_AUTHN_ACCEPT_ENABLED:false}
+      users: ${CAS_AUTHN_ACCEPT_USERS:}
     # SAML2 IdP
     saml-idp:
       core:
@@ -156,7 +162,7 @@ cas:
         driver-class: org.postgresql.Driver
         url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
         user: ${DB_USER:postgres}
-        password: ${DB_PASSWORD:changeme}
+        password: ${DB_PASSWORD}
         dialect: org.hibernate.dialect.PostgreSQLDialect
         sql: SELECT password_hash FROM cas_user WHERE username=? AND status=1
         field-password: password_hash
@@ -165,6 +171,153 @@ cas:
           strength: 12
         pool:
           maximum-lifetime: PT30M
+    # 登录限流：使用审计表按用户/IP 统计失败次数，避免暴力破解。
+    throttle:
+      core:
+        username-parameter: ${CAS_AUTHN_THROTTLE_USERNAME_PARAMETER:username}
+      failure:
+        threshold: ${CAS_AUTHN_THROTTLE_FAILURE_THRESHOLD:5}
+        range-seconds: ${CAS_AUTHN_THROTTLE_FAILURE_RANGE_SECONDS:300}
+        throttle-window-seconds: ${CAS_AUTHN_THROTTLE_FAILURE_WINDOW:PT10M}
+      jdbc:
+        enabled: ${CAS_AUTHN_THROTTLE_JDBC_ENABLED:true}
+        driver-class: org.postgresql.Driver
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+        user: ${DB_USER:postgres}
+        password: ${DB_PASSWORD}
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        pool:
+          maximum-lifetime: PT30M
+    # 可选 LDAP 认证源，默认关闭；启用后需要补齐 LDAP 连接信息。
+    ldap:
+      - ldap-url: ${CAS_LDAP_URL:}
+        type: ${CAS_LDAP_TYPE:AUTHENTICATED}
+        base-dn: ${CAS_LDAP_BASE_DN:}
+        search-filter: "${CAS_LDAP_SEARCH_FILTER:uid={user}}"
+        bind-dn: ${CAS_LDAP_BIND_DN:}
+        bind-credential: ${CAS_LDAP_BIND_CREDENTIAL:}
+        principal-attribute-id: ${CAS_LDAP_PRINCIPAL_ATTRIBUTE_ID:uid}
+        principal-attribute-list: ${CAS_LDAP_PRINCIPAL_ATTRIBUTE_LIST:cn,mail,uid}
+        allow-missing-principal-attribute-value: false
+        allow-multiple-principal-attribute-values: false
+        order: ${CAS_LDAP_ORDER:0}
+    # ===== MFA JPA 数据源配置（共用 PostgreSQL beenest_cas schema） =====
+    mfa:
+      gauth:
+        jpa:
+          driver-class: org.postgresql.Driver
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD}
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          ddl-auto: ${CAS_AUTHN_MFA_GAUTH_JPA_DDL_AUTO:validate}
+          pool:
+            maximum-lifetime: PT30M
+        crypto:
+          encryption:
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY}
+          signing:
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY}
+        core:
+          scratch-codes:
+            encryption:
+              key: ${CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY}
+      web-authn:
+        jpa:
+          driver-class: org.postgresql.Driver
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD}
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          ddl-auto: ${CAS_AUTHN_MFA_WEBAUTHN_JPA_DDL_AUTO:validate}
+          pool:
+            maximum-lifetime: PT30M
+        crypto:
+          encryption:
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY}
+          signing:
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY}
+      trusted:
+        jpa:
+          driver-class: org.postgresql.Driver
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          user: ${DB_USER:postgres}
+          password: ${DB_PASSWORD}
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          ddl-auto: ${CAS_AUTHN_MFA_TRUSTED_JPA_DDL_AUTO:validate}
+          pool:
+            maximum-lifetime: PT30M
+        crypto:
+          encryption:
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY}
+          signing:
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY}
+  # 属性授权决策：通过 JPA 复用 beenest_cas schema，配合 /actuator/attributeConsent 管理。
+  consent:
+    jpa:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER:postgres}
+      password: ${DB_PASSWORD}
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      ddl-auto: ${CAS_CONSENT_JPA_DDL_AUTO:validate}
+      pool:
+        maximum-lifetime: PT30M
+  # AUP 使用条款：落表到 beenest_cas schema，principal 字段与现有用户体系保持一致。
+  acceptable-usage-policy:
+    jdbc:
+      driver-class: org.postgresql.Driver
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      user: ${DB_USER:postgres}
+      password: ${DB_PASSWORD}
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      table-name: aup_usage_terms
+      aup-column: accepted
+      principal-id-column: principal
+      pool:
+        maximum-lifetime: PT30M
+
+  # CAS 原生端点访问控制：Palantir 通过 /adminlogin 登录后访问，默认要求 ADMIN 角色。
+  monitor:
+    endpoints:
+      form-login-enabled: true
+      endpoint:
+        defaults:
+          access: ROLE
+          required-roles: ADMIN
+        health:
+          access: ANONYMOUS
+        status:
+          access: ANONYMOUS
+
+# ============================================================
+# CAS 模块开关
+# ============================================================
+CasFeatureModule:
+  Throttling:
+    enabled: ${CAS_FEATURE_THROTTLING_ENABLED:true}
+  Consent:
+    enabled: ${CAS_FEATURE_CONSENT_ENABLED:false}
+  AcceptableUsagePolicy:
+    enabled: ${CAS_FEATURE_AUP_ENABLED:false}
+  LDAP:
+    authentication:
+      enabled: ${CAS_FEATURE_LDAP_AUTH_ENABLED:false}
+
+# ============================================================
+# Spring Boot Actuator 配置
+# ============================================================
+management:
+  endpoints:
+    access:
+      # 仅表示端点可被 Spring Boot 创建；实际访问控制由 cas.monitor.endpoints 统一收口。
+      default: read-only
+    web:
+      exposure:
+        include: info,health,status,metrics,threaddump,scheduledtasks,httpexchanges,loggers,heapdump,env,configprops,statistics,ticketExpirationPolicies,casFeatures,springWebflow,casModules,authenticationHandlers,authenticationPolicies,attributeDefinitions,resolveAttributes,releaseAttributes,auditevents,configurationMetadata,events,loggingConfig,gauthCredentialRepository,multifactorTrustedDevices,oidcJwks,passwordManagement,personDirectory,redisTicketsCache,multitenancy,mfaDevices,ticketRegistry,auditLog,registeredServices,serviceAccess,casConfig,ssoSessions,sso,casValidate,samlIdPRegisteredServiceMetadataCache,samlPostProfileResponse,samlValidate,throttles,webAuthnDevices,attributeConsent
+  endpoint:
+    health:
+      show-details: when-authorized
 
 # ============================================================
 # Spring Boot 配置
@@ -172,10 +325,9 @@ cas:
 spring:
   security:
     user:
-      name: casuser
-      password: "{bcrypt}$2a$10$jhbjqwdgmpqB0MdJT9/KbuCV7m1NkU07eV6EyoVUwBBH/0IA.rXwq"
-      roles:
-        - ADMIN
+      name: ${CAS_ADMIN_USERNAME}
+      password: ${CAS_ADMIN_PASSWORD_BCRYPT}
+      roles: ADMIN
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -184,7 +336,10 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
     username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:changeme}
+    password: ${DB_PASSWORD}
+    hikari:
+      idle-timeout: PT10M
+      maximum-lifetime: PT30M
   jpa:
     hibernate:
       ddl-auto: none
@@ -199,15 +354,10 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
 
-CasFeatureModule:
-  Palantir:
-    enabled: false
-    cas-authentication:
-      enabled: false
-
+# Actuator 日志配置
 logging:
   level:
-    org.springframework.security: DEBUG
+    org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:INFO}
 
 # MyBatis
 mybatis:
@@ -223,7 +373,7 @@ beenest:
     access-token-ttl-seconds: ${ACCESS_TOKEN_TTL:604800}       # 7 天
     refresh-token-ttl-seconds: ${REFRESH_TOKEN_TTL:31536000}   # 365 天（1 年）
     refresh-token-rotation: true
-    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET:}
+    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET}
   miniapp:
     wechat:
       appid: ${WECHAT_APPID:}
@@ -246,21 +396,7 @@ beenest:
   user:
     auto-grant-service-ids: ${BEENEST_AUTO_GRANT_SERVICE_IDS:10001}
   mfa:
-    encryption-key: ${MFA_ENCRYPTION_KEY:changeme-changeme-changeme}
+    encryption-key: ${MFA_ENCRYPTION_KEY}
   # Admin API 认证 Token（生产环境必须配置，否则管理接口无法访问）
   admin:
     token: ${CAS_ADMIN_TOKEN:}
-
-# ============================================================
-# Actuator 端点（Palantir 依赖）
-# ============================================================
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "*"
-  endpoint:
-    health:
-      show-details: always
-    ssoSessions:
-      enabled: true

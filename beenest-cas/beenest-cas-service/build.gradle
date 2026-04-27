@@ -122,6 +122,12 @@ configurations {
                 }
             }
         }
+        // 统一使用 CAS 的 Log4j2 日志栈，避免 Boot 运行时同时加载 Logback 和 Log4j provider。
+        exclude(group: "org.springframework.boot", module: "spring-boot-starter-logging")
+        exclude(group: "ch.qos.logback", module: "logback-core")
+        exclude(group: "ch.qos.logback", module: "logback-classic")
+        // 关闭 Log4j 的 Spring Cloud 配置客户端，避免 AOT 生成阶段引入 RefreshScope。
+        exclude(group: "org.apache.logging.log4j", module: "log4j-spring-cloud-config-client")
         exclude(group: "cglib", module: "cglib")
         exclude(group: "cglib", module: "cglib-full")
         exclude(group: "org.slf4j", module: "slf4j-log4j12")
@@ -137,6 +143,11 @@ configurations {
 if (!nativeImage) {
     war {
         entryCompression = ZipEntryCompression.STORED
+        enabled = false
+    }
+
+    // 标准 WAR 构建不需要 AOT 生成；只在 nativeImage 场景下保留这条链路。
+    tasks.matching { it.name == "processAot" || it.name == "processAotResources" || it.name == "processTestAot" }.configureEach {
         enabled = false
     }
 }
@@ -415,9 +426,7 @@ dependencies {
      * since versions are all resolved and controlled by the dependency management
      * plugin via the CAS bom.
      **/
-    implementation "org.springframework.boot:spring-boot-starter-actuator"
-
-    // ===== Beenest 核心 API 模块（自定义认证/服务管理需要） =====
+    // ===== Beenest 核心 API 模块（自定义认证/服务/票据代码直接引用） =====
     implementation "org.apereo.cas:cas-server-core-authentication-api"
     implementation "org.apereo.cas:cas-server-core-services-api"
     implementation "org.apereo.cas:cas-server-core-api-services"
@@ -431,19 +440,25 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-jpa-service-registry"
     implementation "org.apereo.cas:cas-server-support-jdbc-authentication"
     implementation "org.apereo.cas:cas-server-support-jdbc-drivers"
-    implementation "org.apereo.cas:cas-server-support-jpa-hibernate:${project.'cas.version'}"
+    implementation "org.apereo.cas:cas-server-support-jpa-hibernate"
     implementation "org.apereo.cas:cas-server-support-generic"
     implementation "org.apereo.cas:cas-server-support-rest"
     implementation "org.apereo.cas:cas-server-support-thymeleaf"
     implementation "org.apereo.cas:cas-server-support-interrupt-webflow"
 
+    // ===== Phase 1.1: 登录治理与企业合规能力 =====
+    implementation "org.apereo.cas:cas-server-support-throttle"
+    implementation "org.apereo.cas:cas-server-support-throttle-jdbc"
+    implementation "org.apereo.cas:cas-server-support-consent-webflow"
+    implementation "org.apereo.cas:cas-server-support-consent-jdbc"
+    implementation "org.apereo.cas:cas-server-support-aup-webflow"
+    implementation "org.apereo.cas:cas-server-support-aup-jdbc"
+    implementation "org.apereo.cas:cas-server-support-ldap"
+
     // ===== Beenest 业务依赖 =====
-    implementation "org.springframework.boot:spring-boot-starter-jdbc"
     implementation "org.springframework.boot:spring-boot-starter-data-redis"
-    implementation "org.springframework.security:spring-security-web"
-    implementation "org.springframework.security:spring-security-config"
     implementation "org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4"
-    runtimeOnly 'org.postgresql:postgresql:42.7.7'
+    runtimeOnly 'org.postgresql:postgresql'
     implementation "com.github.binarywang:weixin-java-miniapp:4.8.2-20260420.104332"
     implementation "com.alipay.sdk:alipay-sdk-java:4.40.763.ALL"
 
@@ -454,6 +469,8 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-events-jpa"
     implementation "org.apereo.cas:cas-server-support-reports"
     implementation "org.apereo.cas:cas-server-support-palantir"
+    implementation "org.apereo.cas:cas-server-support-metrics"
+    implementation "org.apereo.cas:cas-server-core-monitor"
     implementation "org.apereo.cas:cas-server-webapp-resources"
 
     // ===== Phase 2: 协议层（企业级统一身份提供商） =====
@@ -461,13 +478,17 @@ dependencies {
     implementation "org.apereo.cas:cas-server-support-saml-sp-integrations"
     implementation "org.apereo.cas:cas-server-support-oauth-webflow"
     implementation "org.apereo.cas:cas-server-support-oidc"
-    implementation "org.apereo.cas:cas-server-support-rest-services"
 
     // ===== Phase 3: 用户属性 =====
     implementation "org.apereo.cas:cas-server-support-person-directory"
 
     // ===== Phase 4: 企业级功能层 =====
     implementation "org.apereo.cas:cas-server-core-notifications-api"
+
+    // ===== Phase 5: 多因素认证 (MFA) =====
+    implementation "org.apereo.cas:cas-server-support-gauth-jpa"
+    implementation "org.apereo.cas:cas-server-support-webauthn-jpa"
+    implementation "org.apereo.cas:cas-server-support-trusted-mfa-jdbc"
 
     testImplementation "org.springframework.boot:spring-boot-starter-test"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"

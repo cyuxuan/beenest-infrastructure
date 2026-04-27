@@ -10,7 +10,6 @@ import org.apereo.cas.beenest.config.MiniAppProperties;
 import org.apereo.cas.beenest.config.SmsProperties;
 import org.apereo.cas.beenest.config.TokenTtlProperties;
 import org.apereo.cas.beenest.controller.MiniAppLoginController;
-import org.apereo.cas.beenest.controller.PalantirDashboardController;
 import org.apereo.cas.beenest.controller.SessionManagementController;
 import org.apereo.cas.beenest.controller.SmsController;
 import org.apereo.cas.beenest.controller.TokenRefreshController;
@@ -27,25 +26,21 @@ import org.apereo.cas.authentication.principal.PrincipalFactory;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.ticket.factory.DefaultTicketFactory;
 import org.apereo.cas.ticket.registry.TicketRegistry;
-import org.apereo.cas.web.cookie.CookieValueManager;
-import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
-import org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 
 /**
  * Beenest CAS 覆盖配置入口。
@@ -55,10 +50,10 @@ import org.slf4j.LoggerFactory;
  */
 @AutoConfiguration
 @EnableConfigurationProperties({
-    CasConfigurationProperties.class,
-    MiniAppProperties.class,
-    SmsProperties.class,
-    TokenTtlProperties.class
+        CasConfigurationProperties.class,
+        MiniAppProperties.class,
+        SmsProperties.class,
+        TokenTtlProperties.class
 })
 public class CasOverlayOverrideConfiguration {
 
@@ -69,23 +64,23 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "usernamePasswordAuthenticationHandler")
     public AuthenticationHandler usernamePasswordAuthenticationHandler(final PrincipalFactory principalFactory,
-                                                                       final UnifiedUserMapper userMapper) {
+            final UnifiedUserMapper userMapper) {
         return new UsernamePasswordAuthenticationHandler(
-            "usernamePasswordAuthenticationHandler",
-            principalFactory,
-            userMapper);
+                "usernamePasswordAuthenticationHandler",
+                principalFactory,
+                userMapper);
     }
 
     @Bean
     @ConditionalOnMissingBean(name = "wechatMiniAuthenticationHandler")
     @ConditionalOnProperty(prefix = "beenest.miniapp.wechat", name = "appid")
     public AuthenticationHandler wechatMiniAuthenticationHandler(
-        final WxMaService wxMaService,
-        final PrincipalFactory principalFactory,
-        final UserIdentityService userIdentityService) {
+            final WxMaService wxMaService,
+            final PrincipalFactory principalFactory,
+            final UserIdentityService userIdentityService) {
         return new WechatMiniAuthenticationHandler(
-            "wechatMiniAuthenticationHandler",
-            principalFactory, wxMaService, userIdentityService);
+                "wechatMiniAuthenticationHandler",
+                principalFactory, wxMaService, userIdentityService);
     }
 
     // ===== 抖音小程序 Handler =====
@@ -93,11 +88,11 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "douyinMiniAuthenticationHandler")
     public AuthenticationHandler douyinMiniAuthenticationHandler(final PrincipalFactory principalFactory,
-                                                                 final MiniAppProperties miniAppProperties,
-                                                                 final UserIdentityService userIdentityService) {
+            final MiniAppProperties miniAppProperties,
+            final UserIdentityService userIdentityService) {
         return new DouyinMiniAuthenticationHandler(
-            "douyinMiniAuthenticationHandler",
-            principalFactory, miniAppProperties, userIdentityService);
+                "douyinMiniAuthenticationHandler",
+                principalFactory, miniAppProperties, userIdentityService);
     }
 
     // ===== 支付宝小程序 Handler =====
@@ -105,11 +100,11 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "alipayMiniAuthenticationHandler")
     public AuthenticationHandler alipayMiniAuthenticationHandler(final PrincipalFactory principalFactory,
-                                                                 final MiniAppProperties miniAppProperties,
-                                                                 final UserIdentityService userIdentityService) {
+            final MiniAppProperties miniAppProperties,
+            final UserIdentityService userIdentityService) {
         return new AlipayMiniAuthenticationHandler(
-            "alipayMiniAuthenticationHandler",
-            principalFactory, miniAppProperties, userIdentityService);
+                "alipayMiniAuthenticationHandler",
+                principalFactory, miniAppProperties, userIdentityService);
     }
 
     // ===== 短信验证码 Handler =====
@@ -117,11 +112,11 @@ public class CasOverlayOverrideConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "smsOtpAuthenticationHandler")
     public AuthenticationHandler smsOtpAuthenticationHandler(final PrincipalFactory principalFactory,
-                                                             final StringRedisTemplate redisTemplate,
-                                                             final UserIdentityService userIdentityService) {
+            final StringRedisTemplate redisTemplate,
+            final UserIdentityService userIdentityService) {
         return new SmsOtpAuthenticationHandler(
-            "smsOtpAuthenticationHandler",
-            principalFactory, redisTemplate, userIdentityService);
+                "smsOtpAuthenticationHandler",
+                principalFactory, redisTemplate, userIdentityService);
     }
 
     // ===== 注册到 CAS 认证引擎 =====
@@ -134,7 +129,7 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public BeenestAccessStrategyInitializer beenestAccessStrategyInitializer(
-        final ApplicationContext applicationContext) {
+            final ApplicationContext applicationContext) {
         BeenestAccessStrategy.setApplicationContext(applicationContext);
         return new BeenestAccessStrategyInitializer();
     }
@@ -147,18 +142,18 @@ public class CasOverlayOverrideConfiguration {
 
     @Bean
     public AuthenticationEventExecutionPlanConfigurer beenestAuthnPlan(
-        @Qualifier("usernamePasswordAuthenticationHandler") final AuthenticationHandler usernamePasswordAuthenticationHandler,
-        @Autowired(required = false) @Qualifier("wechatMiniAuthenticationHandler") final AuthenticationHandler wechatMiniAuthenticationHandler,
-        @Autowired(required = false) @Qualifier("douyinMiniAuthenticationHandler") final AuthenticationHandler douyinMiniAuthenticationHandler,
-        @Autowired(required = false) @Qualifier("alipayMiniAuthenticationHandler") final AuthenticationHandler alipayMiniAuthenticationHandler,
-        @Qualifier("smsOtpAuthenticationHandler") final AuthenticationHandler smsOtpAuthenticationHandler) {
+            @Qualifier("usernamePasswordAuthenticationHandler") final AuthenticationHandler usernamePasswordAuthenticationHandler,
+            @Autowired(required = false) @Qualifier("wechatMiniAuthenticationHandler") final AuthenticationHandler wechatMiniAuthenticationHandler,
+            @Autowired(required = false) @Qualifier("douyinMiniAuthenticationHandler") final AuthenticationHandler douyinMiniAuthenticationHandler,
+            @Autowired(required = false) @Qualifier("alipayMiniAuthenticationHandler") final AuthenticationHandler alipayMiniAuthenticationHandler,
+            @Qualifier("smsOtpAuthenticationHandler") final AuthenticationHandler smsOtpAuthenticationHandler) {
         return plan -> {
             log.info("认证处理器装配状态: password={}, wechat={}, douyin={}, alipay={}, sms={}",
-                usernamePasswordAuthenticationHandler != null,
-                wechatMiniAuthenticationHandler != null,
-                douyinMiniAuthenticationHandler != null,
-                alipayMiniAuthenticationHandler != null,
-                smsOtpAuthenticationHandler != null);
+                    usernamePasswordAuthenticationHandler != null,
+                    wechatMiniAuthenticationHandler != null,
+                    douyinMiniAuthenticationHandler != null,
+                    alipayMiniAuthenticationHandler != null,
+                    smsOtpAuthenticationHandler != null);
             plan.registerAuthenticationHandler(usernamePasswordAuthenticationHandler);
             if (wechatMiniAuthenticationHandler != null) {
                 plan.registerAuthenticationHandler(wechatMiniAuthenticationHandler);
@@ -187,19 +182,19 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public CasTokenLifecycleService casTokenLifecycleService(
-        final TicketRegistry ticketRegistry,
-        final DefaultTicketFactory defaultTicketFactory,
-        final StringRedisTemplate redisTemplate,
-        final UnifiedUserMapper userMapper,
-        final TokenTtlProperties tokenTtlProperties,
-        final PrincipalFactory principalFactory) {
+            final TicketRegistry ticketRegistry,
+            final DefaultTicketFactory defaultTicketFactory,
+            final StringRedisTemplate redisTemplate,
+            final UnifiedUserMapper userMapper,
+            final TokenTtlProperties tokenTtlProperties,
+            final PrincipalFactory principalFactory) {
         return new CasTokenLifecycleService(
-            ticketRegistry,
-            defaultTicketFactory,
-            redisTemplate,
-            userMapper,
-            tokenTtlProperties,
-            principalFactory);
+                ticketRegistry,
+                defaultTicketFactory,
+                redisTemplate,
+                userMapper,
+                tokenTtlProperties,
+                principalFactory);
     }
 
     /**
@@ -211,8 +206,8 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public CasNativeLoginService casNativeLoginService(
-        final AuthenticationSystemSupport authenticationSystemSupport,
-        final CasTokenLifecycleService tokenLifecycleService) {
+            final AuthenticationSystemSupport authenticationSystemSupport,
+            final CasTokenLifecycleService tokenLifecycleService) {
         return new CasNativeLoginService(authenticationSystemSupport, tokenLifecycleService);
     }
 
@@ -225,11 +220,11 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public MiniAppLoginController miniAppLoginController(
-        final CasNativeLoginService nativeLoginService,
-        final CasTokenLifecycleService tokenLifecycleService) {
+            final CasNativeLoginService nativeLoginService,
+            final CasTokenLifecycleService tokenLifecycleService) {
         return new MiniAppLoginController(
-            nativeLoginService,
-            tokenLifecycleService);
+                nativeLoginService,
+                tokenLifecycleService);
     }
 
     /**
@@ -251,7 +246,7 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public TokenRefreshController tokenRefreshController(
-        final CasNativeLoginService nativeLoginService) {
+            final CasNativeLoginService nativeLoginService) {
         return new TokenRefreshController(nativeLoginService);
     }
 
@@ -263,66 +258,28 @@ public class CasOverlayOverrideConfiguration {
      */
     @Bean
     public SessionManagementController sessionManagementController(
-        final TicketRegistry ticketRegistry) {
+            final TicketRegistry ticketRegistry) {
         return new SessionManagementController(ticketRegistry);
     }
 
     /**
-     * 注册 Palantir 管理控制台。
+     * 注册内存用户用于 /adminlogin（Palantir 监控面板）认证。
+     * CAS 的 CasWebSecurityConfigurerAdapter 会覆盖 Spring Boot 默认的 UserDetailsService，
+     * 需要显式注册才能让 spring.security.user 配置生效。
      *
-     * @param casProperties         CAS 配置
-     * @param endpointLinksResolver 端点链接解析器
-     * @param webEndpointProperties Web 端点配置
-     * @param ticketRegistry        票据仓库
-     * @param cookieValueManager    cookie管理
-     * @return Palantir 管理控制器
+     * @param securityProperties Spring Security 管理用户配置
+     * @return 管理控制台用户详情服务
      */
     @Bean
-    public PalantirDashboardController palantirDashboardController(
-        final CasConfigurationProperties casProperties,
-        final EndpointLinksResolver endpointLinksResolver,
-        final WebEndpointProperties webEndpointProperties,
-        final TicketRegistry ticketRegistry,
-        final CookieValueManager cookieValueManager) {
-        return new PalantirDashboardController(
-            casProperties,
-            endpointLinksResolver,
-            webEndpointProperties,
-            ticketRegistry,
-            cookieValueManager);
+    public UserDetailsService casAdminUserDetailsService(final SecurityProperties securityProperties) {
+        String[] roles = securityProperties.getUser().getRoles().toArray(String[]::new);
+        return new InMemoryUserDetailsManager(
+                User.builder()
+                        .username(securityProperties.getUser().getName())
+                        .password(securityProperties.getUser().getPassword())
+                        .roles(roles)
+                        .build()
+        );
     }
 
-    // ===== API 路径安全：禁用 CSRF =====
-
-    /**
-     * 对小程序和短信登录 API 路径禁用 CSRF 保护。
-     * <p>
-     * 这些端点使用自定义认证机制，无需 CSRF Token。
-     */
-    @Bean
-    @Order(1)
-    public SecurityFilterChain casApiSecurityFilterChain(HttpSecurity http) throws Exception {
-        return http
-            .securityMatcher("/miniapp/**", "/refresh", "/sms/**")
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-            .build();
-    }
-
-    /**
-     * 本地 Palantir 管理页直接放行，让同应用 dashboard 能被主登录态访问。
-     *
-     * @param http HTTP 安全对象
-     * @return Palantir 安全链
-     * @throws Exception 配置失败时抛出
-     */
-    @Bean
-    @Order(0)
-    public SecurityFilterChain casPalantirSecurityFilterChain(final HttpSecurity http) throws Exception {
-        return http
-            .securityMatcher(PathPatternRequestMatcher.withDefaults().matcher("/palantir/**"))
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-            .build();
-    }
 }

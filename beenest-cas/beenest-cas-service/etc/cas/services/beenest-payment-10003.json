@@ -1,0 +1,20 @@
+{
+  "@class": "org.apereo.cas.services.CasRegisteredService",
+  "serviceId": "^https?://(beenest-payment|payment\\.beenest\\.club)(:[0-9]+)?/.*|^https?://localhost:8082/.*",
+  "name": "beenest-payment",
+  "id": 10003,
+  "description": "Beenest 支付微服务",
+  "evaluationOrder": 100,
+  "attributeReleasePolicy": {
+    "@class": "org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy",
+    "allowedAttributes": [
+      "java.util.ArrayList",
+      ["userId", "username", "userType", "phone", "email", "nickname", "loginType"]
+    ]
+  },
+  "accessStrategy": {
+    "@class": "org.apereo.cas.beenest.authn.strategy.BeenestAccessStrategy",
+    "enabled": true,
+    "ssoEnabled": true
+  }
+}

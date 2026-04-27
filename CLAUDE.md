@@ -38,6 +38,32 @@ cd beenest-cas
 ./gradlew :beenest-cas-service:createKeystore
 ```
 
+### beenest-cas 本地快速开发部署（推荐）
+
+根目录 `docker-compose.yml` 使用 volume 挂载 WAR 的方式运行 CAS，无需 Docker 多阶段构建，适合快速迭代开发。
+
+```bash
+# 从仓库根目录执行
+
+# 1. 离线编译 CAS WAR（跳过测试，约 30 秒）
+cd beenest-cas
+./gradlew :beenest-cas-service:clean :beenest-cas-service:build --offline --no-daemon -x test
+
+# 2. 重启 CAS 容器（必须 up -d 重建，restart 会因 volume 缓存失败）
+cd ..
+docker compose up -d beenest-cas
+
+# 3. 查看启动日志
+docker logs beenest-cas --tail 50 -f
+```
+
+**注意事项**：
+- 编译产物路径：`beenest-cas/beenest-cas-service/build/libs/cas.war`，通过 volume 挂载到容器的 `/app/app.war`
+- 不要使用 `docker compose restart`，应使用 `docker compose up -d` 重建容器（Docker Desktop 的 volume 路径缓存问题）
+- CAS 依赖 PostgreSQL 和 Redis，中间件会自动等待 healthy 后启动
+- 环境变量（密钥等）配置在根目录 `.env` 文件中
+- CAS 监听端口：`8081`（HTTP），容器内通过 `JAVA_OPTS` 控制 JVM 内存（默认 `-Xms256m -Xmx512m`）
+
 ### beenest-payment
 
 ```bash
@@ -79,16 +105,16 @@ Apereo CAS 7.3.6 overlay with ~49 CAS native modules and custom Chinese platform
 - SMS OTP (`SmsOtpCredential` / `SmsOtpAuthenticationHandler`)
 - App token (`AppTokenCredential` / `AppTokenAuthenticationHandler`)
 
-**CAS native enterprise modules**:
-- **MFA**: Google Authenticator (gauth JPA) + FIDO2/WebAuthn (JPA) + Trusted Devices (JDBC)
-- **Password Management**: BCrypt-12, history tracking (6 entries), reset/expiry, must-change
-- **JWT**: token-tickets (JWT Service Ticket) + token-webflow + rest-tokens (OAuth2 JWT)
-- **Security**: CAPTCHA, Throttle (Redis rate limiting), Electrofence (adaptive risk), Interrupt Webflow
-- **Enterprise**: Consent (JDBC), AUP (JDBC), Surrogate (JDBC proxy login), Pac4j OIDC (social login)
-- **User Management**: Account Management, Groovy Provisioning (auto-registration), Session Management (TGT destruction + SLO cascade)
-- **Auth methods**: QR Code scan, Passwordless (Magic Link via Groovy user store)
-- **Monitoring**: Inspektr Audit (JDBC), Events JPA, Palantir Dashboard, Spring Boot Actuator
-- **Notifications**: Email (Spring Mail), SMS (Aliyun via CAS `SmsSender` interface)
+**CAS native enterprise modules** (build.gradle phases):
+- **Phase 1 — Infrastructure**: Account Management, Password Management (webflow), Inspektr Audit (JDBC), Events JPA, Reports & Actuators, Palantir Dashboard, Metrics, Core Monitor, Webapp Resources
+- **Phase 2 — Protocols**: SAML2 IdP, SAML2 SP Integrations, OAuth2 Webflow, OIDC, REST Services
+- **Phase 3 — User Attributes**: Person Directory
+- **Phase 4 — Notifications**: Core Notifications API
+- **Phase 5 — MFA**: Google Authenticator (gauth JPA), FIDO2/WebAuthn (JPA), Trusted Devices (JDBC)
+
+**Planned but not yet in build.gradle**: CAPTCHA, Throttle (Redis), Electrofence, Consent (JDBC), AUP (JDBC), Surrogate (JDBC), Pac4j OIDC (social login), QR Code scan, Passwordless (Magic Link), JWT token-tickets, SAML2 metadata JPA, OIDC JPA, Swagger.
+
+**ObjectMapper override** (`CasOverlayOverrideConfiguration`): CAS registers a global `@Bean ObjectMapper` with `activateDefaultTyping(NON_FINAL)`, which serializes Java type info into JSON (e.g., `["java.util.TreeSet", [...]]`). This breaks Palantir's JS which expects plain arrays. The override uses `JsonMapper.builder().build().findAndRegisterModules()` (no defaultTyping) and is marked `@Primary` to replace CAS's default.
 
 **User identity** (`UserIdentityService`): Unified user model across all channels. Account merging priority: unionid > openid > phone. Auto-registration on first login.
 

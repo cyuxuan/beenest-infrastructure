@@ -1,0 +1,20 @@
+{
+  "@class": "org.apereo.cas.services.CasRegisteredService",
+  "serviceId": "^https?://(localhost(:8080)?|drone\\.beenest\\.club)/login/cas$",
+  "name": "drone-system-local",
+  "id": 10004,
+  "description": "飞鸽无人机管理系统本地回调",
+  "evaluationOrder": 30,
+  "attributeReleasePolicy": {
+    "@class": "org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy",
+    "allowedAttributes": [
+      "java.util.ArrayList",
+      ["userId", "username", "userType", "phone", "email", "nickname", "loginType"]
+    ]
+  },
+  "accessStrategy": {
+    "@class": "org.apereo.cas.beenest.authn.strategy.BeenestAccessStrategy",
+    "enabled": true,
+    "ssoEnabled": true
+  }
+}
