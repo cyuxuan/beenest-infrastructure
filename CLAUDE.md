@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the **beenest-infrastructure** monorepo containing two independent infrastructure services for the Beenest drone platform. Each service has its own build system and can be developed/deployed independently.
 
-- **beenest-cas**: Apereo CAS 7.3.6 SSO server (Gradle, Java 21, Spring Boot 3.5.6)
+- **beenest-cas**: Apereo CAS 7.3.6 SSO server (Gradle, Java 21, Spring Boot 3.5.6). Four Gradle subprojects: `beenest-cas-service` (overlay server), `beenest-cas-client-spring-security-starter`, `beenest-cas-client-login-gateway-starter`, `beenest-cas-client-resource-server-starter`.
 - **beenest-payment**: Payment microservice (Maven, Java 21, Spring Boot 3.5.11)
 
 ## Build and Development Commands
@@ -16,23 +16,26 @@ This is the **beenest-infrastructure** monorepo containing two independent infra
 ```bash
 cd beenest-cas
 
-# Build (includes beenest-cas-client-spring-security-starter submodule)
+# Build (includes all subprojects: beenest-cas-service + 3 starters)
 ./gradlew clean build
 
 # Run locally (starts at https://localhost:8443/cas)
-./gradlew bootRun
+./gradlew :beenest-cas-service:bootRun
 
 # Run tests
-./gradlew test
+./gradlew :beenest-cas-service:test
 
 # Debug mode (JDWP on port 5000)
-./gradlew debug
+./gradlew :beenest-cas-service:debug
 
-# Docker build
-./gradlew build jibDockerBuild
+# Docker build (Jib)
+./gradlew :beenest-cas-service:jibDockerBuild
+
+# Docker build (Dockerfile)
+./gradlew :beenest-cas-service:casBuildDockerImage
 
 # Generate keystore for local HTTPS
-./gradlew createKeystore
+./gradlew :beenest-cas-service:createKeystore
 ```
 
 ### beenest-payment
@@ -58,6 +61,12 @@ docker build -t beenest-payment .
 ### beenest-cas — Enterprise CAS SSO Server
 
 Apereo CAS 7.3.6 overlay with ~49 CAS native modules and custom Chinese platform authentication. Provides enterprise-grade SSO for all Beenest services.
+
+**Project structure** (4 Gradle subprojects):
+- `beenest-cas-service` — CAS overlay server implementation (WAR, Jib Docker image)
+- `beenest-cas-client-spring-security-starter` — Spring Security client starter (published as `club.beenest.cas:beenest-cas-client-spring-security-starter:1.0.0-SNAPSHOT`)
+- `beenest-cas-client-login-gateway-starter` — Login gateway starter
+- `beenest-cas-client-resource-server-starter` — Resource server starter
 
 **Root package**: `org.apereo.cas.beenest`
 
@@ -104,7 +113,7 @@ Apereo CAS 7.3.6 overlay with ~49 CAS native modules and custom Chinese platform
 - `beenest.sms.*` — Aliyun SMS accessKey/secretKey/template
 - `beenest.token.*` — Access/refresh token TTL and rotation settings
 
-**Client starter** (`beenest-cas-client-spring-security-starter`): Spring Boot starter for downstream services. Activated with `cas.client.enabled=true`. Provides Bearer token auth filter, SSO/SLO, TGT validation. Published as `club.beenest.cas:beenest-cas-client-spring-security-starter:1.0.0-SNAPSHOT`.
+**Client starter** (`beenest-cas-client-spring-security-starter`): Spring Boot starter for downstream services. Activated with `cas.client.enabled=true`. Provides Bearer token auth filter, SSO/SLO, TGT validation. Published as `club.beenest.cas:beenest-cas-client-spring-security-starter:1.0.0-SNAPSHOT`. The `beenest-cas-service` subproject is the CAS overlay server implementation, containing all Java source, resources, Docker/Jib configuration.
 
 **Deleted code** (Phase 1-6): ~3300 lines removed. Custom audit (`AuthAuditService`), service management (`CasServiceAdmin*`), user admin (`CasUserAdmin*`), sync strategy (`SyncStrategy*`, `UserSync*`), service credentials (`CasServiceCredential*`), app access (`CasAppAccess*`) — all replaced by CAS native modules or converted to no-op shells.
 
