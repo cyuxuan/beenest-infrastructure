@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title th:text="#{screen.unavailable.header}">Beenest SSO - 错误</title>
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    function showErrorDetails() {
+      var errorTrace = ""; // /*[[${#strings.escapeXml(trace)}]]*/ ;
+      document.getElementById("errorMsg").style.display = "none";
+      var details = document.getElementById("errorDetails");
+      var pre = document.createElement("pre");
+      pre.style.cssText = "white-space: pre-wrap; color: var(--muted); font-size: 0.85rem;";
+      pre.textContent = errorTrace;
+      details.textContent = "";
+      details.appendChild(pre);
+    }
+    /*]]>*/
+  </script>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="max-width: 40rem; margin: 0 auto;">
+      <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.6; text-align: center;">
+        <span class="mdi mdi-alert-circle-outline"></span>
+      </div>
+      <h2 style="text-align: center;"
+          th:utext="#{screen.unavailable.heading(${status},${error})}">
+        请求处理失败
+      </h2>
+      <p style="text-align: center; color: var(--muted);"
+         th:utext="#{screen.unavailable.message}">
+        服务暂时不可用，请稍后重试。
+      </p>
+      <pre id="errorMsg"
+           style="white-space: pre-wrap; color: var(--danger); background: rgba(255,139,139,0.08); border: 1px solid rgba(255,139,139,0.18); border-radius: 1rem; padding: 1rem; margin: 1rem 0; font-size: 0.88rem;"
+           th:text="${'Error: ' + message}">
+        Error message
+      </pre>
+      <p id="errorDetails" th:if="${trace}" style="text-align: center;">
+        <button type="button" class="cas-btn cas-btn-outline" onclick="showErrorDetails();">
+          查看详情
+        </button>
+      </p>
+      <div class="cas-btn-group" style="justify-content: center; margin-top: 1rem;">
+        <a th:href="@{/login}" class="cas-btn cas-btn-primary">返回登录</a>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

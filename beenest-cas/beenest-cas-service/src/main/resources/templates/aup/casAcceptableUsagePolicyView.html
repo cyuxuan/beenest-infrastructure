@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title th:text="#{cas.acceptableusagepolicyview.pagetitle}">Beenest SSO - 使用条款</title>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="max-width: 40rem; margin: 0 auto;">
+      <h2 th:text="#{screen.aup.heading}">使用条款</h2>
+
+      <div th:if="${aupPolicy}" style="margin: 1rem 0;">
+        <p th:if="${aupPolicy.code}" th:utext="#{${aupPolicy.code}}"
+           style="color: var(--muted); line-height: 1.8;">
+          条款内容
+        </p>
+        <p th:if="${aupPolicy.defaultText}" th:utext="${aupPolicy.defaultText}"
+           style="color: var(--muted); line-height: 1.8;">
+          默认条款内容
+        </p>
+      </div>
+      <div th:unless="${aupPolicy}">
+        <p th:utext="#{screen.aup.policyterms}"
+           style="color: var(--muted); line-height: 1.8;">
+          使用条款文本
+        </p>
+      </div>
+
+      <form method="post" id="fm1">
+        <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+        <input type="hidden" name="_eventId" value="submit" />
+
+        <div class="cas-btn-group" style="justify-content: center; margin-top: 1.5rem;">
+          <button type="submit" class="cas-btn cas-btn-primary" id="aupSubmit"
+                  name="submit" th:value="#{screen.aup.button.accept}">
+            接受条款
+          </button>
+          <button type="button" class="cas-btn cas-btn-outline" id="aupCancel"
+                  name="cancel" onclick="location.href = location.href;"
+                  th:text="#{screen.aup.button.cancel}">
+            取消
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+
+</html>

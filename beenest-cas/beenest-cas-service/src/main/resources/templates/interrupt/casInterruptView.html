@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title th:text="#{cas.login.pagetitle}">Beenest SSO - 通知</title>
+  <script th:inline="javascript" th:if="${interrupt.autoRedirect}">
+    /*<![CDATA[*/
+    var autoRedirect = /*[[${interrupt.autoRedirect}]]*/ false;
+    var emptyLinks = /*[[${#maps.isEmpty(interrupt.links)}]]*/ true;
+    if (autoRedirect && !emptyLinks) {
+      var link = /*[[${interrupt.links.values().toArray()[0]}]]*/ '';
+      var redirectTimeout = /*[[${interrupt.autoRedirectAfterSeconds}]]*/ 0;
+      setTimeout(function() { window.location = link; }, redirectTimeout <= 0 ? 0 : redirectTimeout * 1000);
+    }
+    /*]]>*/
+  </script>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="max-width: 40rem; margin: 0 auto;">
+      <h2 th:text="#{screen.interrupt.title}">认证中断通知</h2>
+      <p style="color: var(--muted);"
+         th:utext="#{screen.interrupt.message(${principal.id})}">
+        认证流程已被中断。
+      </p>
+
+      <div th:if="${not #strings.isEmpty(interrupt.message) or not #strings.isEmpty(interrupt.messageCode)}">
+        <div class="alert" style="background: rgba(168,187,255,0.08); border-color: rgba(168,187,255,0.18);">
+          <p th:if="${interrupt.message}" th:utext="${interrupt.message}" style="margin: 0;">中断消息</p>
+          <p th:unless="${interrupt.message}" th:utext="#{${interrupt.messageCode}}" style="margin: 0;">中断消息</p>
+
+          <div id="interruptLinks" th:if="${interrupt.links}" style="margin-top: 1rem;">
+            <form method="post" id="formlinks">
+              <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+              <input type="hidden" name="_eventId" value="redirect" />
+              <input type="hidden" id="linkToRedirect" name="link" />
+            </form>
+            <span th:each="link : ${interrupt.links}">
+              <a class="cas-btn cas-btn-outline" style="margin: 0.25rem;"
+                 th:text="${link.key}" th:id="${#strings.toLowerCase(link.key.replaceAll('[^A-Za-z0-9]', ''))}">
+                Link
+              </a>
+              <script th:inline="javascript">
+                /*<![CDATA[*/
+                $(document).on("click", /*[[${'#' + #strings.toLowerCase(link.key.replaceAll('[^A-Za-z0-9]', ''))}]]*/, function() {
+                  var linkUrl = /*[[${link.value}]]*/ '';
+                  $("#linkToRedirect").val(linkUrl);
+                  $("#formlinks").submit();
+                });
+                /*]]>*/
+              </script>
+            </span>
+          </div>
+        </div>
+
+        <table th:if="${interrupt.data and #maps.size(interrupt.data) > 0}"
+               style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--line);">字段</th>
+              <th style="text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--line);">值</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="attribute : ${interrupt.data}">
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--line);"><code th:utext="${attribute.key}" /></td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--line);"><code th:utext="${attribute.value}" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <form method="post" id="fm1" th:unless="${interrupt.block}">
+        <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+        <input type="hidden" name="_eventId" value="proceed" />
+        <div class="cas-btn-group" style="justify-content: center;">
+          <button type="submit" class="cas-btn cas-btn-primary" id="proceed" name="proceed"
+                  th:text="#{screen.interrupt.btn.proceed}">继续</button>
+        </div>
+      </form>
+
+      <div th:if="${interrupt.block}" style="text-align: center; margin-top: 1rem;">
+        <a class="cas-btn cas-btn-outline" id="cancel" name="cancel" th:href="@{/login}">
+          <span th:if="${interruptTriggerMode == 'AFTER_AUTHENTICATION'}"
+                th:text="#{screen.interrupt.btn.cancel}">取消</span>
+          <span th:if="${interruptTriggerMode == 'AFTER_SSO'}"
+                th:text="#{screen.interrupt.btn.proceed}">继续</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

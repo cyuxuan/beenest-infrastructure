@@ -122,7 +122,7 @@ Apereo CAS 7.3.6 overlay with ~49 CAS native modules and custom Chinese platform
 
 **Session management** (`SessionManagementController`): Admin API for kicking users offline via TGT destruction with automatic SLO cascade.
 
-**Data layer**: MyBatis with remaining mappers. PostgreSQL schema `beenest_cas`. Flyway migrations V1.0.x (legacy) + V2.0.x (nativization). Tables: `cas_user`, `cas_surrogate`, `aup_usage_terms`, CAS native tables (Inspektr audit, events, consent, etc.).
+**Data layer**: MyBatis with remaining mappers. PostgreSQL schema `beenest_cas`. Database initialization via `db/init-cas-schema.sql` (manual execution for new deployments). Tables: `cas_user`, `cas_surrogate`, `aup_usage_terms`, `consent_decision`, CAS native tables (Inspektr audit, events, etc.).
 
 **Groovy scripts**:
 - `interrupt.groovy` — Checks `mustChangePassword` attribute for password expiry interrupt

@@ -101,6 +101,19 @@
         </dependencies>
     </dependencyManagement>
 
+    <distributionManagement>
+        <repository>
+            <id>beenest-nexus-releases</id>
+            <name>Beenest Nexus Releases</name>
+            <url>http://gra954b0-8081-kl5a4qys.10.88.8.11.nip.io/repository/maven-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>beenest-nexus-snapshots</id>
+            <name>Beenest Nexus Snapshots</name>
+            <url>http://gra954b0-8081-kl5a4qys.10.88.8.11.nip.io/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <plugins>
             <plugin>

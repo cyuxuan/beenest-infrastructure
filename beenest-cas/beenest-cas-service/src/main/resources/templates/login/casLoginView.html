@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+
+<head>
+  <title th:text="#{cas.login.pagetitle}">Beenest SSO - 登录</title>
+</head>
+
+<!--
+  Material Design 3 企业级登录页面。
+  body.beenest-login 触发 MD3 浅色主题，
+  覆盖 layout.html 的暗色通用页面样式。
+-->
+<body class="beenest-login">
+
+  <div layout:fragment="content" th:with="loginFormEnabled=${#cas.isTrue(#cas.theme('cas.login-form.enabled'))},
+                                            loginFormViewable=${#cas.isLoginFormViewable(#vars)}">
+
+    <!-- 左上角品牌（固定定位，在卡片外层） -->
+    <div class="md-login-brand">
+      <div class="md-brand-icon">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
+          <path d="M16 6L8 12v10l8 4 8-4V12L16 6z" fill="currentColor" opacity="0.9"/>
+          <path d="M16 6v20M8 12l8 4 8-4M8 22l8-6 8 6" stroke="#fff" stroke-width="0.5" opacity="0.4"/>
+        </svg>
+      </div>
+      <h1 class="md-brand-title">Beenest</h1>
+      <p class="md-brand-subtitle">统一身份认证平台</p>
+    </div>
+
+    <div class="md-login">
+
+      <!-- SSO 已存在提示 -->
+      <div class="md-alert md-alert-warning"
+           th:if="${existingSingleSignOnSessionAvailable}">
+        <svg class="md-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span>
+          <span th:if="${registeredService}"
+                th:utext="#{screen.welcome.forcedsso(${existingSingleSignOnSessionPrincipal?.id},${registeredService.name})}" />
+          <span th:unless="${registeredService}"
+                th:utext="#{screen.welcome.forcedsso(${existingSingleSignOnSessionPrincipal?.id}, 'CAS')}" />
+        </span>
+      </div>
+
+      <!-- 登录表单区域 -->
+      <div th:if="${loginFormViewable and loginFormEnabled}">
+
+        <!-- MD3 Tab 切换 -->
+        <div class="md-tabs" id="modeSwitch">
+          <button type="button" class="md-tab is-active" data-mode="password"
+                  onclick="switchLoginMode('password')">账号登录</button>
+          <button type="button" class="md-tab" data-mode="sms"
+                  onclick="switchLoginMode('sms')">短信登录</button>
+          <div class="md-tab-indicator"></div>
+        </div>
+
+        <form method="post" id="fm1" th:object="${credential}" action="login"
+              onsubmit="loginFormSubmission();">
+
+          <!-- 认证错误消息 -->
+          <div class="md-alert md-alert-error"
+               th:if="${#fields.hasErrors('*')}" role="alert">
+            <svg class="md-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+            <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}">Error message</span>
+          </div>
+
+          <!-- ===== 密码登录模式 ===== -->
+          <div id="passwordMode" class="md-form">
+            <div class="md-field">
+              <label for="username">用户名 / 手机号</label>
+              <input type="text" id="username" name="username"
+                     th:field="*{username}"
+                     th:readonly="!${#cas.isLoginFormUsernameInputVisible(#vars)}"
+                     placeholder="请输入用户名或手机号"
+                     autocapitalize="none" spellcheck="false"
+                     autocomplete="username" required />
+            </div>
+
+            <div class="md-field">
+              <label for="password">密码</label>
+              <input type="password" id="password" name="password"
+                     th:field="*{password}"
+                     placeholder="请输入密码"
+                     autocomplete="current-password" required />
+            </div>
+
+            <!-- 认证源选择 -->
+            <div class="md-field" th:if="${availableAuthenticationHandlerNames != null and availableAuthenticationHandlerNames.size() > 1}">
+              <label for="source">认证源</label>
+              <select id="source" name="source">
+                <option th:each="handler : ${availableAuthenticationHandlerNames}"
+                        th:value="${handler}" th:text="${handler}">Source</option>
+              </select>
+            </div>
+
+            <!-- Remember Me -->
+            <div class="md-option" th:if="${rememberMeAuthenticationEnabled}">
+              <label class="md-checkbox">
+                <input type="checkbox" name="rememberMe" id="rememberMe" value="true" />
+                <span class="md-checkbox-box"></span>
+                <span>记住我（30天）</span>
+              </label>
+            </div>
+
+            <!-- 警告重定向 -->
+            <div class="md-option" th:if="${#cas.isTrue(#cas.theme('cas.warn-on-redirect.enabled'))}">
+              <label class="md-checkbox">
+                <input type="checkbox" name="warn" id="warn" value="true" />
+                <span class="md-checkbox-box"></span>
+                <span>转向前警告</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- ===== 短信验证码登录模式 ===== -->
+          <div id="smsMode" class="md-form is-hidden">
+            <div class="md-field">
+              <label for="smsPhone">手机号</label>
+              <input type="text" id="smsPhone" data-sms-field="username"
+                     placeholder="请输入手机号"
+                     autocapitalize="none" spellcheck="false"
+                     autocomplete="tel" />
+            </div>
+
+            <div class="md-field md-field-sms">
+              <label for="smsCode">验证码</label>
+              <input type="text" id="smsCode" data-sms-field="password"
+                     placeholder="请输入验证码"
+                     autocomplete="one-time-code" />
+              <button type="button" class="md-sms-btn" id="sendSmsBtn"
+                      onclick="sendSmsCode()">获取验证码</button>
+            </div>
+
+            <p class="md-hint">验证码将发送至注册手机号，首次登录自动创建账号。</p>
+          </div>
+
+          <!-- Hidden CAS form fields -->
+          <div class="md-hidden">
+            <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+            <input type="hidden" name="_eventId" value="submit" />
+            <input type="hidden" name="geolocation" />
+            <input type="hidden" name="deviceFingerprint" />
+            <p th:if="${#strings.equalsIgnoreCase(httpRequestMethod, 'POST')}">
+              <span th:each="entry : ${httpRequestInitialPostParameters}" th:remove="tag">
+                <span th:each="entryValue : ${entry.value}" th:remove="tag">
+                  <input type="hidden" th:name="${entry.key}" th:value="${entryValue}" />
+                </span>
+              </span>
+            </p>
+          </div>
+
+          <!-- MD3 Filled Button -->
+          <button type="submit" class="md-btn md-btn-filled" id="submitBtn">
+            <span class="md-btn-text" th:text="#{screen.welcome.button.login}">登 录</span>
+          </button>
+        </form>
+
+        <!-- 密码管理链接 -->
+        <div class="md-links" th:if="${#cas.isTrue(#cas.theme('cas.pm-links.enabled'))}">
+          <a th:href="@{/login}"
+             onclick="event.preventDefault(); location.href = contextPath + '/login?action=resetPassword';">
+            忘记密码？
+          </a>
+        </div>
+      </div>
+
+      <!-- 登录表单不可用时的 fallback -->
+      <div th:unless="${loginFormViewable and loginFormEnabled}" class="md-fallback">
+        <div th:if="${#fields.hasErrors('*')}">
+          <div class="md-alert md-alert-error">
+            <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}">Error</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 条款提示 -->
+      <p class="md-terms" th:if="${#cas.isTrue(#cas.theme('cas.login-form.terms-of-use.enabled'))}">
+        登录即表示您同意<a href="#">服务条款</a>和<a href="#">隐私政策</a>
+      </p>
+
+    </div>
+
+    <!-- 底部版权 -->
+    <footer class="md-footer">
+      <span>&copy; 2024–2026 Beenest</span>
+      <span class="md-footer-dot">&middot;</span>
+      <span>Powered by Apereo CAS 7.3</span>
+    </footer>
+
+    <!-- ===== 登录页面内联脚本 ===== -->
+    <script th:inline="javascript">
+      /*<![CDATA[*/
+
+      function switchLoginMode(mode) {
+        var passwordMode = document.getElementById('passwordMode');
+        var smsMode = document.getElementById('smsMode');
+        var tabs = document.querySelectorAll('.md-tab');
+
+        tabs.forEach(function(tab) {
+          tab.classList.toggle('is-active', tab.dataset.mode === mode);
+        });
+
+        // 移动 tab indicator
+        var indicator = document.querySelector('.md-tab-indicator');
+        var activeTab = document.querySelector('.md-tab.is-active');
+        if (indicator && activeTab) {
+          indicator.style.left = activeTab.offsetLeft + 'px';
+          indicator.style.width = activeTab.offsetWidth + 'px';
+        }
+
+        if (mode === 'password') {
+          passwordMode.classList.remove('is-hidden');
+          smsMode.classList.add('is-hidden');
+          var smsInputs = smsMode.querySelectorAll('input[type="text"], input[type="tel"]');
+          smsInputs.forEach(function(input) { input.removeAttribute('required'); });
+          var pwdUsername = document.getElementById('username');
+          var pwdPassword = document.getElementById('password');
+          if (pwdUsername) pwdUsername.setAttribute('required', 'required');
+          if (pwdPassword) pwdPassword.setAttribute('required', 'required');
+        } else {
+          passwordMode.classList.add('is-hidden');
+          smsMode.classList.remove('is-hidden');
+          var pwdInputs = passwordMode.querySelectorAll('input[required]');
+          pwdInputs.forEach(function(input) { input.removeAttribute('required'); });
+        }
+      }
+
+      // 初始化 tab indicator 位置
+      document.addEventListener('DOMContentLoaded', function() {
+        var activeTab = document.querySelector('.md-tab.is-active');
+        var indicator = document.querySelector('.md-tab-indicator');
+        if (activeTab && indicator) {
+          indicator.style.left = activeTab.offsetLeft + 'px';
+          indicator.style.width = activeTab.offsetWidth + 'px';
+        }
+      });
+
+      function sendSmsCode() {
+        var phone = document.getElementById('smsPhone').value.trim();
+        if (!phone) { alert('请输入手机号'); return; }
+        var btn = document.getElementById('sendSmsBtn');
+        btn.disabled = true;
+        btn.classList.add('is-counting');
+        var countdown = 60;
+        var originalText = btn.textContent;
+        btn.textContent = countdown + 's';
+
+        var timer = setInterval(function() {
+          countdown--;
+          if (countdown <= 0) {
+            clearInterval(timer);
+            btn.disabled = false;
+            btn.classList.remove('is-counting');
+            btn.textContent = originalText;
+          } else {
+            btn.textContent = countdown + 's';
+          }
+        }, 1000);
+
+        var smsUrl = /*[[@{/cas/v1/users/otp}]]*/ '/cas/v1/users/otp';
+        fetch(smsUrl + '?username=' + encodeURIComponent(phone), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(function() {});
+      }
+
+      try {
+        var client = new ClientJS();
+        var fingerprint = client.getFingerprint();
+        var fpInput = document.querySelector('[name="deviceFingerprint"]');
+        if (fpInput) fpInput.value = fingerprint;
+      } catch(e) {}
+
+      document.addEventListener('DOMContentLoaded', function() {
+        var form = document.getElementById('fm1');
+        if (form) {
+          form.addEventListener('submit', function(e) {
+            var smsMode = document.getElementById('smsMode');
+            if (smsMode && !smsMode.classList.contains('is-hidden')) {
+              var phone = document.getElementById('smsPhone').value.trim();
+              var code = document.getElementById('smsCode').value.trim();
+              document.getElementById('username').value = phone;
+              document.getElementById('password').value = code;
+            } else {
+              var pwd = document.getElementById('password').value;
+              if (!pwd) { document.getElementById('password').value = ''; }
+            }
+          });
+        }
+      });
+
+      var loginWip = /*[[@{#{screen.welcome.button.loginwip}}]]*/ '登录中...';
+      var loginText = /*[[@{#{screen.welcome.button.login}}]]*/ '登录';
+
+      $(window).on('pageshow', function() {
+        var btn = document.getElementById('submitBtn');
+        if (btn) { btn.disabled = false; btn.querySelector('.md-btn-text').textContent = loginText; }
+      });
+
+      $(document).ready(function() {
+        $('#fm1').submit(function() {
+          var btn = document.getElementById('submitBtn');
+          if (btn) { btn.disabled = true; btn.querySelector('.md-btn-text').textContent = loginWip; }
+          return true;
+        });
+      });
+
+      /*]]>*/
+    </script>
+
+  </div>
+
+</body>
+</html>

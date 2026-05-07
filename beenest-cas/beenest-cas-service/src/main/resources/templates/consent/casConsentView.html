@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title th:text="#{screen.consent.title}">Beenest SSO - 属性授权</title>
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    var data = { attributes: /*[[${attributes}]]*/ {} };
+    document.addEventListener("DOMContentLoaded", function() {
+      var consentjs = /*[[@{/js/consent.js}]]*/ '';
+      $.getScript(consentjs);
+    });
+    /*]]>*/
+  </script>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="max-width: 44rem; margin: 0 auto;">
+      <h2 style="text-align: center;" th:text="#{screen.consent.title}">属性授权</h2>
+
+      <div class="cas-tab-bar">
+        <button class="cas-tab is-active" onclick="switchConsentTab(0, this)"
+                th:text="#{screen.consent.attributes}">属性</button>
+        <button class="cas-tab" onclick="switchConsentTab(1, this)"
+                th:text="#{screen.consent.options}">选项</button>
+      </div>
+
+      <script type="text/javascript">
+        function switchConsentTab(idx, btn) {
+          var tabs = document.querySelectorAll('.consent-tab');
+          var btns = document.querySelectorAll('.cas-tab');
+          tabs.forEach(function(t, i) { t.style.display = i === idx ? '' : 'none'; });
+          btns.forEach(function(b) { b.classList.remove('is-active'); });
+          btn.classList.add('is-active');
+        }
+      </script>
+
+      <form method="post" id="fm1" th:action="@{/login}">
+        <section class="consent-tab" id="consent-tab-0">
+          <p th:utext="#{screen.consent.attributes.header(${service.id})}" style="color: var(--muted);">
+            以下属性将被释放给应用
+          </p>
+          <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+            <thead>
+              <tr>
+                <th style="text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--line); color: var(--accent); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em;">
+                  属性
+                </th>
+                <th style="text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--line); color: var(--accent); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em;">
+                  值
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="attribute : ${attributes}">
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--line);">
+                  <code th:id="${attribute.name}">
+                    <span th:if="${attribute.friendlyName}" th:utext="${attribute.friendlyName}" />
+                    <span th:unless="${attribute.friendlyName}" th:utext="${attribute.name}" />
+                  </code>
+                </td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--line;">
+                  <code th:id="${attribute.name + '-value'}"><span th:utext="${attribute.values}" /></code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="consent-tab" id="consent-tab-1" style="display: none;">
+          <h3 style="font-size: 1.1rem; margin-bottom: 1rem;"
+              th:text="#{screen.consent.options.header}">再次提示授权的频率</h3>
+
+          <div class="cas-radio-group">
+            <label class="cas-radio-option">
+              <input type="radio" name="option" value="0" th:checked="${option == 0}" onclick="optionSelected()" />
+              <div>
+                <div class="radio-label" th:utext="#{screen.consent.options.always}">始终询问</div>
+              </div>
+            </label>
+            <label class="cas-radio-option">
+              <input type="radio" name="option" value="1" th:checked="${option == 1}" onclick="optionSelected()" />
+              <div>
+                <div class="radio-label" th:utext="#{screen.consent.options.attributename}">属性名变化时询问</div>
+              </div>
+            </label>
+            <label class="cas-radio-option">
+              <input type="radio" name="option" value="2" th:checked="${option == 2}" onclick="optionSelected()" />
+              <div>
+                <div class="radio-label" th:utext="#{screen.consent.options.attributevalue}">属性值变化时询问</div>
+              </div>
+            </label>
+          </div>
+
+          <h3 style="font-size: 1.1rem; margin: 1.5rem 0 0.75rem;"
+              th:text="#{screen.consent.options.reminder.header}">提醒频率</h3>
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <input type="number" name="reminder" id="reminder" th:value="${reminder}"
+                   style="width: 5rem; height: 3rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; background: rgba(255,255,255,0.04); color: var(--text); padding: 0 1rem; font-size: 0.95rem; text-align: center;" />
+            <select name="reminderTimeUnit" id="reminderTimeUnit"
+                    style="flex: 1; height: 3rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; background: rgba(255,255,255,0.04); color: var(--text); padding: 0 1rem;">
+              <option value="seconds" th:selected="${#strings.toLowerCase(reminderTimeUnit) == 'seconds'}" th:text="#{screen.consent.options.timeunit.seconds}">秒</option>
+              <option value="minutes" th:selected="${#strings.toLowerCase(reminderTimeUnit) == 'minutes'}" th:text="#{screen.consent.options.timeunit.minutes}">分</option>
+              <option value="hours" th:selected="${#strings.toLowerCase(reminderTimeUnit) == 'hours'}" th:text="#{screen.consent.options.timeunit.hours}">时</option>
+              <option value="days" th:selected="${#strings.toLowerCase(reminderTimeUnit) == 'days'}" th:text="#{screen.consent.options.timeunit.days}">天</option>
+              <option value="weeks" th:selected="${#strings.toLowerCase(reminderTimeUnit) == 'weeks'}" th:text="#{screen.consent.options.timeunit.weeks}">周</option>
+              <option value="months" th:selected="${#strings.toLowerCase(reminderTimeUnit) == 'months'}" th:text="#{screen.consent.options.timeunit.months}">月</option>
+              <option value="years" th:selected="${#strings.toLowerCase(reminderTimeUnit) == 'years'}" th:text="#{screen.consent.options.timeunit.years}">年</option>
+            </select>
+          </div>
+        </section>
+
+        <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+        <input type="hidden" name="_eventId" value="confirm" />
+
+        <hr style="border: none; border-top: 1px solid var(--line); margin: 1.5rem 0;" />
+
+        <div class="cas-btn-group" style="justify-content: center;">
+          <button type="submit" class="cas-btn cas-btn-primary" id="confirm" name="confirm"
+                  th:text="#{screen.consent.confirm}">确认授权</button>
+          <a class="cas-btn cas-btn-outline" id="cancel" name="cancel" th:href="@{/login}"
+             th:text="#{screen.consent.cancel}">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+
+</html>

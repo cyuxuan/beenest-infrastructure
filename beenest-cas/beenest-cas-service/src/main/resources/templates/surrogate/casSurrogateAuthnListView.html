@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title>Beenest SSO - 代理登录</title>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="max-width: 36rem; margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 1.5rem;">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem; color: var(--accent);">
+          <span class="mdi mdi-account-switch-outline"></span>
+        </div>
+        <h2>代理登录</h2>
+        <p style="color: var(--muted);">选择要代理登录的用户身份</p>
+      </div>
+
+      <form method="post" id="fm1" th:object="${credential}" th:action="@{/login}">
+        <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+        <input type="hidden" name="_eventId" value="submit" />
+
+        <div class="cas-btn-group" style="justify-content: center;">
+          <button type="submit" class="cas-btn cas-btn-primary">确认登录</button>
+          <a th:href="@{/login}" class="cas-btn cas-btn-outline">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+
+</html>

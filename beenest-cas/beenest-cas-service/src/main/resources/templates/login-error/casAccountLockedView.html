@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title>Beenest SSO - 账号已锁定</title>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="text-align: center; max-width: 36rem; margin: 0 auto;">
+      <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--warning);">
+        <span class="mdi mdi-lock-outline"></span>
+      </div>
+      <h2>账号已被锁定</h2>
+      <p style="color: var(--muted);">
+        由于多次登录失败，您的账号已被临时锁定，请稍后再试或联系管理员。
+      </p>
+      <div class="cas-btn-group" style="justify-content: center; margin-top: 1.5rem;">
+        <a th:href="@{/login}" class="cas-btn cas-btn-primary">返回登录</a>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

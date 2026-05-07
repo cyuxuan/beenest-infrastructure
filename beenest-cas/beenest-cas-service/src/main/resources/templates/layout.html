@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      th:lang="${#strings.replace(#locale.toString(), '_', '-')}">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+  <title layout:title-pattern="$LAYOUT_TITLE $CONTENT_TITLE"
+         th:text="${#strings.defaultString(#cas.theme('cas.theme.name'), 'Beenest SSO')}">
+  </title>
+
+  <!-- CAS 核心 CSS（Bootstrap grid、MDC、MDI fonts 等） -->
+  <span th:remove="tag" th:if="${#cas.isTrue(#cas.theme('cas.css.core.enabled'))}">
+    <span th:replace="~{fragments/includes :: stylesheets}">
+      <a href="fragments/includes.html">Theme</a>
+    </span>
+  </span>
+
+  <!-- 自定义 Aurora 主题 CSS，替代默认 cas.css -->
+  <link rel="stylesheet" type="text/css" th:href="@{/css/beenest-login.css}" />
+
+  <!-- 隐藏默认 cas.css（避免与 Aurora 主题冲突） -->
+  <style>
+    .mdc-top-app-bar, .cas-footer, .bgimage { display: none !important; }
+    .mdc-drawer-scrim { display: none !important; }
+  </style>
+
+  <!-- CAS 核心 JS -->
+  <script th:replace="~{fragments/scripts}"></script>
+
+  <link rel="shortcut icon" th:href="@{${#strings.defaultString(#cas.theme('cas.favicon.file'), '/favicon.ico')}}" />
+
+  <!-- 自定义 head fragments -->
+  <span th:remove="tag" th:each="name : ${#strings.setSplit(#cas.theme('cas.standard.fragments.head'), ',')}">
+    <span th:replace="~{fragments/custom :: ${name}}" th:remove="tag" />
+  </span>
+</head>
+
+<!--
+  根据 body class 区分登录页和通用 CAS 页面：
+  - beenest-login → 登录页使用双栏 layout
+  - beenest-cas → 其他页面使用居中卡片 layout
+-->
+<body>
+  <!-- ==================== Header ==================== -->
+  <header class="beenest-cas-header" role="banner">
+    <a class="brand-mark" th:href="@{/}">
+      <span class="brand-dot"></span>
+      <span class="brand-name" th:text="${#strings.defaultString(#cas.theme('cas.theme.name'), 'BEENEST')}">BEENEST</span>
+    </a>
+    <div>
+      <a th:if="${accountProfileManagementEnabled != null and accountProfileManagementEnabled and ticketGrantingTicketId != null}"
+         th:href="@{/account}"
+         style="color: var(--muted); text-decoration: none; font-size: 0.85rem;">
+        <span class="mdi mdi-account-circle" style="font-size: 1.2rem; vertical-align: middle;"></span>
+      </a>
+    </div>
+  </header>
+
+  <div class="mdc-drawer-scrim"></div>
+
+  <!-- ==================== Main Content ==================== -->
+  <div class="beenest-cas-main">
+    <main id="main-content" role="main" style="width: 100%;">
+      <div layout:fragment="content" id="content">
+        CAS content will go here
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== Footer ==================== -->
+  <footer class="beenest-cas-footer" role="contentinfo">
+    <span>&copy; Beenest</span>
+    <span th:if="${#cas.isTrue(#cas.theme('cas.footer.show'))}">
+      &middot; Powered by <a href="https://github.com/apereo/cas" target="_blank" rel="noopener">Apereo CAS</a>
+    </span>
+  </footer>
+</body>
+
+</html>

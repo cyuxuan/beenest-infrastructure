@@ -1,0 +1,24 @@
+FROM azul/zulu-openjdk:21
+
+LABEL "Organization"="Beenest"
+LABEL "Description"="Beenest CAS SSO Server"
+
+RUN mkdir -p /etc/cas/config \
+    && mkdir -p /etc/cas/services \
+    && mkdir -p /etc/cas/oidc \
+    && mkdir -p /etc/cas/saml
+
+WORKDIR /docker/cas/war
+
+COPY beenest-cas-service/src/main/jib/docker/entrypoint.sh /docker/entrypoint.sh
+COPY beenest-cas-service/etc/cas/ /etc/cas/
+COPY beenest-cas-service/build/libs/cas.war .
+
+RUN chmod 755 /docker/entrypoint.sh
+
+EXPOSE 8080 8443
+
+ENV JVM_MEM_OPTS="-Xms512m -Xmx2048M"
+ENV JVM_EXTRA_OPTS="-server -noverify -XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+
+ENTRYPOINT ["/docker/entrypoint.sh"]

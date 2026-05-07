@@ -4,8 +4,8 @@
 
 cas:
   server:
-    name: https://sso.beenest.club
-    prefix: ${cas.server.name}/cas
+    name: ${CAS_SERVER_NAME:https://sso.beenest.club}
+    prefix: ${CAS_SERVER_PREFIX:${cas.server.name}/cas}
 
   # TGC Cookie 配置
   # encryption key 需要 512 bit (64 字节) 以满足 A256CBC-HS512 JWT 加密要求
@@ -35,6 +35,7 @@ cas:
         port: ${REDIS_PORT:6379}
         password: ${REDIS_PASSWORD:}
         database: 1
+        enable-redis-search: false
         pool:
           enabled: true
           max-active: 20
@@ -64,7 +65,7 @@ cas:
   service-registry:
     jpa:
       driver-class: org.postgresql.Driver
-      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
       password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -102,7 +103,7 @@ cas:
   audit:
     jdbc:
       driver-class: org.postgresql.Driver
-      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
       password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -115,7 +116,7 @@ cas:
   events:
     jpa:
       driver-class: org.postgresql.Driver
-      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
       password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -140,7 +141,7 @@ cas:
     # SAML2 IdP
     saml-idp:
       core:
-        entity-id: https://sso.beenest.club/cas/idp
+        entity-id: ${CAS_SAML_IDP_ENTITY_ID:${cas.server.name}/cas/idp}
       metadata:
         file-system:
           location: file:/etc/cas/saml
@@ -152,7 +153,7 @@ cas:
         time-to-kill-in-seconds: 2592000
     oidc:
       core:
-        issuer: https://sso.beenest.club/cas/oidc
+        issuer: ${CAS_OIDC_ISSUER:${cas.server.name}/cas/oidc}
       jwks:
         file-system:
           jwks-file: file:/etc/cas/oidc/jwks.json
@@ -160,7 +161,7 @@ cas:
     jdbc:
       query[0]:
         driver-class: org.postgresql.Driver
-        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
         user: ${DB_USER:postgres}
         password: ${DB_PASSWORD}
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -182,7 +183,7 @@ cas:
       jdbc:
         enabled: ${CAS_AUTHN_THROTTLE_JDBC_ENABLED:true}
         driver-class: org.postgresql.Driver
-        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
         user: ${DB_USER:postgres}
         password: ${DB_PASSWORD}
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -206,7 +207,7 @@ cas:
       gauth:
         jpa:
           driver-class: org.postgresql.Driver
-          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
           user: ${DB_USER:postgres}
           password: ${DB_PASSWORD}
           dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -225,7 +226,7 @@ cas:
       web-authn:
         jpa:
           driver-class: org.postgresql.Driver
-          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
           user: ${DB_USER:postgres}
           password: ${DB_PASSWORD}
           dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -240,7 +241,7 @@ cas:
       trusted:
         jpa:
           driver-class: org.postgresql.Driver
-          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+          url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
           user: ${DB_USER:postgres}
           password: ${DB_PASSWORD}
           dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -256,7 +257,7 @@ cas:
   consent:
     jpa:
       driver-class: org.postgresql.Driver
-      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
       password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -267,7 +268,7 @@ cas:
   acceptable-usage-policy:
     jdbc:
       driver-class: org.postgresql.Driver
-      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+      url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
       password: ${DB_PASSWORD}
       dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -320,6 +321,15 @@ management:
       show-details: when-authorized
 
 # ============================================================
+# Server 配置
+# ============================================================
+server:
+  port: ${SERVER_PORT:8081}
+  ssl:
+    enabled: ${SERVER_SSL_ENABLED:false}
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
+
+# ============================================================
 # Spring Boot 配置
 # ============================================================
 spring:
@@ -334,7 +344,7 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/beenest?currentSchema=beenest_cas
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD}
     hikari:
@@ -357,7 +367,10 @@ spring:
 # Actuator 日志配置
 logging:
   level:
+    org.apereo.cas: ${LOG_LEVEL_CAS:INFO}
+    org.apereo.cas.beenest: ${LOG_LEVEL_BEENEST:INFO}
     org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:INFO}
+    org.springframework.web: ${LOG_LEVEL_SPRING_WEB:INFO}
 
 # MyBatis
 mybatis:

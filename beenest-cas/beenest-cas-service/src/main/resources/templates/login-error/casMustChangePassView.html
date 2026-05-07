@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title>Beenest SSO - 首次登录修改密码</title>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="text-align: center; max-width: 36rem; margin: 0 auto;">
+      <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--accent);">
+        <span class="mdi mdi-key-variant"></span>
+      </div>
+      <h2>首次登录，请修改密码</h2>
+      <p style="color: var(--muted);">
+        出于安全考虑，首次登录必须修改初始密码。
+      </p>
+      <div class="cas-btn-group" style="justify-content: center; margin-top: 1.5rem;">
+        <a class="cas-btn cas-btn-primary" id="changePasswordLink"
+           onclick="location.href = location.href;">修改密码</a>
+        <a th:href="@{/login}" class="cas-btn cas-btn-outline">返回登录</a>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

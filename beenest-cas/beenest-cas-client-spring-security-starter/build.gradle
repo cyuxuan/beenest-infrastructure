@@ -79,6 +79,19 @@ publishing {
             }
         }
     }
+    repositories {
+        maven {
+            name = "beenestNexus"
+            url = version.endsWith('SNAPSHOT')
+                    ? "http://gra954b0-8081-kl5a4qys.10.88.8.11.nip.io/repository/maven-snapshots/"
+                    : "http://gra954b0-8081-kl5a4qys.10.88.8.11.nip.io/repository/maven-releases/"
+            allowInsecureProtocol = true
+            credentials {
+                username = project.findProperty("nexusUsername") ?: "admin"
+                password = project.findProperty("nexusPassword") ?: "admin123"
+            }
+        }
+    }
 }
 
 // 使用 Spring Dependency Management 插件的 resolvedVersions

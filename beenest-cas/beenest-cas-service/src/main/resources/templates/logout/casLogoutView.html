@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title th:text="#{screen.logout.header}">Beenest SSO - 登出</title>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="text-align: center; max-width: 32rem; margin: 0 auto;">
+      <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.6;">
+        <span class="mdi mdi-logout"></span>
+      </div>
+      <h2 th:utext="#{screen.logout.header}">登出成功</h2>
+      <p style="color: var(--muted); line-height: 1.7; margin: 1rem 0;"
+         th:with="loginUrl=@{/login}"
+         th:utext="#{screen.logout.success(${loginUrl})}">
+        您已成功退出登录。您可以<a th:href="@{/login}">重新登录</a>。
+      </p>
+      <p style="color: var(--muted); font-size: 0.88rem;" th:utext="#{screen.logout.security}">
+        为安全起见，请关闭您的浏览器。
+      </p>
+
+      <div class="cas-btn-group" style="justify-content: center; margin-top: 1.5rem;">
+        <a th:href="@{/login}" class="cas-btn cas-btn-primary">重新登录</a>
+      </div>
+    </div>
+
+    <div th:remove="tag" th:if="${enableProceed}">
+      <form method="post" id="logoutform" th:action="@{/logout}">
+        <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+        <input type="hidden" name="_eventId" value="proceed" />
+      </form>
+      <script type="text/javascript">
+        setTimeout(function() { $("#logoutform").submit(); }, 1000);
+      </script>
+    </div>
+    <div th:remove="tag" th:unless="${enableProceed}">
+      <script type="text/javascript">
+        clearLocalStorage();
+        clearSessionStorage();
+      </script>
+    </div>
+  </div>
+</body>
+
+</html>

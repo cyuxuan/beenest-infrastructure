@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title>Beenest SSO - 风险认证</title>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="text-align: center; max-width: 36rem; margin: 0 auto;">
+      <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--warning);">
+        <span class="mdi mdi-shield-alert-outline"></span>
+      </div>
+      <h2>检测到异常登录风险</h2>
+      <p style="color: var(--muted);">
+        系统检测到您的登录行为存在安全风险，认证已被阻止。请确认您的登录环境安全后重试。
+      </p>
+      <div class="cas-btn-group" style="justify-content: center; margin-top: 1.5rem;">
+        <a th:href="@{/login}" class="cas-btn cas-btn-primary">返回登录</a>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

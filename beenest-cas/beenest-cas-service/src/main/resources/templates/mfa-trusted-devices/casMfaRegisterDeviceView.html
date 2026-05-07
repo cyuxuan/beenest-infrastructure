@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+
+<head>
+  <title>Beenest SSO - 注册受信设备</title>
+</head>
+
+<body class="beenest-cas">
+  <div layout:fragment="content">
+    <div class="cas-page-card" style="max-width: 32rem; margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 1.5rem;">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem; color: var(--accent);">
+          <span class="mdi mdi-devices"></span>
+        </div>
+        <h2>注册受信设备</h2>
+        <p style="color: var(--muted);">将此设备注册为受信设备，后续 MFA 认证时可跳过验证</p>
+      </div>
+
+      <form method="post" id="fm1">
+        <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+        <input type="hidden" name="_eventId" value="submit" />
+
+        <div class="field-group" style="margin-bottom: 1.5rem;">
+          <label for="deviceName">设备名称</label>
+          <input type="text" name="deviceName" id="deviceName"
+                 placeholder="例如：我的 MacBook Pro" required />
+        </div>
+
+        <div class="cas-btn-group" style="justify-content: center;">
+          <button type="submit" class="cas-btn cas-btn-primary">注册设备</button>
+          <button type="button" class="cas-btn cas-btn-outline"
+                  onclick="location.href = location.href;">跳过</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+
+</html>
