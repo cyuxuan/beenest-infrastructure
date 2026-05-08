@@ -7,24 +7,29 @@ cas:
     name: http://localhost:8081
     prefix: ${cas.server.name}/cas
 
+  view:
+    authorized-services-on-successful-login: true
+    successful-login:
+      display-attributes: true
+
   tgc:
     secure: false
     crypto:
       encryption:
-        # 仅用于本地开发；生产环境必须通过 TGC_ENCRYPTION_KEY 注入独立密钥。
-        key: ${TGC_ENCRYPTION_KEY:uKSf5OWRITmd/GKD0no9vT++e8jg63p+iD0fRFU5wDGfyG4nVGl6MCLyivV/wjoNuWJuaxVKWtXEAER6ZQDwfg==}
+        # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${TGC_ENCRYPTION_KEY:CHANGE_ME}
       signing:
-        # 仅用于本地开发；生产环境必须通过 TGC_SIGNING_KEY 注入独立密钥。
-        key: ${TGC_SIGNING_KEY:KBddhmxNZna5vFW2NqEKyB3+nAvm/jpcdmav0Pj7dWzUp2ujVMtvLuBE3HFfXt4PPJ0CyzTIFMqQrReflPXEGw==}
+        # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${TGC_SIGNING_KEY:CHANGE_ME}
 
   webflow:
     crypto:
       encryption:
-        # 仅用于本地开发；生产环境必须通过 CAS_WEBFLOW_ENCRYPTION_KEY 注入独立密钥。
-        key: ${CAS_WEBFLOW_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}
+        # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${CAS_WEBFLOW_ENCRYPTION_KEY:CHANGE_ME}
       signing:
-        # 仅用于本地开发；生产环境必须通过 CAS_WEBFLOW_SIGNING_KEY 注入独立密钥。
-        key: ${CAS_WEBFLOW_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}
+        # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${CAS_WEBFLOW_SIGNING_KEY:CHANGE_ME}
 
   ticket:
     registry:
@@ -35,21 +40,21 @@ cas:
         enable-redis-search: false
         crypto:
           encryption:
-            # 仅用于本地开发；生产环境必须通过 TICKET_ENCRYPTION_KEY 注入独立密钥。
-            key: ${TICKET_ENCRYPTION_KEY:wkBxd7mNJygX7zm6jtgX4g==}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${TICKET_ENCRYPTION_KEY:CHANGE_ME}
           signing:
-            # 仅用于本地开发；生产环境必须通过 TICKET_SIGNING_KEY 注入独立密钥。
-            key: ${TICKET_SIGNING_KEY:aF2vB8mK1pR5wX9yC4fN7hJ2lA6bD0eG+sHoVtWxUkMnQpYrSzBiEwFdGcLaJuO}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${TICKET_SIGNING_KEY:CHANGE_ME}
 
   account-registration:
     core:
       crypto:
         encryption:
-          # 仅用于本地开发；生产环境必须通过 CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY 注入独立密钥。
-          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY:OEg1eFZVNjl5QjdjMjVweQ==}
+          # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY:CHANGE_ME}
         signing:
-          # 仅用于本地开发；生产环境必须通过 CAS_ACCOUNT_REGISTRATION_SIGNING_KEY 注入独立密钥。
-          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY:LvZrITncMTxtBFWQSQsCA3dsy35cs1o8tt68ZPHVuYjHYW9BO5qIqQbWk4SQ5Ai0}
+          # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY:CHANGE_ME}
 
   # 本地开发允许 Hibernate 自动补齐 CAS 原生表；生产环境在 application.yml 中默认 validate。
   service-registry:
@@ -95,38 +100,38 @@ cas:
       gauth:
         crypto:
           encryption:
-            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY 注入独立密钥。
-            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY:c_WZINuoQusJtcbfjexjw5NA8x0w98DtyIaY1JafAJ0oP8UTQzaytF10sK1FVyPvKXxNFepFEzl0dSZy33rFFQ}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY:CHANGE_ME}
           signing:
-            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY 注入独立密钥。
-            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY:LN8XN86ctkv1wtHMzU1BwXv5ZHjlgPKGe4l9etHpL1YRUwvtIU5FZCelDzSwQDBxFLRlisl6azYkH2xsz_UDQQ}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY:CHANGE_ME}
         core:
           scratch-codes:
             encryption:
-              # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY 注入独立密钥。
-              key: ${CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY:4/MqoE/ZbD3JtNQvc9Rfeg==}
+              # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+              key: ${CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY:CHANGE_ME}
         jpa:
           password: ${DB_PASSWORD:postgres}
           ddl-auto: ${CAS_AUTHN_MFA_GAUTH_JPA_DDL_AUTO:update}
       web-authn:
         crypto:
           encryption:
-            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY 注入独立密钥。
-            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY:e3ZAZ3V1C73QKQKUhNkwzF1iHliWceo9rYZL48DwDJkUcZMCVt8DARyBoV-K3Um_aL0W50LyBGCWSP8WmHdZRg}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY:CHANGE_ME}
           signing:
-            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY 注入独立密钥。
-            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY:Pnkwn54CFYmLteupjZjun3oLYakoO9Klfbbp4iVgjaDE4C8AQcTehrTvH2exQy8bWGTWC1MIE1I75hpkutNPCQ}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY:CHANGE_ME}
         jpa:
           password: ${DB_PASSWORD:postgres}
           ddl-auto: ${CAS_AUTHN_MFA_WEBAUTHN_JPA_DDL_AUTO:update}
       trusted:
         crypto:
           encryption:
-            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY 注入独立密钥。
-            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY:PbDcXokBSdIAFJWI5N7n6UvxgumPTmMOeixzcuJEA4ZChW33X52iJ72VY09YfWbTy86BB_fb9v-yCd1gAlJWLw}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY:CHANGE_ME}
           signing:
-            # 仅用于本地开发；生产环境必须通过 CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY 注入独立密钥。
-            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY:M3wSdO6nK65EeqpNeDWADuKIWw3eBtoCCBoXBzqvblDEa2hm18B3eN_yHLoi_HEQWX3sBRzu1po9o5LFyK0Hew}
+            # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY:CHANGE_ME}
         jpa:
           password: ${DB_PASSWORD:postgres}
           ddl-auto: ${CAS_AUTHN_MFA_TRUSTED_JPA_DDL_AUTO:update}
@@ -201,8 +206,8 @@ logging:
 
 beenest:
   token:
-    # 仅用于本地开发；生产环境必须通过 CAS_TOKEN_VALIDATION_SECRET 注入独立密钥。
-    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET:beenest-cas-dev-token-secret}
+    # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET:CHANGE_ME}
   mfa:
-    # 仅用于本地开发；生产环境必须通过 MFA_ENCRYPTION_KEY 注入独立密钥。
-    encryption-key: ${MFA_ENCRYPTION_KEY:qZ3vT8mK1pR5wX9yC4fN7hJ2lA6bD0eG+sHoVtWxUkMnQpYrSzBiEwFdGcLaJuO}
+    # 本地开发密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+    encryption-key: ${MFA_ENCRYPTION_KEY:CHANGE_ME}

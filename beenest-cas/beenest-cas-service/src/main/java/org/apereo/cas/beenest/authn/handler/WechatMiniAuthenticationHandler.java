@@ -105,7 +105,7 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
      */
     private String getPhoneFromWechat(String phoneCode) {
         try {
-            WxMaPhoneNumberInfo phoneInfo = wxMaService.getUserService().getPhoneNoInfo(phoneCode);
+            WxMaPhoneNumberInfo phoneInfo = wxMaService.getUserService().getPhoneNumber(phoneCode);
             return phoneInfo.getPhoneNumber();
         } catch (Exception e) {
             LOGGER.warn("获取微信手机号失败: {}", e.getMessage());

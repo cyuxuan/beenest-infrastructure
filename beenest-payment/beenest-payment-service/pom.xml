@@ -28,18 +28,6 @@
             <version>${beenest-cas.version}</version>
         </dependency>
 
-        <!-- TODO: Phase 3 will remove these drone-common dependencies -->
-        <dependency>
-            <groupId>club.beenest</groupId>
-            <artifactId>drone-common</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>club.beenest</groupId>
-            <artifactId>drone-cache</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-
         <!-- Spring Boot -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -91,15 +79,6 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
-
         <!-- Payment SDKs -->
         <dependency>
             <groupId>com.github.wechatpay-apiv3</groupId>

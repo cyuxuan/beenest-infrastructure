@@ -4,6 +4,7 @@ import org.apereo.cas.beenest.client.config.CasSecurityProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.lang.NonNull;
 import org.springframework.util.StringUtils;
 
 import java.io.Serializable;
@@ -49,7 +50,7 @@ public class BearerTokenRevocationService {
      *
      * @param token accessToken
      */
-    public void revokeAccessToken(String token) {
+    public void revokeAccessToken(@NonNull String token) {
         revokeToken(token, accessTokenRevocationTtlMillis, localAccessTokenRevocations, accessTokenCache);
     }
 
@@ -58,7 +59,7 @@ public class BearerTokenRevocationService {
      *
      * @param token refreshToken
      */
-    public void revokeRefreshToken(String token) {
+    public void revokeRefreshToken(@NonNull String token) {
         revokeToken(token, refreshTokenRevocationTtlMillis, localRefreshTokenRevocations, refreshTokenCache);
     }
 
@@ -68,7 +69,7 @@ public class BearerTokenRevocationService {
      * @param token accessToken
      * @return true 表示已撤销
      */
-    public boolean isAccessTokenRevoked(String token) {
+    public boolean isAccessTokenRevoked(@NonNull String token) {
         return isTokenRevoked(token, localAccessTokenRevocations, accessTokenCache);
     }
 
@@ -78,7 +79,7 @@ public class BearerTokenRevocationService {
      * @param token refreshToken
      * @return true 表示已撤销
      */
-    public boolean isRefreshTokenRevoked(String token) {
+    public boolean isRefreshTokenRevoked(@NonNull String token) {
         return isTokenRevoked(token, localRefreshTokenRevocations, refreshTokenCache);
     }
 
@@ -110,7 +111,7 @@ public class BearerTokenRevocationService {
      * @param localRegistry 本地记录表
      * @param cache       共享缓存
      */
-    private void revokeToken(String token,
+    private void revokeToken(@NonNull String token,
                              long ttlMillis,
                              ConcurrentHashMap<String, RevocationRecord> localRegistry,
                              Cache cache) {
@@ -134,7 +135,7 @@ public class BearerTokenRevocationService {
      * @param cache         共享缓存
      * @return true 表示已撤销
      */
-    private boolean isTokenRevoked(String token,
+    private boolean isTokenRevoked(@NonNull String token,
                                    ConcurrentHashMap<String, RevocationRecord> localRegistry,
                                    Cache cache) {
         if (!StringUtils.hasText(token)) {

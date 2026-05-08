@@ -11,7 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 /**
  * Admin API 安全配置
  * <p>
- * 为 {@code /cas/admin/*} 路径注册认证过滤器，
+ * 为 {@code /admin/*} 和 {@code /api/admin/*} 路径注册认证过滤器，
  * 要求请求头携带有效的 Admin Token。
  * <p>
  * Token 通过 {@code beenest.admin.token} 配置，
@@ -27,7 +27,7 @@ public class CasAdminSecurityConfig {
     public FilterRegistrationBean<AdminApiAuthFilter> adminApiAuthFilter(StringRedisTemplate redisTemplate) {
         FilterRegistrationBean<AdminApiAuthFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new AdminApiAuthFilter(adminToken, redisTemplate));
-        registration.addUrlPatterns("/admin/*");
+        registration.addUrlPatterns("/admin/*", "/api/admin/*");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
         registration.setName("adminApiAuthFilter");
         return registration;

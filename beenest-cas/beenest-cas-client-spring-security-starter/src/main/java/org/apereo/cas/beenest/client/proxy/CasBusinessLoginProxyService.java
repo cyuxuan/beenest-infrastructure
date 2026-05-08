@@ -46,6 +46,7 @@ public class CasBusinessLoginProxyService {
      * @param targetPath CAS 目标路径
      * @return CAS Server 的原始响应
      */
+    @SuppressWarnings("null")
     public ResponseEntity<String> proxy(HttpServletRequest request, String body, String targetPath) {
         String targetUrl = buildTargetUrl(targetPath, request.getQueryString());
         HttpMethod httpMethod = resolveHttpMethod(request.getMethod());
@@ -76,6 +77,7 @@ public class CasBusinessLoginProxyService {
      * @param queryString 查询串
      * @return CAS Server 目标 URL
      */
+    @SuppressWarnings("null")
     private String buildTargetUrl(String targetPath, String queryString) {
         String baseUrl = removeTrailingSlash(properties.getServerUrl());
         String requestPath = targetPath;
@@ -99,6 +101,7 @@ public class CasBusinessLoginProxyService {
      * @param request 当前请求
      * @return 转发请求头
      */
+    @SuppressWarnings("null")
     private HttpHeaders copyHeaders(HttpServletRequest request) {
         HttpHeaders headers = new HttpHeaders();
         Enumeration<String> headerNames = request.getHeaderNames();
@@ -177,6 +180,7 @@ public class CasBusinessLoginProxyService {
      * @param responseHeaders CAS 返回的响应头
      * @return 过滤后的响应头
      */
+    @SuppressWarnings("null")
     private HttpHeaders filterResponseHeaders(HttpHeaders responseHeaders) {
         HttpHeaders filtered = new HttpHeaders();
         if (responseHeaders == null || responseHeaders.isEmpty()) {
@@ -218,6 +222,7 @@ public class CasBusinessLoginProxyService {
      * @param methodName 请求方法名
      * @return HttpMethod
      */
+    @SuppressWarnings("null")
     private HttpMethod resolveHttpMethod(String methodName) {
         if (!StringUtils.hasText(methodName)) {
             return HttpMethod.POST;

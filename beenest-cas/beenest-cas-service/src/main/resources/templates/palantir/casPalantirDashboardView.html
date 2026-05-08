@@ -23,6 +23,9 @@
     <link rel="stylesheet" type="text/css" th:href="@{#{webjars.animate.css}}" />
     <link rel="stylesheet" type="text/css" th:href="@{#{webjars.notyf.css}}" />
 
+    <!-- Palantir 暗色主题 CSS -->
+    <link rel="stylesheet" type="text/css" th:href="@{/css/beenest-palantir.css}" />
+
     <script th:inline="javascript">
         /*<![CDATA[*/
         const casServerPrefix = /*[[${casServerPrefix}]]*/;
@@ -37,27 +40,57 @@
 
 <body class="beenest-cas beenest-palantir-dashboard">
 
-<main class="container mt-3 mb-3">
+<main class="container mt-0 mb-0">
     <div layout:fragment="content" id="dashboard" class="d-none">
-        <div th:replace="~{fragments/palantir/navigationsidebar :: main}"/>
-        <div class="mdc-card p-2 m-1" style="min-height: 100vh;">
-            <div th:replace="~{fragments/palantir/dashboardtabs :: main}"/>
-            <div th:replace="~{fragments/palantir/servicestab :: main}"/>
-            <div th:replace="~{fragments/palantir/systemtab :: main}"/>
-            <div th:replace="~{fragments/palantir/ticketstab :: main}"/>
-            <div th:replace="~{fragments/palantir/taskstab :: main}"/>
-            <div th:replace="~{fragments/palantir/accessstrategytab :: main}"/>
-            <div th:replace="~{fragments/palantir/loggerstab :: main}"/>
-            <div th:replace="~{fragments/palantir/ssosessionstab :: main}"/>
-            <div th:replace="~{fragments/palantir/configurationtab :: main}"/>
-            <div th:replace="~{fragments/palantir/persondirectorytab :: main}"/>
-            <div th:replace="~{fragments/palantir/authenticationtab :: main}"/>
-            <div th:replace="~{fragments/palantir/consenttab :: main}"/>
-            <div th:replace="~{fragments/palantir/protocolstab :: main}"/>
-            <div th:replace="~{fragments/palantir/throttlestab :: main}"/>
-            <div th:replace="~{fragments/palantir/mfatab :: main}"/>
-            <div th:replace="~{fragments/palantir/multitenancytab :: main}"/>
+
+        <!-- 顶部栏 -->
+        <header class="pal-topbar">
+            <div class="pal-topbar-brand">
+                <svg class="pal-topbar-logo" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
+                    <path d="M16 6L8 12v10l8 4 8-4V12L16 6z" fill="currentColor" opacity="0.9"/>
+                </svg>
+                <span class="pal-topbar-title">数界探索<span>Palantir Console</span></span>
+            </div>
+            <div class="pal-topbar-status">
+                <span class="pal-topbar-status-dot"></span>
+                <span>CAS 实例运行中</span>
+            </div>
+            <div class="pal-topbar-actions">
+                <a th:href="@{/logout}" class="pal-topbar-logout">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span>登出</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- 仪表盘主体 -->
+        <div class="pal-body">
+            <div th:replace="~{fragments/palantir/navigationsidebar :: main}"/>
+            <div class="pal-content">
+                <div th:replace="~{fragments/palantir/dashboardtabs :: main}"/>
+                <div class="mdc-card pal-card">
+                    <div th:replace="~{fragments/palantir/servicestab :: main}"/>
+                    <div th:replace="~{fragments/palantir/systemtab :: main}"/>
+                    <div th:replace="~{fragments/palantir/ticketstab :: main}"/>
+                    <div th:replace="~{fragments/palantir/taskstab :: main}"/>
+                    <div th:replace="~{fragments/palantir/accessstrategytab :: main}"/>
+                    <div th:replace="~{fragments/palantir/loggerstab :: main}"/>
+                    <div th:replace="~{fragments/palantir/ssosessionstab :: main}"/>
+                    <div th:replace="~{fragments/palantir/configurationtab :: main}"/>
+                    <div th:replace="~{fragments/palantir/persondirectorytab :: main}"/>
+                    <div th:replace="~{fragments/palantir/authenticationtab :: main}"/>
+                    <div th:replace="~{fragments/palantir/consenttab :: main}"/>
+                    <div th:replace="~{fragments/palantir/protocolstab :: main}"/>
+                    <div th:replace="~{fragments/palantir/throttlestab :: main}"/>
+                    <div th:replace="~{fragments/palantir/mfatab :: main}"/>
+                    <div th:replace="~{fragments/palantir/multitenancytab :: main}"/>
+                </div>
+            </div>
         </div>
+
+        <!-- 主题 JS（在 palantir.js 之后加载） -->
+        <script type="text/javascript" th:src="@{/js/beenest-palantir-theme.js}"></script>
         <script type="text/javascript" th:src="@{#{webjars.jqueryui.js}}"></script>
     </div>
 </main>

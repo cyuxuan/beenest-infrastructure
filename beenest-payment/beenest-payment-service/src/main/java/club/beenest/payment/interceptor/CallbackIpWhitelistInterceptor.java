@@ -23,6 +23,10 @@ import java.util.stream.Collectors;
  * <p>
  * 如果未配置白名单（空字符串），则不做拦截（兼容开发环境）
  * </p>
+ * <p>
+ * 默认不信任代理头（X-Forwarded-For / X-Real-IP），防止客户端伪造代理头绕过白名单。
+ * 仅在确认前方有受信任的反向代理（如 Nginx）且正确设置了代理头时，才应启用 trust-proxy。
+ * </p>
  *
  * @author System
  * @since 2026-04-08
@@ -33,6 +37,7 @@ public class CallbackIpWhitelistInterceptor implements HandlerInterceptor {
 
     private volatile List<String> allowedIps = Collections.emptyList();
     private volatile boolean enabled = false;
+    private volatile boolean trustProxy = false;
 
     @Value("${payment.callback.allowed-ips:}")
     public void setAllowedIps(String allowedIpsConfig) {
@@ -46,6 +51,12 @@ public class CallbackIpWhitelistInterceptor implements HandlerInterceptor {
         } else {
             log.info("支付回调IP白名单未配置，不做拦截");
         }
+    }
+
+    @Value("${payment.callback.trust-proxy:false}")
+    public void setTrustProxy(boolean trustProxy) {
+        this.trustProxy = trustProxy;
+        log.info("支付回调IP白名单 trust-proxy: {}", trustProxy);
     }
 
     @Override
@@ -75,15 +86,16 @@ public class CallbackIpWhitelistInterceptor implements HandlerInterceptor {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        // 按优先级读取代理转发的真实IP
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            // X-Forwarded-For 可能有多个值，取第一个
-            return ip.split(",")[0].trim();
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip.trim();
+        // 只在明确信任代理头时才读取，防止客户端伪造代理头绕过 IP 白名单
+        if (trustProxy) {
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip.split(",")[0].trim();
+            }
+            ip = request.getHeader("X-Real-IP");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip.trim();
+            }
         }
         return request.getRemoteAddr();
     }

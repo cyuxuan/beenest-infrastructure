@@ -41,8 +41,23 @@ tmp/
 .env
 .env.*
 docker-compose.override.yml
+docker-compose.deploy.yml
 
 # Payment certificates
 **/cert/*.pem
 **/cert/*.p12
 **/cert/*.key
+*.tar
+
+# CAS SAML / OIDC 密钥（部署时通过 volume 或 secret 注入）
+**/etc/cas/oidc/jwks.json
+**/etc/cas/saml/*.key
+**/etc/cas/saml/*.crt
+**/etc/cas/saml/*.xml
+**/etc/cas/saml/*.pem
+
+# 生产部署文件
+Dockerfile.deploy
+docker-compose.payment.yml
+
+.playwright-mcp/

@@ -1,28 +1,93 @@
 <!DOCTYPE html>
-<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
 
 <head>
   <title th:text="#{screen.logout.header}">Beenest SSO - 登出</title>
 </head>
 
-<body class="beenest-cas">
+<!--
+  登出完成页 · Quantum Aurora Deep Space
+  全视口沉浸式深空页面：极光背景 + 发光成功图标 + 渐变文字
+  延续登录页/成功页的 Quantum Aurora 视觉语言，传达"安全离港"的静谧感。
+-->
+<body class="beenest-logout">
+
   <div layout:fragment="content">
-    <div class="cas-page-card cas-status-card">
-      <div class="cas-status-icon cas-status-icon--success">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- 极光动态背景 -->
+    <div class="logout-bg">
+      <div class="logout-orb logout-orb-1"></div>
+      <div class="logout-orb logout-orb-2"></div>
+      <div class="logout-orb logout-orb-3"></div>
+      <div class="logout-grid"></div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="logout-container">
+
+      <!-- 成功图标 — 发光脉冲环 -->
+      <div class="logout-icon-wrap">
+        <div class="logout-icon-ring"></div>
+        <div class="logout-icon-ring logout-icon-ring-2"></div>
+        <svg class="logout-icon-svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 12l2 2 4-4"/>
           <circle cx="12" cy="12" r="10"/>
         </svg>
       </div>
-      <h2 th:utext="#{screen.logout.header}">登出成功</h2>
-      <p class="cas-status-text" th:with="loginUrl=@{/login}" th:utext="#{screen.logout.success(${loginUrl})}">
+
+      <!-- 标题 -->
+      <h1 class="logout-title" th:utext="#{screen.logout.header}">登出成功</h1>
+
+      <!-- 副标题 -->
+      <p class="logout-subtitle">您已安全退出数界探索统一身份认证平台</p>
+
+      <!-- 分割线 -->
+      <div class="logout-divider">
+        <div class="logout-divider-line"></div>
+      </div>
+
+      <!-- 提示文字 -->
+      <p class="logout-hint" th:with="loginUrl=@{/login}"
+         th:utext="#{screen.logout.success(${loginUrl})}">
         您已成功退出登录。您可以<a th:href="@{/login}">重新登录</a>。
       </p>
-      <div class="cas-status-actions">
-        <a th:href="@{/login}" class="cas-btn cas-btn-primary">重新登录</a>
+
+      <!-- 重新登录按钮 -->
+      <a th:href="@{/login}" class="logout-relogin-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
+          <polyline points="10 17 15 12 10 7"/>
+          <line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        <span>重新登录</span>
+      </a>
+
+      <!-- 安全提示 -->
+      <div class="logout-security-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>会话已安全终止，建议关闭浏览器窗口</span>
       </div>
+
+      <!-- 底部品牌 -->
+      <div class="logout-brand">
+        <svg class="logout-brand-icon" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
+          <path d="M16 6L8 12v10l8 4 8-4V12L16 6z" fill="currentColor" opacity="0.9"/>
+        </svg>
+        <span>数界探索</span>
+        <span class="logout-brand-sep">·</span>
+        <span>Beenest SSO</span>
+      </div>
+
     </div>
 
+    <!-- CAS 原生 auto-redirect 逻辑（保留不变） -->
     <div th:remove="tag" th:if="${enableProceed}">
       <form method="post" id="logoutform" th:action="@{/logout}">
         <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
@@ -38,7 +103,8 @@
         clearSessionStorage();
       </script>
     </div>
-  </div>
-</body>
 
+  </div>
+
+</body>
 </html>

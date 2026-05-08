@@ -61,6 +61,7 @@ public class AppLoginController {
      * @param httpRequest 当前 HTTP 请求
      * @return 登录结果
      */
+    @SuppressWarnings("unchecked")
     @PostMapping("/login")
     public R<TokenResponseDTO> login(@RequestBody AppLoginRequestDTO request, HttpServletRequest httpRequest) {
         String loginMethod = StringUtils.lowerCase(StringUtils.defaultIfBlank(request.getLoginMethod(), "password"));

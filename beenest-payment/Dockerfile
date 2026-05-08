@@ -3,7 +3,7 @@
 # ============================================
 
 # ---- 阶段1: 构建依赖缓存层 ----
-FROM eclipse-temurin:21-jdk-jammy AS dependencies
+FROM maven:3-eclipse-temurin-21 AS dependencies
 WORKDIR /build
 
 # 先拷贝 pom 文件，利用 Docker 缓存加速依赖下载

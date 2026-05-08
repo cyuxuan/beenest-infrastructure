@@ -13,11 +13,13 @@ import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 /**
  * Admin API 认证过滤器
  * <p>
- * 校验 {@code /cas/admin/*} 路径的请求头中是否携带有效的 Admin Token。
+ * 校验 {@code /admin/*} 和 {@code /api/admin/*} 路径的请求头中是否携带有效的 Admin Token。
  * Token 由 CAS Server 启动时通过环境变量 {@code CAS_ADMIN_TOKEN} 配置，
  * 也可存储在 Redis 中用于动态管理。
  * <p>
@@ -59,8 +61,9 @@ public class AdminApiAuthFilter extends OncePerRequestFilter {
         if (StringUtils.isBlank(requestToken)) {
             return false;
         }
-        // 1. 与配置的 Admin Token 比对
-        if (StringUtils.isNotBlank(adminToken) && adminToken.equals(requestToken)) {
+        // 1. 与配置的 Admin Token 比对（使用常量时间比较防止时序攻击）
+        if (StringUtils.isNotBlank(adminToken) && MessageDigest.isEqual(
+                adminToken.getBytes(StandardCharsets.UTF_8), requestToken.getBytes(StandardCharsets.UTF_8))) {
             return true;
         }
         // 2. 与 Redis 中的动态 Token 比对
@@ -77,6 +80,6 @@ public class AdminApiAuthFilter extends OncePerRequestFilter {
             return true;
         }
         String path = request.getServletPath();
-        return !path.startsWith("/admin/");
+        return !path.startsWith("/admin/") && !path.startsWith("/api/admin/");
     }
 }

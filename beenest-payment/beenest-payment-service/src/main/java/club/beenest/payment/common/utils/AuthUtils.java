@@ -15,8 +15,7 @@ import java.util.stream.Collectors;
 /**
  * 认证工具类。
  * <p>
- * 统一从 Spring Security / CAS SecurityContext 中获取当前登录用户信息，
- * 替代原先的 Sa-Token 读取方式。
+ * 统一从 Spring Security / CAS SecurityContext 中获取当前登录用户信息。
  */
 public final class AuthUtils {
 

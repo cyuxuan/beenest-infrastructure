@@ -81,6 +81,7 @@ public class CasNativeTicketValidationService {
      * @param serviceUrl 目标服务地址
      * @return ST，失败返回 null
      */
+    @SuppressWarnings("null")
     private String requestServiceTicket(String accessToken, String serviceUrl) {
         String ticketUrl = UriComponentsBuilder.fromUriString(normalizeServerPrefix(properties.getServerUrl()))
             .path("/v1/tickets/")
@@ -109,6 +110,7 @@ public class CasNativeTicketValidationService {
      * @return 用户会话，失败返回 null
      * @throws Exception XML 解析异常
      */
+    @SuppressWarnings("null")
     private CasUserSession validateServiceTicket(String serviceUrl, String serviceTicket) throws Exception {
         String validateUrl = UriComponentsBuilder.fromUriString(normalizeServerPrefix(properties.getServerUrl()))
             .path("/p3/serviceValidate")

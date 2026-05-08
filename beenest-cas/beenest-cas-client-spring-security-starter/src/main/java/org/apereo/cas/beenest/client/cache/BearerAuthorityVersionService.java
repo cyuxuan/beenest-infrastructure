@@ -3,6 +3,7 @@ package org.apereo.cas.beenest.client.cache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.lang.NonNull;
 import org.springframework.util.StringUtils;
 
 import java.io.Serializable;
@@ -17,8 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * 存储策略：
  * <ul>
- *   <li>本地内存作为兜底，保证单实例也能工作</li>
- *   <li>若业务系统提供共享 {@link CacheManager}，则同时写入共享缓存</li>
+ * <li>本地内存作为兜底，保证单实例也能工作</li>
+ * <li>若业务系统提供共享 {@link CacheManager}，则同时写入共享缓存</li>
  * </ul>
  */
 @Slf4j
@@ -36,10 +37,10 @@ public class BearerAuthorityVersionService {
     /**
      * 更新用户权限版本。
      *
-     * @param userId 用户 ID
+     * @param userId  用户 ID
      * @param version 新的权限版本
      */
-    public void updateUserVersion(String userId, String version) {
+    public void updateUserVersion(@NonNull String userId, String version) {
         if (!StringUtils.hasText(userId) || !StringUtils.hasText(version)) {
             return;
         }
@@ -57,7 +58,7 @@ public class BearerAuthorityVersionService {
      * @param userId 用户 ID
      * @return 权限版本，未知时返回 null
      */
-    public String getUserVersion(String userId) {
+    public String getUserVersion(@NonNull String userId) {
         if (!StringUtils.hasText(userId)) {
             return null;
         }
@@ -89,11 +90,11 @@ public class BearerAuthorityVersionService {
     /**
      * 判断缓存中的权限版本是否已过期。
      *
-     * @param userId 用户 ID
+     * @param userId         用户 ID
      * @param currentVersion 当前认证结果里的权限版本
      * @return true 表示存在更高优先级的最新版本
      */
-    public boolean isVersionStale(String userId, String currentVersion) {
+    public boolean isVersionStale(@NonNull String userId, String currentVersion) {
         String latestVersion = getUserVersion(userId);
         if (!StringUtils.hasText(latestVersion) || !StringUtils.hasText(currentVersion)) {
             return false;
@@ -106,7 +107,7 @@ public class BearerAuthorityVersionService {
      *
      * @param userId 用户 ID
      */
-    public void evictUserVersion(String userId) {
+    public void evictUserVersion(@NonNull String userId) {
         if (!StringUtils.hasText(userId)) {
             return;
         }

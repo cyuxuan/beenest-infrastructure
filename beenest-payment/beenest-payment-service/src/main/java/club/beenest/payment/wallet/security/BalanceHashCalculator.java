@@ -1,5 +1,6 @@
 package club.beenest.payment.wallet.security;
 
+import club.beenest.payment.shared.codec.CodecUtils;
 import club.beenest.payment.wallet.domain.entity.Wallet;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,7 +43,7 @@ public final class BalanceHashCalculator {
      * 2. JVM 系统属性 wallet.hash.secret
      * 3. Spring 配置 payment.wallet.hash-secret（通过 setSecret 注入）
      */
-    private static String hmacSecret;
+    private static volatile String hmacSecret;
 
     static {
         // 尝试从环境变量加载密钥
@@ -111,7 +112,7 @@ public final class BalanceHashCalculator {
                     hmacSecret.getBytes(StandardCharsets.UTF_8), ALGORITHM);
             mac.init(keySpec);
             byte[] hashBytes = mac.doFinal(raw.getBytes(StandardCharsets.UTF_8));
-            return bytesToHex(hashBytes);
+            return CodecUtils.bytesToHex(hashBytes);
         } catch (java.security.InvalidKeyException e) {
             log.error("HMAC 密钥无效", e);
             throw new RuntimeException("Invalid HMAC key for balance hash", e);
@@ -139,7 +140,8 @@ public final class BalanceHashCalculator {
         }
 
         String expectedHash = calculate(wallet);
-        boolean valid = storedHash.equals(expectedHash);
+        boolean valid = java.security.MessageDigest.isEqual(
+                storedHash.getBytes(StandardCharsets.UTF_8), expectedHash.getBytes(StandardCharsets.UTF_8));
         if (!valid) {
             log.error("【安全告警】钱包余额哈希校验失败，疑似数据被篡改！walletNo={}, storedHash={}, expectedHash={}",
                     wallet.getWalletNo(), storedHash, expectedHash);
@@ -164,13 +166,5 @@ public final class BalanceHashCalculator {
                     "钱包哈希密钥未配置！请设置环境变量 WALLET_HASH_SECRET "
                     + "或在配置文件中设置 payment.wallet.hash-secret");
         }
-    }
-
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
     }
 }

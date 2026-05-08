@@ -31,7 +31,7 @@ import java.util.Map;
  */
 @Slf4j
 @RequiredArgsConstructor
-public class UsernamePasswordAuthenticationHandler implements AuthenticationHandler, Ordered {
+public class UsernamePasswordAuthenticationHandler implements AuthenticationHandler {
 
     private static final PasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 

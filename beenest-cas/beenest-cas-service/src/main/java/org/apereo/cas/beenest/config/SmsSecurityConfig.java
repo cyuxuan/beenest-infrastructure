@@ -11,8 +11,9 @@ import org.springframework.core.Ordered;
 /**
  * 短信接口安全配置
  * <p>
- * 使用最高优先级的 servlet filter 直接处理 `/cas/sms/send`，
- * 避免被 CAS 默认安全链提前拒绝。
+ * 使用最高优先级的 servlet filter 直接处理 {@code /sms/send}，
+ * 支持 GET 和 POST 方法，避免被 CAS 默认安全链提前拒绝。
+ * 推荐使用 POST 方法，避免手机号暴露在 URL 中。
  */
 @AutoConfiguration
 public class SmsSecurityConfig {

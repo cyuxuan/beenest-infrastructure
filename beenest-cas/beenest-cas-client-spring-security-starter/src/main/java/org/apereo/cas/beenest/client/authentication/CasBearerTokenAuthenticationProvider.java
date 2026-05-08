@@ -87,6 +87,7 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         this.authorityVersionService = authorityVersionService;
     }
 
+    @SuppressWarnings("null")
     @Override
     public Authentication authenticate(Authentication authentication) {
         CasBearerTokenAuthenticationToken token = (CasBearerTokenAuthenticationToken) authentication;
@@ -227,6 +228,7 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
      * @param newRefreshToken 新的刷新令牌（仅刷新成功时有值，正常认证为 null）
      * @param session         用户会话信息
      */
+    @SuppressWarnings("null")
     private Authentication buildAuthenticatedToken(String accessToken, String newRefreshToken,
                                                    CasUserSession session,
                                                    CasUserDetails cachedUserDetails) {

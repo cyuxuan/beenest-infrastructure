@@ -6,6 +6,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.PropertySource;
+import org.springframework.lang.NonNull;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -60,7 +61,7 @@ public class ResourceServerStarterEnvironmentPostProcessor implements Environmen
      * @param key 配置键
      * @param value 配置值
      */
-    private void putIfMissing(ConfigurableEnvironment environment, Map<String, Object> defaults, String key, Object value) {
+    private void putIfMissing(ConfigurableEnvironment environment, Map<String, Object> defaults, @NonNull String key, Object value) {
         if (environment.getProperty(key) == null) {
             defaults.put(key, value);
         }

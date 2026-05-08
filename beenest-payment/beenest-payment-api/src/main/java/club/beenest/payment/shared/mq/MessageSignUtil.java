@@ -1,12 +1,12 @@
 package club.beenest.payment.shared.mq;
 
+import club.beenest.payment.shared.codec.CodecUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.crypto.Mac;
+import java.security.MessageDigest;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 /**
  * MQ 消息签名工具（HMAC-SHA256）
@@ -73,7 +73,7 @@ public final class MessageSignUtil {
                                               String businessOrderNo, String customerNo,
                                               Long amountFen, String platform, String bizType) {
         String expected = signOrderMessage(messageId, orderNo, businessOrderNo, customerNo, amountFen, platform, bizType);
-        return constantTimeEquals(expected, sign);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 
     public static boolean verifyOrderMessage(String sign, String messageId, String orderNo,
@@ -102,7 +102,7 @@ public final class MessageSignUtil {
     public static boolean verifyRefundMessage(String sign, String messageId, String refundNo,
                                                 String orderNo, String businessOrderNo, String status, String bizType) {
         String expected = signRefundMessage(messageId, refundNo, orderNo, businessOrderNo, status, bizType);
-        return constantTimeEquals(expected, sign);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 
     public static boolean verifyRefundMessage(String sign, String messageId, String refundNo,
@@ -133,7 +133,7 @@ public final class MessageSignUtil {
                                                   String customerNo, Long actualAmountFen,
                                                   String status, String bizType) {
         String expected = signWithdrawMessage(messageId, requestNo, customerNo, actualAmountFen, status, bizType);
-        return constantTimeEquals(expected, sign);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 
     public static boolean verifyWithdrawMessage(String sign, String messageId, String requestNo,
@@ -178,7 +178,7 @@ public final class MessageSignUtil {
                                                  String transactionType, String bizType) {
         String expected = signBalanceMessage(messageId, customerNo, walletNo,
                 beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType);
-        return constantTimeEquals(expected, sign);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -199,7 +199,7 @@ public final class MessageSignUtil {
                                                       String bizType, Long amountFen,
                                                       String transactionType, String referenceNo) {
         String expected = signWalletCreditMessage(messageId, customerNo, bizType, amountFen, transactionType, referenceNo);
-        return constantTimeEquals(expected, sign);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 
     // ==================== 内部方法 ====================
@@ -212,35 +212,19 @@ public final class MessageSignUtil {
                     hmacSecret.getBytes(StandardCharsets.UTF_8), ALGORITHM);
             mac.init(keySpec);
             byte[] hashBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            return bytesToHex(hashBytes);
+            return CodecUtils.bytesToHex(hashBytes);
         } catch (Exception e) {
             throw new RuntimeException("MQ 消息签名计算失败", e);
         }
     }
 
     private static String joinFields(String... fields) {
-        return Arrays.stream(fields)
-                .map(f -> f != null ? f : "")
-                .collect(Collectors.joining(DELIMITER));
-    }
-
-    /**
-     * 恒定时间比较，防止时序攻击
-     */
-    private static boolean constantTimeEquals(String a, String b) {
-        if (a == null || b == null) {
-            return false;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < fields.length; i++) {
+            if (i > 0) sb.append(DELIMITER);
+            sb.append(fields[i] != null ? fields[i] : "");
         }
-        byte[] aBytes = a.getBytes(StandardCharsets.UTF_8);
-        byte[] bBytes = b.getBytes(StandardCharsets.UTF_8);
-        if (aBytes.length != bBytes.length) {
-            return false;
-        }
-        int result = 0;
-        for (int i = 0; i < aBytes.length; i++) {
-            result |= aBytes[i] ^ bBytes[i];
-        }
-        return result == 0;
+        return sb.toString();
     }
 
     private static void ensureSecretLoaded() {
@@ -259,13 +243,5 @@ public final class MessageSignUtil {
                     "MQ 签名密钥未配置！请设置环境变量 MQ_SIGN_SECRET "
                     + "或在配置文件中设置 payment.mq.sign-secret");
         }
-    }
-
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
     }
 }

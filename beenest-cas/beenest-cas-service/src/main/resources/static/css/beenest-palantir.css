@@ -1,0 +1,1158 @@
+/* ============================================================
+   Palantir 管理控制台 · Quantum Aurora Command Center
+   全局暗色主题覆盖 — 作用于 body.beenest-palantir-dashboard
+   ============================================================ */
+
+/* ─── 1. CSS 变量 ─────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard {
+  --pal-bg-0: #0a0e1a;
+  --pal-bg-1: #0f1629;
+  --pal-bg-2: #151d33;
+  --pal-bg-3: #1a2340;
+  --pal-bg-hover: rgba(6, 182, 212, 0.06);
+  --pal-border: rgba(255, 255, 255, 0.06);
+  --pal-border-focus: rgba(6, 182, 212, 0.4);
+  --pal-text-0: #e2e8f0;
+  --pal-text-1: #94a3b8;
+  --pal-text-2: #64748b;
+  --pal-accent: #06b6d4;
+  --pal-accent-2: #7c3aed;
+  --pal-success: #10b981;
+  --pal-warning: #f59e0b;
+  --pal-danger: #ef4444;
+
+  /* 覆盖 CAS 原生变量 */
+  --cas-theme-primary: #06b6d4;
+  --mdc-theme-primary: #06b6d4;
+  --mdc-theme-body: #0a0e1a;
+  --mdc-text-button-label-text-color: #e2e8f0;
+  --cas-theme-button-bg: #0e7490;
+  --cas-theme-button-bg-hover: #06b6d4;
+  --cas-theme-button-bg-lite: #164e63;
+  --cas-theme-primary-bg: rgba(6, 182, 212, 0.1);
+  --cas-theme-primary-light: #22d3ee;
+  --cas-theme-secondary: #7c3aed;
+  --cas-theme-danger: #ef4444;
+  --cas-theme-danger-bg: rgba(239, 68, 68, 0.1);
+  --cas-theme-warning: #f59e0b;
+  --cas-theme-warning-bg: rgba(245, 158, 11, 0.1);
+  --cas-theme-border-light: 1px solid rgba(255, 255, 255, 0.06);
+  --mdc-typography-font-family: "IBM Plex Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ─── 2. 布局骨架 ─────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard {
+  background: var(--pal-bg-0) !important;
+  color: var(--pal-text-0);
+  height: auto !important;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.beenest-palantir-dashboard .beenest-cas-header,
+body.beenest-palantir-dashboard .beenest-cas-footer {
+  display: none !important;
+}
+
+body.beenest-palantir-dashboard .beenest-cas-main {
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  padding: 0 !important;
+  min-height: 100vh;
+  background: var(--pal-bg-0);
+}
+
+body.beenest-palantir-dashboard .beenest-cas-main main {
+  width: 100%;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+}
+
+/* ─── 3. 顶栏 ─────────────────────────────────────────────── */
+
+.pal-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 20px;
+  background: rgba(10, 14, 26, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--pal-border);
+}
+
+.pal-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pal-topbar-logo {
+  width: 28px;
+  height: 28px;
+  color: var(--pal-accent);
+}
+
+.pal-topbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--pal-text-0);
+}
+
+.pal-topbar-title span {
+  color: var(--pal-text-2);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.pal-topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--pal-text-2);
+}
+
+.pal-topbar-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pal-success);
+  animation: pal-pulse 2s ease-in-out infinite;
+}
+
+@keyframes pal-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+
+.pal-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pal-topbar-logout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pal-text-1);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--pal-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.pal-topbar-logout:hover {
+  color: var(--pal-danger);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.pal-topbar-logout svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ─── 4. 仪表盘主体布局 ──────────────────────────────────── */
+
+.pal-body {
+  display: flex;
+  min-height: calc(100vh - 52px);
+}
+
+.pal-content {
+  flex: 1;
+  min-width: 0;
+  padding: 16px;
+  overflow-x: hidden;
+}
+
+/* 内容卡片 */
+.pal-card {
+  background: var(--pal-bg-1) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  min-height: auto !important;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ─── 5. 侧边栏 ───────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .sidebar-navigation {
+  width: 68px;
+  min-height: calc(100vh - 52px) !important;
+  height: auto !important;
+  background: rgba(15, 22, 41, 0.95) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--pal-border);
+  border-radius: 0 !important;
+  float: none !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: sticky;
+  top: 52px;
+  align-self: flex-start;
+}
+
+body.beenest-palantir-dashboard .sidebar-navigation ul {
+  margin: 0;
+  padding: 8px 6px;
+  text-align: center;
+  color: var(--pal-text-2);
+  list-style: none;
+  flex: 1;
+}
+
+body.beenest-palantir-dashboard .sidebar-navigation ul li {
+  padding: 14px 0 !important;
+  margin: 2px 0;
+  cursor: pointer;
+  text-align: center;
+  border-radius: 8px !important;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+body.beenest-palantir-dashboard .sidebar-navigation ul li i {
+  display: block;
+  font-size: 20px;
+  color: var(--pal-text-2);
+  transition: color 0.2s;
+}
+
+/* 侧边栏 hover */
+body.beenest-palantir-dashboard .sidebar-navigation ul li:hover {
+  background: var(--pal-bg-hover) !important;
+}
+
+body.beenest-palantir-dashboard .sidebar-navigation ul li:hover i {
+  color: var(--pal-text-1);
+}
+
+/* 侧边栏 active */
+body.beenest-palantir-dashboard .sidebar-navigation ul li.active {
+  background: rgba(6, 182, 212, 0.1) !important;
+}
+
+body.beenest-palantir-dashboard .sidebar-navigation ul li.active::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--pal-accent), var(--pal-accent-2));
+}
+
+body.beenest-palantir-dashboard .sidebar-navigation ul li.active i {
+  color: var(--pal-accent) !important;
+}
+
+/* 侧边栏 tooltip */
+body.beenest-palantir-dashboard .sidebar-navigation ul li .tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-0) !important;
+  padding: 6px 12px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap;
+  border: 1px solid var(--pal-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 200 !important;
+  pointer-events: none;
+  margin-top: 0 !important;
+}
+
+body.beenest-palantir-dashboard .sidebar-navigation ul li .tooltip:before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--pal-bg-2);
+  border-left: 1px solid var(--pal-border);
+  border-bottom: 1px solid var(--pal-border);
+  left: auto !important;
+}
+
+/* 侧边栏品牌/登出 */
+.pal-sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0 8px;
+  color: var(--pal-accent);
+}
+
+.pal-sidebar-brand svg {
+  width: 24px;
+  height: 24px;
+}
+
+.pal-sidebar-divider {
+  height: 1px;
+  margin: 4px 10px;
+  background: var(--pal-border);
+}
+
+.pal-sidebar-logout {
+  padding: 10px 0 !important;
+  margin: 4px 0;
+  cursor: pointer;
+  text-align: center;
+  border-radius: 8px;
+}
+
+.pal-sidebar-logout i {
+  font-size: 20px;
+  color: var(--pal-text-2);
+  transition: color 0.2s;
+}
+
+.pal-sidebar-logout:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+.pal-sidebar-logout:hover i {
+  color: var(--pal-danger);
+}
+
+/* ─── 6. 文字 & 标题 ──────────────────────────────────────── */
+
+body.beenest-palantir-dashboard h1,
+body.beenest-palantir-dashboard h2,
+body.beenest-palantir-dashboard h3,
+body.beenest-palantir-dashboard h4,
+body.beenest-palantir-dashboard h5,
+body.beenest-palantir-dashboard h6 {
+  color: var(--pal-text-0);
+}
+
+body.beenest-palantir-dashboard p,
+body.beenest-palantir-dashboard span,
+body.beenest-palantir-dashboard label {
+  color: var(--pal-text-1);
+}
+
+body.beenest-palantir-dashboard a {
+  color: var(--pal-accent) !important;
+}
+
+body.beenest-palantir-dashboard a:hover {
+  color: var(--pal-accent) !important;
+  opacity: 0.85;
+}
+
+body.beenest-palantir-dashboard code {
+  color: var(--pal-accent) !important;
+  background: rgba(6, 182, 212, 0.08) !important;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+body.beenest-palantir-dashboard hr {
+  border-color: var(--pal-border) !important;
+}
+
+/* ─── 7. DataTables ────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .dataTables_wrapper {
+  color: var(--pal-text-1);
+}
+
+body.beenest-palantir-dashboard table.dataTable,
+body.beenest-palantir-dashboard table.mdc-data-table__table {
+  color: var(--pal-text-0) !important;
+  border-collapse: collapse !important;
+}
+
+body.beenest-palantir-dashboard table.dataTable thead th,
+body.beenest-palantir-dashboard .mdc-data-table__header-cell {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-1) !important;
+  border-bottom: 1px solid var(--pal-border) !important;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 12px !important;
+}
+
+body.beenest-palantir-dashboard table.dataTable tbody tr,
+body.beenest-palantir-dashboard .mdc-data-table__row {
+  background: transparent !important;
+  border-bottom: 1px solid var(--pal-border) !important;
+  transition: background 0.15s;
+}
+
+body.beenest-palantir-dashboard table.dataTable tbody tr:hover,
+body.beenest-palantir-dashboard .mdc-data-table__row:hover {
+  background: var(--pal-bg-hover) !important;
+}
+
+body.beenest-palantir-dashboard table.dataTable tbody tr.odd,
+body.beenest-palantir-dashboard table.table-striped tbody tr.odd {
+  background: rgba(255, 255, 255, 0.015) !important;
+}
+
+body.beenest-palantir-dashboard table.dataTable tbody tr.odd:hover,
+body.beenest-palantir-dashboard table.table-striped tbody tr.odd:hover {
+  background: var(--pal-bg-hover) !important;
+}
+
+body.beenest-palantir-dashboard table.dataTable tbody td,
+body.beenest-palantir-dashboard .mdc-data-table__cell {
+  color: var(--pal-text-0) !important;
+  border-bottom: none !important;
+  padding: 10px 12px !important;
+}
+
+/* DataTables 搜索/筛选 */
+body.beenest-palantir-dashboard .dataTables_filter input,
+body.beenest-palantir-dashboard .dataTables_length select {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 6px;
+  padding: 5px 10px;
+  outline: none;
+}
+
+body.beenest-palantir-dashboard .dataTables_filter input:focus {
+  border-color: var(--pal-border-focus) !important;
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15);
+}
+
+body.beenest-palantir-dashboard .dataTables_length label,
+body.beenest-palantir-dashboard .dataTables_filter label {
+  color: var(--pal-text-2) !important;
+}
+
+body.beenest-palantir-dashboard .dataTables_info {
+  color: var(--pal-text-2) !important;
+  font-size: 13px;
+}
+
+/* DataTables 分页 */
+body.beenest-palantir-dashboard .dataTables_paginate .paginate_button {
+  color: var(--pal-text-1) !important;
+  background: transparent !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 6px !important;
+  margin: 0 2px;
+  transition: all 0.15s;
+}
+
+body.beenest-palantir-dashboard .dataTables_paginate .paginate_button:hover {
+  background: var(--pal-bg-hover) !important;
+  border-color: var(--pal-border-focus) !important;
+  color: var(--pal-accent) !important;
+}
+
+body.beenest-palantir-dashboard .dataTables_paginate .paginate_button.current {
+  background: rgba(6, 182, 212, 0.12) !important;
+  border-color: var(--pal-border-focus) !important;
+  color: var(--pal-accent) !important;
+  font-weight: 600;
+}
+
+body.beenest-palantir-dashboard .dataTables_paginate .paginate_button.disabled {
+  color: var(--pal-text-2) !important;
+  opacity: 0.4;
+}
+
+body.beenest-palantir-dashboard .dataTables_paginate .paginate_button.previous,
+body.beenest-palantir-dashboard .dataTables_paginate .paginate_button.next {
+  font-size: 13px;
+}
+
+/* ─── 8. MDC 按钮 ─────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .mdc-button--raised {
+  background: linear-gradient(135deg, var(--cas-theme-button-bg), var(--cas-theme-button-bg-lite)) !important;
+  color: var(--pal-text-0) !important;
+  border-radius: 6px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500;
+  box-shadow: none !important;
+  transition: all 0.2s;
+}
+
+body.beenest-palantir-dashboard .mdc-button--raised:hover {
+  background: linear-gradient(135deg, var(--cas-theme-button-bg-hover), var(--cas-theme-button-bg)) !important;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-button--outline {
+  background: transparent !important;
+  color: var(--pal-text-1) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 6px !important;
+}
+
+body.beenest-palantir-dashboard .mdc-button--outline:hover {
+  border-color: var(--pal-border-focus) !important;
+  color: var(--pal-accent) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-button__label {
+  color: inherit !important;
+}
+
+body.beenest-palantir-dashboard .mdc-tab__icon.mdi {
+  color: inherit;
+  font-size: 18px;
+}
+
+/* ─── 9. MDC 对话框 / Modal ───────────────────────────────── */
+
+body.beenest-palantir-dashboard .mdc-dialog__surface,
+body.beenest-palantir-dashboard .modal-content {
+  background: var(--pal-bg-1) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-dialog__title,
+body.beenest-palantir-dashboard .modal-header {
+  color: var(--pal-text-0) !important;
+  border-bottom: 1px solid var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-dialog__content,
+body.beenest-palantir-dashboard .modal-body {
+  color: var(--pal-text-1) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-dialog__scrim,
+body.beenest-palantir-dashboard .modal-backdrop {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-dialog__actions,
+body.beenest-palantir-dashboard .modal-footer {
+  border-top: 1px solid var(--pal-border) !important;
+}
+
+/* ─── 10. jQuery UI ────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .ui-tabs {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+body.beenest-palantir-dashboard .ui-tabs .ui-tabs-nav {
+  background: var(--pal-bg-2) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+  margin-bottom: 16px;
+}
+
+body.beenest-palantir-dashboard .ui-tabs .ui-tabs-nav li {
+  border: none !important;
+  border-radius: 6px !important;
+  margin: 0 2px !important;
+  transition: all 0.15s;
+}
+
+body.beenest-palantir-dashboard .ui-tabs .ui-tabs-nav li a {
+  color: var(--pal-text-1) !important;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px !important;
+}
+
+body.beenest-palantir-dashboard .ui-tabs .ui-tabs-nav li:hover {
+  background: var(--pal-bg-hover) !important;
+}
+
+body.beenest-palantir-dashboard .ui-tabs .ui-tabs-nav li.ui-tabs-active {
+  background: rgba(6, 182, 212, 0.12) !important;
+}
+
+body.beenest-palantir-dashboard .ui-tabs .ui-tabs-nav li.ui-tabs-active a {
+  color: var(--pal-accent) !important;
+}
+
+body.beenest-palantir-dashboard .ui-tabs .ui-tabs-panel {
+  background: transparent !important;
+  color: var(--pal-text-1);
+  padding: 0 !important;
+}
+
+/* jQuery UI Accordion */
+body.beenest-palantir-dashboard .ui-accordion .ui-accordion-header {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 6px !important;
+  margin: 4px 0;
+  transition: background 0.15s;
+}
+
+body.beenest-palantir-dashboard .ui-accordion .ui-accordion-header:hover {
+  background: var(--pal-bg-3) !important;
+}
+
+body.beenest-palantir-dashboard .ui-accordion .ui-accordion-header-active {
+  background: rgba(6, 182, 212, 0.08) !important;
+  border-color: var(--pal-border-focus) !important;
+}
+
+body.beenest-palantir-dashboard .ui-accordion .ui-accordion-content {
+  background: transparent !important;
+  color: var(--pal-text-1);
+  border: none !important;
+}
+
+/* jQuery UI SelectMenu */
+body.beenest-palantir-dashboard .ui-selectmenu-button {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 6px !important;
+}
+
+body.beenest-palantir-dashboard .ui-selectmenu-button:hover {
+  border-color: var(--pal-border-focus) !important;
+}
+
+body.beenest-palantir-dashboard .ui-selectmenu-open .ui-menu {
+  background: var(--pal-bg-2) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.beenest-palantir-dashboard .ui-selectmenu-open .ui-menu-item {
+  color: var(--pal-text-1) !important;
+}
+
+body.beenest-palantir-dashboard .ui-selectmenu-open .ui-menu-item:hover,
+body.beenest-palantir-dashboard .ui-selectmenu-open .ui-menu-item.ui-state-active {
+  background: var(--pal-bg-hover) !important;
+  color: var(--pal-accent) !important;
+}
+
+/* jQuery UI 文字颜色修复 */
+body.beenest-palantir-dashboard .ui-widget-content,
+body.beenest-palantir-dashboard .ui-widget-header {
+  color: var(--pal-text-1) !important;
+}
+
+body.beenest-palantir-dashboard .ui-state-default,
+body.beenest-palantir-dashboard .ui-state-hover,
+body.beenest-palantir-dashboard .ui-state-focus,
+body.beenest-palantir-dashboard .ui-state-active {
+  color: var(--pal-text-0) !important;
+}
+
+body.beenest-palantir-dashboard .ui-widget {
+  font-family: inherit;
+  color: var(--pal-text-1);
+}
+
+/* jQuery UI Tooltip */
+body.beenest-palantir-dashboard .ui-tooltip {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  min-width: auto !important;
+  max-width: 500px !important;
+}
+
+/* ─── 11. SweetAlert2 ──────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .swal2-popup {
+  background: var(--pal-bg-1) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border);
+  border-radius: 12px !important;
+}
+
+body.beenest-palantir-dashboard .swal2-title {
+  color: var(--pal-text-0) !important;
+}
+
+body.beenest-palantir-dashboard .swal2-content,
+body.beenest-palantir-dashboard .swal2-html-container {
+  color: var(--pal-text-1) !important;
+}
+
+body.beenest-palantir-dashboard .swal2-confirm {
+  background: linear-gradient(135deg, var(--cas-theme-button-bg), var(--cas-theme-button-bg-lite)) !important;
+  color: var(--pal-text-0) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+body.beenest-palantir-dashboard .swal2-cancel {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-1) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 6px !important;
+}
+
+body.beenest-palantir-dashboard .swal2-container {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ─── 12. Ace Editor ───────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .ace_editor {
+  background: var(--pal-bg-1) !important;
+  color: var(--pal-text-0) !important;
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Monaco", "Menlo", monospace !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .ace_gutter {
+  background: var(--pal-bg-0) !important;
+  color: var(--pal-text-2) !important;
+  border-right: 1px solid var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .ace_gutter-active-line {
+  background: rgba(6, 182, 212, 0.06) !important;
+}
+
+body.beenest-palantir-dashboard .ace_cursor {
+  color: var(--pal-accent) !important;
+}
+
+body.beenest-palantir-dashboard .ace_marker-layer .ace_active-line {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+body.beenest-palantir-dashboard .ace_marker-layer .ace_selection {
+  background: rgba(6, 182, 212, 0.15) !important;
+}
+
+/* ─── 13. Highlight.js ─────────────────────────────────────── */
+
+body.beenest-palantir-dashboard pre code.hljs {
+  background: var(--pal-bg-1) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border);
+  border-radius: 8px;
+  padding: 16px !important;
+}
+
+body.beenest-palantir-dashboard pre {
+  background: var(--pal-bg-1) !important;
+  color: var(--pal-text-0) !important;
+}
+
+body.beenest-palantir-dashboard .hljs-keyword,
+body.beenest-palantir-dashboard .hljs-selector-tag,
+body.beenest-palantir-dashboard .hljs-type {
+  color: #c792ea !important;
+}
+
+body.beenest-palantir-dashboard .hljs-string,
+body.beenest-palantir-dashboard .hljs-attr {
+  color: #c3e88d !important;
+}
+
+body.beenest-palantir-dashboard .hljs-number,
+body.beenest-palantir-dashboard .hljs-literal {
+  color: #f78c6c !important;
+}
+
+body.beenest-palantir-dashboard .hljs-comment {
+  color: var(--pal-text-2) !important;
+  font-style: italic;
+}
+
+body.beenest-palantir-dashboard .hljs-title,
+body.beenest-palantir-dashboard .hljs-function .hljs-title {
+  color: #82aaff !important;
+}
+
+body.beenest-palantir-dashboard .hljs-built_in {
+  color: #ffcb6b !important;
+}
+
+body.beenest-palantir-dashboard .hljs-variable,
+body.beenest-palantir-dashboard .hljs-params {
+  color: var(--pal-text-0) !important;
+}
+
+/* ─── 14. 表单元素 ─────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard input[type="text"],
+body.beenest-palantir-dashboard input[type="password"],
+body.beenest-palantir-dashboard input[type="search"],
+body.beenest-palantir-dashboard input[type="number"],
+body.beenest-palantir-dashboard input[type="email"],
+body.beenest-palantir-dashboard input[type="url"],
+body.beenest-palantir-dashboard textarea,
+body.beenest-palantir-dashboard select {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 6px !important;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+body.beenest-palantir-dashboard input[type="text"]:focus,
+body.beenest-palantir-dashboard input[type="password"]:focus,
+body.beenest-palantir-dashboard input[type="search"]:focus,
+body.beenest-palantir-dashboard textarea:focus {
+  border-color: var(--pal-border-focus) !important;
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15);
+}
+
+body.beenest-palantir-dashboard input::placeholder,
+body.beenest-palantir-dashboard textarea::placeholder {
+  color: var(--pal-text-2) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-text-field {
+  background: transparent !important;
+}
+
+body.beenest-palantir-dashboard .mdc-text-field__input {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-0) !important;
+  caret-color: var(--pal-accent);
+}
+
+body.beenest-palantir-dashboard .mdc-notched-outline__leading,
+body.beenest-palantir-dashboard .mdc-notched-outline__notch,
+body.beenest-palantir-dashboard .mdc-notched-outline__trailing {
+  border-color: var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-floating-label {
+  color: var(--pal-text-2) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-text-field--focused .mdc-notched-outline__leading,
+body.beenest-palantir-dashboard .mdc-text-field--focused .mdc-notched-outline__notch,
+body.beenest-palantir-dashboard .mdc-text-field--focused .mdc-notched-outline__trailing {
+  border-color: var(--pal-border-focus) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-text-field--focused .mdc-floating-label {
+  color: var(--pal-accent) !important;
+}
+
+/* Logger 级别 select */
+body.beenest-palantir-dashboard select.palantir {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+}
+
+/* ─── 15c. MDC Select / Menu / Overlay 暗色 ─────────────────── */
+
+body.beenest-palantir-dashboard .mdc-select__menu,
+body.beenest-palantir-dashboard .mdc-menu-surface {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+  border-radius: 8px !important;
+}
+
+body.beenest-palantir-dashboard .mdc-deprecated-list-item {
+  color: var(--pal-text-1) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-deprecated-list-item:hover,
+body.beenest-palantir-dashboard .mdc-deprecated-list-item--selected {
+  background: var(--pal-bg-hover) !important;
+  color: var(--pal-accent) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-elevation-overlay {
+  background: transparent !important;
+}
+
+/* Bootstrap form-control 亮蓝底修复 */
+body.beenest-palantir-dashboard .form-control {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .form-control:focus {
+  border-color: var(--pal-border-focus) !important;
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15) !important;
+  background: var(--pal-bg-3) !important;
+}
+
+/* Ace tooltip 暗色 */
+body.beenest-palantir-dashboard .ace_tooltip {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border) !important;
+}
+
+/* 通用按钮灰色底修复 */
+body.beenest-palantir-dashboard button {
+  background-color: transparent;
+  color: var(--pal-text-0);
+}
+
+body.beenest-palantir-dashboard .btn {
+  background-color: transparent;
+  color: var(--pal-text-1);
+}
+
+/* MDC checkbox / radio 修复 */
+body.beenest-palantir-dashboard .mdc-checkbox {
+  background: transparent !important;
+}
+
+body.beenest-palantir-dashboard .mdc-checkbox__background {
+  background-color: var(--pal-bg-3) !important;
+  border-color: var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-checkbox--selected .mdc-checkbox__background {
+  background-color: var(--pal-accent) !important;
+  border-color: var(--pal-accent) !important;
+}
+
+/* ─── 15. MDC Data Table (attribute-tab 白底修复) ──────────── */
+
+body.beenest-palantir-dashboard .mdc-data-table {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--pal-text-0) !important;
+  border: none !important;
+}
+
+body.beenest-palantir-dashboard .attribute-tab {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.beenest-palantir-dashboard .mdc-data-table__header-row {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-1) !important;
+  border-bottom: 1px solid var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-data-table__row {
+  background: transparent !important;
+  border-bottom: 1px solid var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .mdc-data-table__row:hover {
+  background: var(--pal-bg-hover) !important;
+}
+
+/* ─── 15b. MDC Card / Elevation Surface ─────────────────────── */
+
+body.beenest-palantir-dashboard .mdc-card {
+  background: var(--pal-bg-1) !important;
+  color: var(--pal-text-0);
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+body.beenest-palantir-dashboard .elevation-surface {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-0);
+  border: 1px solid var(--pal-border);
+}
+
+body.beenest-palantir-dashboard .border-rounded {
+  border-color: var(--pal-border) !important;
+}
+
+body.beenest-palantir-dashboard .border-bottom {
+  border-color: var(--pal-border) !important;
+}
+
+/* ─── 16. Notyf 通知 ──────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .notyf__toast {
+  background: var(--pal-bg-2) !important;
+  color: var(--pal-text-0) !important;
+  border: 1px solid var(--pal-border);
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.beenest-palantir-dashboard .notyf__toast.notyf__toast--error {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+body.beenest-palantir-dashboard .notyf__toast.notyf__toast--success {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+/* ─── 17. Mermaid 图表 ─────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .mermaid {
+  color: var(--pal-text-1);
+}
+
+body.beenest-palantir-dashboard .nodeLabel,
+body.beenest-palantir-dashboard .edgeLabel {
+  color: var(--pal-text-0) !important;
+  fill: var(--pal-text-0) !important;
+}
+
+body.beenest-palantir-dashboard foreignObject {
+  background: transparent !important;
+}
+
+/* ─── 18. MDC Chip Set ─────────────────────────────────────── */
+
+body.beenest-palantir-dashboard .mdc-chip {
+  background: var(--pal-bg-3) !important;
+  color: var(--pal-text-1) !important;
+  border: 1px solid var(--pal-border);
+}
+
+body.beenest-palantir-dashboard .mdc-chip--selected {
+  background: rgba(6, 182, 212, 0.12) !important;
+  color: var(--pal-accent) !important;
+  border-color: var(--pal-border-focus);
+}
+
+/* ─── 19. 日志流暗色 ───────────────────────────────────────── */
+
+body.beenest-palantir-dashboard #logDataStream,
+body.beenest-palantir-dashboard #logFileStream {
+  background: var(--pal-bg-0) !important;
+  color: var(--pal-text-1) !important;
+  border: 1px solid var(--pal-border);
+  border-radius: 8px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 12px;
+}
+
+/* ─── 20. 隐藏的 MDC Tab Bar 保持隐藏 ──────────────────────── */
+
+body.beenest-palantir-dashboard #dashboardTabBar {
+  display: block !important;
+}
+
+body.beenest-palantir-dashboard #dashboardTabBar .mdc-tab-scroller {
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* ─── 21. 分组行（palantir.js inline style） ───────────────── */
+
+body.beenest-palantir-dashboard .mdc-data-table__row[style*="background-color"] {
+  background: rgba(6, 182, 212, 0.08) !important;
+  color: var(--pal-text-0) !important;
+}
+
+/* ─── 22. 滚动条 ───────────────────────────────────────────── */
+
+body.beenest-palantir-dashboard ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+body.beenest-palantir-dashboard ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.beenest-palantir-dashboard ::-webkit-scrollbar-thumb {
+  background: var(--pal-text-2);
+  border-radius: 3px;
+}
+
+body.beenest-palantir-dashboard ::-webkit-scrollbar-thumb:hover {
+  background: var(--pal-text-1);
+}
+
+/* ─── 23. 全局背景纹理 ─────────────────────────────────────── */
+
+body.beenest-palantir-dashboard::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 800px 600px at 10% 20%, rgba(6, 182, 212, 0.03), transparent),
+    radial-gradient(ellipse 600px 800px at 90% 80%, rgba(124, 58, 237, 0.03), transparent);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ─── 24. 响应式 ───────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  body.beenest-palantir-dashboard .sidebar-navigation {
+    width: 56px !important;
+  }
+
+  .pal-content {
+    padding: 12px;
+  }
+
+  .pal-card {
+    padding: 14px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .pal-topbar {
+    padding: 0 12px;
+  }
+
+  .pal-topbar-title span {
+    display: none;
+  }
+
+  .pal-content {
+    padding: 8px;
+  }
+}
+
+/* ─── 25. 无障碍：减少动画 ─────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  body.beenest-palantir-dashboard * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

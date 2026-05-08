@@ -1,5 +1,6 @@
 package club.beenest.payment.security;
 
+import club.beenest.payment.shared.codec.CodecUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletInputStream;
@@ -18,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -71,10 +73,10 @@ public class InternalApiFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 2. 静态令牌校验
+        // 2. 静态令牌校验（使用常量时间比较防止时序攻击）
         if (internalToken != null && !internalToken.isEmpty()) {
             String requestToken = cachedRequest.getHeader("X-Internal-Token");
-            if (!internalToken.equals(requestToken)) {
+            if (!MessageDigest.isEqual(internalToken.getBytes(StandardCharsets.UTF_8), requestToken.getBytes(StandardCharsets.UTF_8))) {
                 log.warn("内部 API Token 验证失败: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
                 reject(response, "Invalid internal token");
                 return;
@@ -152,7 +154,7 @@ public class InternalApiFilter extends OncePerRequestFilter {
         String data = method + "|" + path + "|" + timestamp + "|" + nonce + "|" + body;
         String expected = computeHmac(data);
 
-        return constantTimeEquals(expected, signature);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8));
     }
 
     private String computeHmac(String data) {
@@ -162,36 +164,16 @@ public class InternalApiFilter extends OncePerRequestFilter {
                     signSecret.getBytes(StandardCharsets.UTF_8), ALGORITHM);
             mac.init(keySpec);
             byte[] hashBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            return bytesToHex(hashBytes);
+            return CodecUtils.bytesToHex(hashBytes);
         } catch (Exception e) {
             throw new RuntimeException("HMAC 计算失败", e);
         }
-    }
-
-    private boolean constantTimeEquals(String a, String b) {
-        if (a == null || b == null) return false;
-        byte[] aBytes = a.getBytes(StandardCharsets.UTF_8);
-        byte[] bBytes = b.getBytes(StandardCharsets.UTF_8);
-        if (aBytes.length != bBytes.length) return false;
-        int result = 0;
-        for (int i = 0; i < aBytes.length; i++) {
-            result |= aBytes[i] ^ bBytes[i];
-        }
-        return result == 0;
     }
 
     private void reject(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write("{\"code\":403,\"message\":\"" + message + "\"}");
-    }
-
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
     }
 
     private String getClientIp(HttpServletRequest request) {

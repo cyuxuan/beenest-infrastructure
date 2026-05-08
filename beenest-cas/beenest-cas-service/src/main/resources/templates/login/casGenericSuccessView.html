@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+
+<head>
+  <title>登录成功 · 数界探索 SSO</title>
+</head>
+
+<!--
+  登录成功仪表盘 · Quantum Nexus Command Center
+  全视口沉浸式深色仪表盘：用户身份 + 会话信息 + 已接入应用服务导航
+  数据来源全部使用 CAS 原生 webflow model：
+    ${authentication.principal.id}               — 用户名
+    ${authentication.principal.attributes}        — 用户属性（loginType, userType, …）
+    ${authentication.attributes}                  — 会话属性（clientIpAddress, authenticationDate, …）
+    ${authorizedServices}                         — 已授权服务列表（需 cas.view.authorized-services-on-successful-login=true）
+-->
+<body class="beenest-success">
+
+  <div layout:fragment="content">
+
+    <!-- 极光动态背景 -->
+    <div class="success-bg">
+      <div class="success-orb success-orb-1"></div>
+      <div class="success-orb success-orb-2"></div>
+      <div class="success-orb success-orb-3"></div>
+      <div class="success-orb success-orb-4"></div>
+      <div class="success-grid"></div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="success-container" th:with="principal=${authentication.principal},
+                                              authAttrs=${authentication.attributes},
+                                              principalAttrs=${authentication.principal.attributes}">
+
+      <!-- 顶部导航栏 -->
+      <header class="success-topbar">
+        <div class="success-brand">
+          <svg class="success-brand-icon" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
+            <path d="M16 6L8 12v10l8 4 8-4V12L16 6z" fill="currentColor" opacity="0.9"/>
+          </svg>
+          <span class="success-brand-name">数界探索</span>
+          <span class="success-brand-tag">SSO</span>
+        </div>
+        <a th:href="@{/logout}" class="success-logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>登出</span>
+        </a>
+      </header>
+
+      <!-- 用户英雄区 -->
+      <div class="success-hero">
+        <div class="success-avatar">
+          <span class="success-avatar-initials" th:text="${#strings.substring(principal.id, 0, 2)}">AD</span>
+        </div>
+        <h1 class="success-greeting">
+          <span class="success-greeting-label">欢迎回来</span>
+          <span class="success-greeting-name" th:text="${principal.id}">User</span>
+        </h1>
+        <p class="success-greeting-sub">您已安全登录数界探索统一身份认证平台</p>
+        <div class="success-status-badge">
+          <span class="success-status-dot"></span>
+          <span>认证会话已激活</span>
+        </div>
+      </div>
+
+      <!-- 会话信息面板 -->
+      <div class="success-info-panel">
+        <h3 class="success-info-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          认证信息
+        </h3>
+        <div class="success-info-grid" id="infoGrid"
+             th:attr="data-principal-attrs=${principalAttrs}, data-auth-attrs=${authAttrs}">
+        </div>
+      </div>
+
+      <!-- 应用服务区域 -->
+      <div class="success-section" th:if="${authorizedServices != null and !authorizedServices.isEmpty()}">
+        <div class="success-section-header">
+          <h2 class="success-section-title">可用服务</h2>
+          <p class="success-section-desc">选择要访问的应用系统，SSO 将自动完成身份认证</p>
+        </div>
+
+        <div class="success-cards">
+          <a th:each="service : ${authorizedServices}"
+             class="success-card"
+             th:href="@{${service.serviceId}}"
+             th:attr="data-svc-name=${service.name}">
+            <div class="success-card-icon">
+              <svg class="svc-icon svc-icon-drone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              <svg class="svc-icon svc-icon-payment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+              <svg class="svc-icon svc-icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z"/></svg>
+            </div>
+            <div class="success-card-body">
+              <div class="success-card-name" th:text="${service.name}">Service</div>
+              <div class="success-card-desc" th:text="${service.description != null ? service.description : ''}">Description</div>
+              <div class="success-card-url" th:text="${service.serviceId}"></div>
+            </div>
+            <div class="success-card-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- 无服务时的空状态 -->
+      <div class="success-section" th:if="${authorizedServices == null or authorizedServices.isEmpty()}">
+        <div class="success-section-header">
+          <h2 class="success-section-title">可用服务</h2>
+          <p class="success-section-desc">当前无可用的应用服务</p>
+        </div>
+        <div class="success-empty">
+          <svg class="success-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M9 9h6M9 13h4"/>
+          </svg>
+          <h3>暂无可用服务</h3>
+          <p>请联系管理员获取应用访问权限</p>
+        </div>
+      </div>
+
+      <!-- 安全提示底栏 -->
+      <div class="success-footer-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>安全提示：使用完毕后请及时登出并关闭浏览器</span>
+        <a th:href="@{/logout}" class="success-footer-link">立即登出</a>
+      </div>
+
+    </div>
+
+    <!-- 内联脚本：CAS 原生属性渲染 + 服务卡片图标/URL 处理 -->
+    <script th:inline="javascript">
+      /*<![CDATA[*/
+
+      /* CAS 原生属性数据（Thymeleaf 序列化为 JS 对象） */
+      var principalAttrs = /*[[${authentication.principal.attributes}]]*/ {};
+      var authAttrs = /*[[${authentication.attributes}]]*/ {};
+
+      /* 从 CAS List 属性中提取首个值 */
+      function firstVal(v) {
+        if (v == null) return null;
+        if (Array.isArray(v)) return v.length > 0 ? v[0] : null;
+        return v;
+      }
+
+      /* 格式化认证时间为本地时间 */
+      function formatAuthDate(raw) {
+        if (!raw) return '—';
+        /* Unix 时间戳（秒） */
+        var num = Number(raw);
+        if (!isNaN(num) && num > 1000000000) {
+          var d = new Date(num * 1000);
+          return d.toLocaleString('zh-CN', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+          });
+        }
+        /* ISO 字符串 */
+        try {
+          var d = new Date(raw);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleString('zh-CN', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+          }
+        } catch(e) {}
+        return String(raw);
+      }
+
+      /* 认证方式友好名 */
+      var AUTH_TYPE_MAP = {
+        'USERNAME_PASSWORD': '账号密码',
+        'SMS_OTP': '短信验证码',
+        'WECHAT_MINI': '微信小程序',
+        'DOUYIN_MINI': '抖音小程序',
+        'ALIPAY_MINI': '支付宝小程序'
+      };
+
+      /* 渲染会话信息面板 */
+      function renderInfoPanel() {
+        var grid = document.getElementById('infoGrid');
+        if (!grid) return;
+
+        var items = [
+          { label: '用户名', value: firstVal(principalAttrs['username']), mono: false },
+          { label: '用户类型', value: firstVal(principalAttrs['userType']), mono: false },
+          { label: '认证方式', value: AUTH_TYPE_MAP[firstVal(principalAttrs['loginType'])] || firstVal(principalAttrs['loginType']), mono: false },
+          { label: '昵称', value: firstVal(principalAttrs['nickname']), mono: false },
+          { label: '客户端 IP', value: firstVal(authAttrs['clientIpAddress']), mono: true },
+          { label: '认证时间', value: formatAuthDate(firstVal(authAttrs['authenticationDate'])), mono: true },
+          { label: '认证处理器', value: firstVal(authAttrs['successfulAuthenticationHandlers']), mono: false },
+        ];
+
+        items.forEach(function(item) {
+          if (!item.value) return;
+          var div = document.createElement('div');
+          div.className = 'success-info-item';
+          div.innerHTML =
+            '<span class="success-info-label">' + item.label + '</span>' +
+            '<span class="success-info-value' + (item.mono ? ' success-info-mono' : '') + '">' + item.value + '</span>';
+          grid.appendChild(div);
+        });
+      }
+
+      /* 服务 URL 映射：serviceId regex → 用户可访问 URL */
+      var SERVICE_URL_MAP = {
+        '^https://drone\\.beenest\\.club/.*': 'https://drone.beenest.club',
+        '^https?://(beenest-payment|payment\\.beenest\\.club).*': 'https://payment.beenest.club',
+        '^https?://(localhost(:8080)?|drone\\.beenest\\.club)/login/cas$': 'http://localhost:3000'
+      };
+
+      /* 不适合 Web 导航的服务名 */
+      var HIDDEN_SERVICES = ['CasRegisteredService', 'beenest-palantir'];
+
+      function resolveServiceUrl(regex) {
+        if (!regex) return null;
+        var keys = Object.keys(SERVICE_URL_MAP);
+        for (var i = 0; i < keys.length; i++) {
+          try { if (new RegExp(regex).test(SERVICE_URL_MAP[keys[i]])) return SERVICE_URL_MAP[keys[i]]; } catch(e) {}
+        }
+        try {
+          var m = regex.match(/\^?(https?:\/\/[a-zA-Z0-9._-]+)/);
+          if (m && m[1]) return m[1];
+        } catch(e) {}
+        return null;
+      }
+
+      /* 服务显示名称覆盖 */
+      var DISPLAY_NAMES = {
+        'drone-system': '飞鸽无人机管理系统',
+        'drone-system-local': '无人机管理系统（本地）',
+        'beenest-payment': 'Beenest 支付平台'
+      };
+
+      function initServiceCards() {
+        var cards = document.querySelectorAll('.success-card');
+        var visibleCount = 0;
+
+        cards.forEach(function(card) {
+          var name = card.getAttribute('data-svc-name') || '';
+
+          /* 隐藏非 Web 可导航服务 */
+          var shouldHide = HIDDEN_SERVICES.some(function(h) { return name.indexOf(h) >= 0; });
+          /* 隐藏 OIDC/SAML 等非 CAS Web 服务 */
+          if (name.indexOf('OIDC') >= 0 || name.indexOf('oidc') >= 0 || name.indexOf('SAML') >= 0) shouldHide = true;
+          if (shouldHide) { card.style.display = 'none'; return; }
+
+          /* 选择图标 */
+          var iconClass = 'svc-icon-default';
+          if (name.toLowerCase().indexOf('drone') >= 0) iconClass = 'svc-icon-drone';
+          else if (name.toLowerCase().indexOf('payment') >= 0) iconClass = 'svc-icon-payment';
+          card.querySelectorAll('.svc-icon').forEach(function(icon) {
+            icon.style.display = icon.classList.contains(iconClass) ? '' : 'none';
+          });
+
+          /* 覆盖显示名 */
+          if (DISPLAY_NAMES[name]) {
+            var nameEl = card.querySelector('.success-card-name');
+            if (nameEl) nameEl.textContent = DISPLAY_NAMES[name];
+          }
+
+          /* URL 美化 */
+          var urlEl = card.querySelector('.success-card-url');
+          if (urlEl) {
+            var raw = urlEl.textContent || '';
+            var display = raw.replace(/^\^/, '').replace(/\.\*$/, '').replace(/\\./g, '.');
+            var m = display.match(/(https?:\/\/[a-zA-Z0-9._:-]+)/);
+            urlEl.textContent = m ? m[1].replace(/^https?:\/\//, '') : display;
+          }
+
+          /* 解析实际 URL 并设为 href */
+          var resolved = resolveServiceUrl(card.getAttribute('href'));
+          if (resolved) card.href = resolved;
+
+          visibleCount++;
+        });
+
+        /* 全部隐藏时显示空状态 */
+        if (visibleCount === 0) {
+          var section = document.querySelector('.success-section');
+          if (section) {
+            section.querySelector('.success-cards').style.display = 'none';
+            var empty = section.querySelector('.success-empty');
+            if (empty) empty.style.display = '';
+          }
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        renderInfoPanel();
+        initServiceCards();
+      });
+
+      /*]]>*/
+    </script>
+
+  </div>
+
+</body>
+</html>

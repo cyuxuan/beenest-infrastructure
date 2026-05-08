@@ -16,12 +16,14 @@ import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 短信验证码直通端点过滤器
  * <p>
  * 为了绕过 CAS 默认安全链对登录入口的拦截，
- * 该过滤器在最前面直接处理 `/cas/sms/send?phone=...` 的 GET 请求。
+ * 该过滤器在最前面直接处理 {@code /sms/send} 的 POST 请求。
+ * 同时兼容 GET 请求（但不推荐，因手机号会暴露在 URL 和服务器日志中）。
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -29,13 +31,19 @@ public class SmsSendEndpointFilter extends OncePerRequestFilter {
 
     private final SmsService smsService;
     private final ObjectMapper objectMapper;
+    private final AtomicBoolean getWarningLogged = new AtomicBoolean(false);
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
-        LOGGER.info("SMS send filter invoked: method={}, uri={}", request.getMethod(), request.getRequestURI());
-        if (!"GET".equalsIgnoreCase(request.getMethod())) {
+        String method = request.getMethod();
+        if (!"GET".equalsIgnoreCase(method) && !"POST".equalsIgnoreCase(method)) {
             filterChain.doFilter(request, response);
             return;
+        }
+
+        // GET 请求将手机号暴露在 URL 中，仅首次打印提示
+        if ("GET".equalsIgnoreCase(method) && getWarningLogged.compareAndSet(false, true)) {
+            LOGGER.info("SMS 发送使用了 GET 方法，手机号将暴露在 URL 和日志中，建议迁移到 POST");
         }
 
         String phone = request.getParameter("phone");

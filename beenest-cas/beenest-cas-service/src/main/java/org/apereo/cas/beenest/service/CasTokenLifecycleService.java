@@ -96,6 +96,7 @@ public class CasTokenLifecycleService {
      * @param deviceId  设备 ID，可为空
      * @return 统一 Token 响应
      */
+    @SuppressWarnings("unchecked")
     public TokenResponseDTO issueToken(Principal principal,
                                        String authType,
                                        String clientIp,

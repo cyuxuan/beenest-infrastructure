@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * 关键加密密钥启动校验
  * <p>
- * 应用启动完成后检查 TGC/Webflow 等加密密钥是否仍为默认值，
+ * 应用启动完成后检查所有加密密钥是否仍为默认值或占位符，
  * 若在生产环境使用默认密钥则拒绝启动，防止安全事故。
  * <p>
  * 默认密钥仅用于本地开发，生产环境必须通过环境变量注入。
@@ -24,7 +24,31 @@ public class CryptoKeyValidator {
     private static final List<String> DEFAULT_KEYS = List.of(
             "changeme-changeme-changeme",
             "changeme-changeme-changeme-changeme-changeme-changeme-changeme",
-            "changeme-changeme-changeme-changeme"
+            "changeme-changeme-changeme-changeme",
+            "CHANGE_ME"
+    );
+
+    /**
+     * 需要校验的加密密钥属性列表
+     */
+    private static final List<KeyCheck> KEY_PROPERTIES = List.of(
+            new KeyCheck("cas.tgc.crypto.encryption.key", "TGC 加密密钥"),
+            new KeyCheck("cas.tgc.crypto.signing.key", "TGC 签名密钥"),
+            new KeyCheck("cas.webflow.crypto.encryption.key", "Webflow 加密密钥"),
+            new KeyCheck("cas.webflow.crypto.signing.key", "Webflow 签名密钥"),
+            new KeyCheck("cas.ticket.registry.core.crypto.encryption.key", "Ticket 加密密钥"),
+            new KeyCheck("cas.ticket.registry.core.crypto.signing.key", "Ticket 签名密钥"),
+            new KeyCheck("cas.account-registration.core.crypto.encryption.key", "账户注册加密密钥"),
+            new KeyCheck("cas.account-registration.core.crypto.signing.key", "账户注册签名密钥"),
+            new KeyCheck("cas.authn.mfa.gauth.crypto.encryption.key", "MFA GA 加密密钥"),
+            new KeyCheck("cas.authn.mfa.gauth.crypto.signing.key", "MFA GA 签名密钥"),
+            new KeyCheck("cas.authn.mfa.gauth.core.scratch-codes.encryption.key", "MFA GA 备用码加密密钥"),
+            new KeyCheck("cas.authn.mfa.web-authn.crypto.encryption.key", "MFA WebAuthn 加密密钥"),
+            new KeyCheck("cas.authn.mfa.web-authn.crypto.signing.key", "MFA WebAuthn 签名密钥"),
+            new KeyCheck("cas.authn.mfa.trusted.crypto.encryption.key", "MFA 信任设备加密密钥"),
+            new KeyCheck("cas.authn.mfa.trusted.crypto.signing.key", "MFA 信任设备签名密钥"),
+            new KeyCheck("beenest.mfa.encryption-key", "Beenest MFA 加密密钥"),
+            new KeyCheck("beenest.token.validation-secret", "Token 验证密钥")
     );
 
     private final Environment env;
@@ -46,9 +70,9 @@ public class CryptoKeyValidator {
         }
 
         List<String> violations = new ArrayList<>();
-        checkKey(violations, "cas.tgc.crypto.encryption.key", "TGC 加密密钥");
-        checkKey(violations, "cas.tgc.crypto.signing.key", "TGC 签名密钥");
-        checkKey(violations, "beenest.mfa.encryption-key", "MFA 加密密钥");
+        for (KeyCheck check : KEY_PROPERTIES) {
+            checkKey(violations, check.property(), check.label());
+        }
 
         if (violations.isEmpty()) {
             LOGGER.info("加密密钥校验通过");
@@ -73,4 +97,6 @@ public class CryptoKeyValidator {
             violations.add(String.format("  - %s (%s) 仍为默认值", property, label));
         }
     }
+
+    private record KeyCheck(String property, String label) {}
 }
