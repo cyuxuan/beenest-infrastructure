@@ -463,8 +463,10 @@ dependencies {
     implementation "com.alipay.sdk:alipay-sdk-java:4.40.763.ALL"
 
     // ===== Phase 1: 企业级基础设施 =====
+    implementation "org.apereo.cas:cas-server-support-account-mgmt-api"
     implementation "org.apereo.cas:cas-server-support-account-mgmt"
     implementation "org.apereo.cas:cas-server-support-pm-webflow"
+    implementation "org.apereo.cas:cas-server-support-pm-jdbc"
     implementation "org.apereo.cas:cas-server-support-audit-jdbc"
     implementation "org.apereo.cas:cas-server-support-events-jpa"
     implementation "org.apereo.cas:cas-server-support-reports"

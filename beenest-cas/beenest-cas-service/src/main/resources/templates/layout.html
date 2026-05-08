@@ -18,10 +18,14 @@
     </span>
   </span>
 
-  <!-- 自定义 Aurora 主题 CSS，替代默认 cas.css -->
+  <!-- CAS 标准主题 CSS，恢复 Palantir 等默认控制台样式 -->
+  <link rel="stylesheet" type="text/css" th:href="@{/css/cas.css}" />
+  <link rel="stylesheet" type="text/css" th:href="@{/css/custom.css}" />
+
+  <!-- 自定义 Aurora 主题 CSS，作为登录页和通用页面的覆盖层 -->
   <link rel="stylesheet" type="text/css" th:href="@{/css/beenest-login.css}" />
 
-  <!-- 隐藏默认 cas.css（避免与 Aurora 主题冲突） -->
+  <!-- 隐藏默认顶栏和底栏，避免它们干扰自定义页面骨架 -->
   <style>
     .mdc-top-app-bar, .cas-footer, .bgimage { display: none !important; }
     .mdc-drawer-scrim { display: none !important; }
@@ -44,26 +48,30 @@
   - beenest-cas → 其他页面使用居中卡片 layout
 -->
 <body>
-  <!-- ==================== Header ==================== -->
+  <!-- ==================== Header · 翠玉栏 ==================== -->
   <header class="beenest-cas-header" role="banner">
     <a class="brand-mark" th:href="@{/}">
       <span class="brand-dot"></span>
-      <span class="brand-name" th:text="${#strings.defaultString(#cas.theme('cas.theme.name'), 'BEENEST')}">BEENEST</span>
+      <span class="brand-name" th:text="${#strings.defaultString(#cas.theme('cas.theme.name'), '数界探索')}">数界探索</span>
+      <span class="brand-divider"></span>
+      <span class="brand-tagline">Beenest SSO</span>
     </a>
-    <div>
+    <nav class="header-actions">
       <a th:if="${accountProfileManagementEnabled != null and accountProfileManagementEnabled and ticketGrantingTicketId != null}"
-         th:href="@{/account}"
-         style="color: var(--muted); text-decoration: none; font-size: 0.85rem;">
-        <span class="mdi mdi-account-circle" style="font-size: 1.2rem; vertical-align: middle;"></span>
+         th:href="@{/account}" class="header-action-link">
+        <svg class="header-action-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="10" cy="7" r="3.5"/>
+          <path d="M3 18c0-3.87 3.13-7 7-7s7 3.13 7 7"/>
+        </svg>
       </a>
-    </div>
+    </nav>
   </header>
 
   <div class="mdc-drawer-scrim"></div>
 
   <!-- ==================== Main Content ==================== -->
   <div class="beenest-cas-main">
-    <main id="main-content" role="main" style="width: 100%;">
+    <main id="main-content" th:attr="class=*{mainContentClass ?: 'container-lg py-4'},role=main">
       <div layout:fragment="content" id="content">
         CAS content will go here
       </div>
@@ -72,7 +80,7 @@
 
   <!-- ==================== Footer ==================== -->
   <footer class="beenest-cas-footer" role="contentinfo">
-    <span>&copy; Beenest</span>
+    <span>&copy; 2024–2026 深圳数界探索科技有限公司</span>
     <span th:if="${#cas.isTrue(#cas.theme('cas.footer.show'))}">
       &middot; Powered by <a href="https://github.com/apereo/cas" target="_blank" rel="noopener">Apereo CAS</a>
     </span>

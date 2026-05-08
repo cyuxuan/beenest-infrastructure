@@ -1,32 +1,41 @@
 :root {
-  color-scheme: dark;
-  --bg-0: #070b14;
-  --bg-1: #0b1220;
-  --bg-2: #10192a;
-  --surface: rgba(12, 19, 36, 0.64);
-  --surface-strong: rgba(10, 16, 29, 0.9);
-  --line: rgba(255, 255, 255, 0.08);
-  --text: #e6eefc;
-  --muted: #90a0b8;
-  --accent: #a8bbff;
-  --accent-2: #9edfcf;
-  --danger: #ff8b8b;
-  --warning: #f6d47b;
-  --shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+  color-scheme: light;
+
+  /* Quantum · Enterprise Tech 色系 */
+  --bg-0: #f8faff;
+  --bg-1: #f1f5f9;
+  --bg-2: #e2e8f0;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --line: rgba(15, 23, 42, 0.06);
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #4f46e5;
+  --accent-2: #6366f1;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --shadow: 0 4px 24px rgba(15, 23, 42, 0.05);
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   min-height: 100%;
 }
 
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ============================================================
-   Material Design 3 登录页主题
-   MD3 Design Tokens + 企业级视觉风格
+   Split-Layout Cutting-Edge Login Page
+   左侧 mesh gradient 品牌面板 (55%) + 右侧 MD3 表单面板 (45%)
    ============================================================ */
 
 /* --- MD3 Color Tokens --- */
@@ -58,74 +67,270 @@ body.beenest-login {
     "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
   color-scheme: light;
   color: var(--md-on-surface);
-  background: linear-gradient(135deg, #eef2ff 0%, #f0f4ff 30%, #e8f0fe 60%, #f5f7ff 100%);
-  background-attachment: fixed;
+  background: #fff;
+  overflow: hidden;
 }
 
-/* --- 左上角品牌 --- */
-.md-login-brand {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+/* --- 分屏容器 --- */
+.split-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ========== 左侧品牌面板 ========== */
+.split-left {
+  position: relative;
+  width: 55%;
+  min-height: 100vh;
+  background: #0f172a;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 1.25rem 2rem;
-  z-index: 10;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.md-brand-icon {
-  display: inline-flex;
+/* --- Mesh gradient 动画背景 --- */
+.mesh-gradient {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.6;
+  will-change: transform;
+}
+
+.orb-1 {
+  width: 45vw;
+  height: 45vw;
+  max-width: 600px;
+  max-height: 600px;
+  background: radial-gradient(circle, rgba(56, 120, 255, 0.7), transparent 70%);
+  top: -10%;
+  left: -10%;
+  animation: orb-drift-1 18s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: 35vw;
+  height: 35vw;
+  max-width: 480px;
+  max-height: 480px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.65), transparent 70%);
+  bottom: -8%;
+  right: -5%;
+  animation: orb-drift-2 22s ease-in-out infinite;
+}
+
+.orb-3 {
+  width: 30vw;
+  height: 30vw;
+  max-width: 400px;
+  max-height: 400px;
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.55), transparent 70%);
+  top: 40%;
+  left: 30%;
+  animation: orb-drift-3 20s ease-in-out infinite;
+}
+
+.orb-4 {
+  width: 25vw;
+  height: 25vw;
+  max-width: 350px;
+  max-height: 350px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.45), transparent 70%);
+  top: 15%;
+  right: 15%;
+  animation: orb-drift-4 16s ease-in-out infinite;
+}
+
+@keyframes orb-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(8%, 12%) scale(1.05); }
+  50% { transform: translate(15%, 5%) scale(0.95); }
+  75% { transform: translate(5%, -8%) scale(1.02); }
+}
+
+@keyframes orb-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30% { transform: translate(-10%, -8%) scale(1.08); }
+  60% { transform: translate(-5%, 10%) scale(0.96); }
+}
+
+@keyframes orb-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-12%, 8%) scale(1.04); }
+  66% { transform: translate(8%, -6%) scale(0.97); }
+}
+
+@keyframes orb-drift-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(10%, -10%) scale(1.06); }
+  70% { transform: translate(-6%, 8%) scale(0.98); }
+}
+
+/* --- 网格覆盖层 --- */
+.mesh-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 80%);
+}
+
+/* --- 左侧内容 --- */
+.split-left-content {
+  position: relative;
+  z-index: 2;
+  padding: 3rem;
+  max-width: 480px;
+  width: 100%;
+}
+
+/* 品牌标识 */
+.split-brand {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 3rem;
+}
+
+.split-brand-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: rgba(96, 165, 250, 0.9);
+}
+
+.split-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.split-brand-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.04em;
+}
+
+.split-brand-tagline {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: rgba(148, 163, 184, 0.6);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Hero 文案 */
+.split-hero {
+  margin-bottom: 3rem;
+}
+
+.split-hero-title {
+  font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.split-hero-subtitle {
+  font-size: 1rem;
+  color: rgba(148, 163, 184, 0.9);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* 特性列表 */
+.split-features {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.split-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.split-feature-icon {
+  flex-shrink: 0;
   width: 2.2rem;
   height: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 10px;
-  background: var(--md-primary);
-  color: var(--md-primary);
-  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  color: rgba(96, 165, 250, 0.9);
+  padding: 0.4rem;
 }
 
-.md-brand-icon svg {
-  width: 100%;
-  height: 100%;
-  color: #fff;
+.split-feature-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
-.md-brand-title {
-  margin: 0;
-  font-size: 1.1rem;
+.split-feature-title {
+  font-size: 0.92rem;
   font-weight: 600;
-  color: var(--md-on-surface);
-  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 0.15rem;
 }
 
-.md-brand-subtitle {
-  margin: 0;
+.split-feature-desc {
   font-size: 0.8rem;
-  color: var(--md-on-surface-variant);
+  color: rgba(148, 163, 184, 0.75);
 }
 
-/* --- 登录页整体布局 --- */
-.md-login {
+/* ========== 右侧表单面板 ========== */
+.split-right {
+  flex: 1;
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.split-right-inner {
   width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 0 1rem;
+  max-width: 420px;
 }
 
-/* --- MD3 Card (Elevated) --- */
-.md-login {
-  background: var(--md-surface);
-  border-radius: 28px;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.08),
-    0 4px 16px rgba(0, 0, 0, 0.06),
-    0 12px 40px rgba(0, 0, 0, 0.04);
-  padding: 2.5rem;
-  margin-top: 0;
-  margin-bottom: 1.5rem;
+/* --- 表单头部 --- */
+.md-form-header {
+  margin-bottom: 1.75rem;
+}
+
+.md-form-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--md-on-surface);
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.01em;
+}
+
+.md-form-subtitle {
+  font-size: 0.92rem;
+  color: var(--md-on-surface-variant);
+  margin: 0;
 }
 
 /* --- MD3 Tabs --- */
@@ -169,29 +374,55 @@ body.beenest-login {
               width 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* --- MD3 Outlined Text Field --- */
+/* --- MD3 Form & Fields --- */
 .md-form {
   display: grid;
   gap: 1.25rem;
 }
 
+/* --- MD3 Outlined TextField (Floating Label) --- */
 .md-field {
   position: relative;
 }
 
 .md-field label {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 500;
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.92rem;
+  font-weight: 400;
   color: var(--md-on-surface-variant);
+  pointer-events: none;
+  background: var(--md-surface);
+  padding: 0 0.25rem;
+  transition: top 0.2s cubic-bezier(0.2, 0, 0, 1),
+              font-size 0.2s cubic-bezier(0.2, 0, 0, 1),
+              color 0.2s cubic-bezier(0.2, 0, 0, 1);
+  z-index: 1;
+  line-height: 1;
+}
+
+/* label 上浮：聚焦或有值时 */
+.md-field input:focus + label,
+.md-field input:not(:placeholder-shown) + label,
+.md-field select:focus + label,
+.md-field select.has-value + label {
+  top: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--md-primary);
+}
+
+.md-field input:focus:not(:placeholder-shown) + label {
+  color: var(--md-primary);
 }
 
 .md-field input,
 .md-field select {
   width: 100%;
-  height: 3rem;
-  padding: 0 0.75rem;
+  height: 3.25rem;
+  padding: 0 0.875rem;
   border: 1.5px solid var(--md-outline);
   border-radius: 12px;
   background: transparent;
@@ -208,8 +439,9 @@ body.beenest-login {
   box-shadow: 0 0 0 1px var(--md-primary);
 }
 
+/* 隐藏原生 placeholder，由浮动 label 替代 */
 .md-field input::placeholder {
-  color: var(--md-outline);
+  color: transparent;
 }
 
 .md-field select {
@@ -221,15 +453,48 @@ body.beenest-login {
   padding-right: 2.5rem;
 }
 
+.md-field select + label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  top: 0;
+}
+
 /* --- 短信验证码字段 --- */
 .md-field-sms {
   display: flex;
   gap: 0.75rem;
+  align-items: stretch;
 }
 
-.md-field-sms input {
+.md-field-sms > input {
   flex: 1;
   min-width: 0;
+}
+
+.md-field-sms > label {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.92rem;
+  font-weight: 400;
+  color: var(--md-on-surface-variant);
+  pointer-events: none;
+  background: var(--md-surface);
+  padding: 0 0.25rem;
+  transition: top 0.2s cubic-bezier(0.2, 0, 0, 1),
+              font-size 0.2s cubic-bezier(0.2, 0, 0, 1),
+              color 0.2s cubic-bezier(0.2, 0, 0, 1);
+  z-index: 1;
+  line-height: 1;
+}
+
+.md-field-sms > input:focus + label,
+.md-field-sms > input:not(:placeholder-shown) + label {
+  top: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--md-primary);
 }
 
 .md-sms-btn {
@@ -432,48 +697,28 @@ body.beenest-login {
   padding: 1rem 0;
 }
 
-/* --- Footer --- */
+/* --- Footer (右侧面板底部) --- */
 .md-footer {
   text-align: center;
   font-size: 0.75rem;
   color: var(--md-on-surface-variant);
-  padding-bottom: 1.5rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--md-outline-variant);
 }
 
 .md-footer-dot {
   margin: 0 0.4rem;
 }
 
-/* --- Responsive --- */
-@media (max-width: 520px) {
-  .md-login {
-    max-width: 100%;
-    border-radius: 0;
-    box-shadow: none;
-    padding: 0 1.5rem 1.5rem;
-    margin: 0;
-    min-height: 100vh;
-  }
-
-  .md-login-brand {
-    padding-top: 3rem;
-  }
-
-  .md-footer {
-    position: relative;
-    bottom: auto;
-  }
-}
-
 /* ============================================================
    Login 页面在 layout 框架内的适配
-   body.beenest-login 覆盖 layout.html 的暗色通用页面样式
+   覆盖 layout.html 的通用页面样式
    ============================================================ */
 
 body.beenest-login {
   display: block;
-  background: linear-gradient(135deg, #eef2ff 0%, #f0f4ff 30%, #e8f0fe 60%, #f5f7ff 100%);
-  background-attachment: fixed;
+  overflow: hidden;
 }
 
 body.beenest-login .beenest-cas-header {
@@ -481,15 +726,12 @@ body.beenest-login .beenest-cas-header {
 }
 
 body.beenest-login .beenest-cas-main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5rem 1rem 1rem;
+  display: block;
+  padding: 0;
   min-height: 100vh;
   background: transparent;
 }
 
-/* 覆盖 layout.html 中 main 的行内 width:100% */
 body.beenest-login .beenest-cas-main main {
   width: auto !important;
 }
@@ -498,9 +740,97 @@ body.beenest-login .beenest-cas-footer {
   display: none;
 }
 
+/* --- Responsive --- */
+@media (max-width: 1024px) {
+  .split-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .split-left {
+    width: 100%;
+    min-height: 280px;
+    height: 35vh;
+    max-height: 360px;
+    padding: 2rem;
+  }
+
+  .split-left-content {
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .split-features {
+    display: none;
+  }
+
+  .split-hero-title {
+    font-size: 1.4rem;
+  }
+
+  .split-hero {
+    margin-bottom: 0;
+  }
+
+  .split-brand {
+    margin-bottom: 1.5rem;
+  }
+
+  .split-right {
+    min-height: auto;
+    flex: 1;
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .split-left {
+    min-height: 220px;
+    height: 30vh;
+    max-height: 280px;
+    padding: 1.5rem;
+  }
+
+  .split-hero-title {
+    font-size: 1.2rem;
+  }
+
+  .split-hero-subtitle {
+    font-size: 0.85rem;
+  }
+
+  .split-right {
+    padding: 1.25rem;
+  }
+
+  .split-right-inner {
+    max-width: 100%;
+  }
+
+  .md-form-title {
+    font-size: 1.4rem;
+  }
+
+  .md-form-subtitle {
+    font-size: 0.85rem;
+  }
+}
+
+/* --- 无障碍：减少动画 --- */
+@media (prefers-reduced-motion: reduce) {
+  .orb {
+    animation: none !important;
+  }
+
+  .md-tab-indicator {
+    transition: none !important;
+  }
+}
+
 /* ============================================================
-   CAS 通用页面样式 — 所有模板共享（暗色 Aurora 主题）
-   用于 layout.html 基础布局中的卡片、表单、按钮等组件
+   CAS 通用页面样式 — Quantum · Enterprise Tech
+   极致前沿 · 量子玻璃 · 深度层次 · 企业信赖
    ============================================================ */
 
 body.beenest-cas {
@@ -508,88 +838,293 @@ body.beenest-cas {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: "Inter", "SF Pro Display", -apple-system, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
   color: var(--text);
+  color-scheme: light;
   background:
-    radial-gradient(circle at 18% 20%, rgba(168, 187, 255, 0.12), transparent 0 16rem),
-    radial-gradient(circle at 82% 18%, rgba(158, 223, 207, 0.1), transparent 0 14rem),
-    linear-gradient(135deg, var(--bg-0), var(--bg-1) 52%, var(--bg-2));
+    radial-gradient(ellipse 80% 60% at 15% 30%, rgba(79, 70, 229, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 20%, rgba(99, 102, 241, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 50% 90%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 70% 60%, rgba(139, 92, 246, 0.05) 0%, transparent 45%),
+    linear-gradient(160deg, #f8faff 0%, #f5f3ff 20%, #eef2ff 40%, #eff6ff 60%, #f0f4ff 80%, #f8faff 100%);
+  position: relative;
+  overflow-x: hidden;
 }
 
+/* --- 量子渐变 · Mesh Gradient 动态光晕 --- */
+body.beenest-cas::before,
+body.beenest-cas::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+body.beenest-cas::before {
+  width: 65vw;
+  height: 65vw;
+  max-width: 800px;
+  max-height: 800px;
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.18) 0%, rgba(99, 102, 241, 0.08) 40%, transparent 70%);
+  top: -25%;
+  right: -12%;
+  filter: blur(100px);
+  animation: quantum-drift-a 28s ease-in-out infinite;
+}
+
+body.beenest-cas::after {
+  width: 55vw;
+  height: 55vw;
+  max-width: 680px;
+  max-height: 680px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.14) 0%, rgba(56, 189, 248, 0.06) 40%, transparent 70%);
+  bottom: -20%;
+  left: -10%;
+  filter: blur(110px);
+  animation: quantum-drift-b 34s ease-in-out infinite;
+}
+
+@keyframes quantum-drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-4%, 6%) scale(1.04); }
+  66% { transform: translate(3%, -4%) scale(0.96); }
+}
+
+@keyframes quantum-drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(5%, -4%) scale(1.03); }
+  70% { transform: translate(-3%, 3%) scale(0.97); }
+}
+
+/* --- 点阵纹理 --- */
+.beenest-cas-main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(circle, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Header · Quantum Nav
+   ============================================================ */
 .beenest-cas-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-strong);
-  backdrop-filter: blur(12px);
+  padding: 0 2rem;
+  height: 3.5rem;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  position: relative;
+  z-index: 10;
+}
+
+/* 渐变底边 */
+.beenest-cas-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(79, 70, 229, 0.2) 20%,
+    rgba(99, 102, 241, 0.25) 50%,
+    rgba(79, 70, 229, 0.2) 80%,
+    transparent);
+  opacity: 0.6;
 }
 
 .beenest-cas-header .brand-mark {
   text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  flex-shrink: 0;
+}
+
+.brand-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 0.875rem;
+  background: rgba(15, 23, 42, 0.1);
+  margin: 0 0.1rem;
+}
+
+.brand-tagline {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.header-action-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.header-action-link:hover {
+  color: var(--accent);
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.header-action-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+/* ============================================================
+   Main
+   ============================================================ */
 .beenest-cas-main {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
+  position: relative;
+  z-index: 1;
 }
 
+body.beenest-palantir-dashboard .beenest-cas-header,
+body.beenest-palantir-dashboard .beenest-cas-footer {
+  display: none;
+}
+
+body.beenest-palantir-dashboard {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.beenest-palantir-dashboard .beenest-cas-main {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem 1rem 2rem;
+}
+
+body.beenest-palantir-dashboard .beenest-cas-main main {
+  width: 100%;
+}
+
+/* ============================================================
+   Card · Quantum Glass
+   ============================================================ */
 .cas-page-card {
-  width: min(100%, 42rem);
-  padding: clamp(1.5rem, 3vw, 2.5rem);
-  border: 1px solid var(--line);
-  border-radius: 1.75rem;
-  background: linear-gradient(180deg, rgba(18, 25, 40, 0.84), rgba(8, 12, 20, 0.95));
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
-  animation: rise 0.6s ease-out both;
+  position: relative;
+  z-index: 1;
+  width: min(100%, 44rem);
+  padding: clamp(2rem, 3.5vw, 3rem);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 2px 4px rgba(15, 23, 42, 0.02),
+    0 8px 24px rgba(15, 23, 42, 0.04),
+    0 24px 48px rgba(15, 23, 42, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  animation: quantum-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes quantum-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .cas-page-card h2,
 .cas-page-card h3 {
   margin: 0 0 1rem;
-  line-height: 1.15;
+  line-height: 1.2;
+  color: var(--text);
+  letter-spacing: -0.02em;
 }
 
 .cas-page-card h2 {
-  font-size: clamp(1.6rem, 2.5vw, 2rem);
+  font-size: clamp(1.5rem, 2.5vw, 1.85rem);
+  font-weight: 700;
 }
 
 .cas-page-card h3 {
-  font-size: clamp(1.3rem, 2vw, 1.6rem);
+  font-size: clamp(1.2rem, 2vw, 1.45rem);
+  font-weight: 600;
 }
 
 .cas-page-card p {
   margin: 0.5rem 0;
   color: var(--muted);
   line-height: 1.7;
+  font-size: 0.9rem;
 }
 
+/* --- Alerts --- */
 .cas-page-card .alert {
   margin: 0 0 1rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.625rem;
+  background: rgba(15, 23, 42, 0.02);
   color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .cas-page-card .alert-danger {
-  border-color: rgba(255, 139, 139, 0.25);
-  background: rgba(255, 139, 139, 0.1);
+  border-color: rgba(239, 68, 68, 0.15);
+  background: rgba(254, 242, 242, 0.7);
   color: var(--danger);
 }
 
 .cas-page-card .alert-warning {
-  border-color: rgba(246, 212, 123, 0.18);
-  background: rgba(246, 212, 123, 0.08);
+  border-color: rgba(245, 158, 11, 0.15);
+  background: rgba(255, 251, 235, 0.7);
   color: var(--warning);
 }
 
+/* --- Table --- */
 .cas-page-card table {
   width: 100%;
   border-collapse: collapse;
@@ -598,191 +1133,206 @@ body.beenest-cas {
 
 .cas-page-card th,
 .cas-page-card td {
-  padding: 0.75rem 1rem;
+  padding: 0.7rem 1rem;
   text-align: left;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
 }
 
 .cas-page-card th {
   color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .cas-page-card td {
   color: var(--text);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 
 .cas-page-card code {
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--accent-2);
-  font-size: 0.88rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.375rem;
+  background: rgba(79, 70, 229, 0.06);
+  color: var(--accent);
+  font-size: 0.84rem;
 }
 
 .cas-page-card hr {
   border: none;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid rgba(15, 23, 42, 0.05);
   margin: 1.5rem 0;
 }
 
+/* --- Inputs --- */
 .cas-page-card input[type="text"],
 .cas-page-card input[type="password"],
 .cas-page-card input[type="number"],
 .cas-page-card select {
   width: 100%;
-  height: 3.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.04);
+  height: 2.875rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
   color: var(--text);
-  padding: 0 1rem;
+  padding: 0 0.8rem;
   outline: none;
-  font-size: 0.95rem;
-  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  font-size: 0.88rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .cas-page-card input:focus,
 .cas-page-card select:focus {
-  border-color: rgba(126, 231, 199, 0.6);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 0 4px rgba(126, 231, 199, 0.12);
-  transform: translateY(-1px);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+  background: #fff;
 }
 
 .cas-page-card input::placeholder {
-  color: rgba(146, 160, 187, 0.72);
+  color: rgba(100, 116, 139, 0.5);
 }
 
 .cas-page-card label {
   display: block;
-  margin-bottom: 0.4rem;
-  color: rgba(230, 238, 252, 0.82);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
+/* ============================================================
+   Buttons
+   ============================================================ */
 .cas-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 3rem;
+  min-height: 2.5rem;
   padding: 0 1.5rem;
   border: 0;
-  border-radius: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.88rem;
+  font-family: inherit;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   text-decoration: none;
 }
 
 .cas-btn-primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #07111f;
-  box-shadow: 0 10px 28px rgba(168, 187, 255, 0.18);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2), 0 4px 12px rgba(79, 70, 229, 0.12);
 }
 
 .cas-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 34px rgba(158, 223, 207, 0.18);
-  filter: brightness(1.03);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2), 0 8px 20px rgba(79, 70, 229, 0.18);
+}
+
+.cas-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
 }
 
 .cas-btn-outline {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.6);
   color: var(--text);
 }
 
 .cas-btn-outline:hover {
-  transform: translateY(-1px);
-  border-color: rgba(126, 231, 199, 0.28);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(79, 70, 229, 0.04);
 }
 
 .cas-btn-danger {
-  background: rgba(255, 139, 139, 0.15);
-  border: 1px solid rgba(255, 139, 139, 0.25);
+  background: rgba(254, 242, 242, 0.7);
+  border: 1px solid rgba(239, 68, 68, 0.15);
   color: var(--danger);
 }
 
 .cas-btn-danger:hover {
-  background: rgba(255, 139, 139, 0.25);
-  transform: translateY(-1px);
+  background: rgba(254, 226, 226, 0.8);
 }
 
 .cas-btn-group {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
   margin-top: 1rem;
 }
 
+/* --- Radio --- */
 .cas-radio-group {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.6rem;
   margin: 1rem 0;
 }
 
 .cas-radio-option {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.02);
+  gap: 0.7rem;
+  padding: 0.7rem 0.875rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .cas-radio-option:hover {
-  border-color: rgba(126, 231, 199, 0.28);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(79, 70, 229, 0.2);
+  background: rgba(79, 70, 229, 0.02);
 }
 
 .cas-radio-option input[type="radio"] {
   accent-color: var(--accent);
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 .cas-radio-option .radio-label {
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text);
+  font-size: 0.9rem;
 }
 
 .cas-radio-option .radio-desc {
   color: var(--muted);
-  font-size: 0.88rem;
-  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
 }
 
+/* --- Tabs --- */
 .cas-tab-bar {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   margin-bottom: 1.5rem;
 }
 
 .cas-tab {
-  padding: 0.75rem 1.25rem;
+  padding: 0.625rem 1rem;
   border: none;
   background: transparent;
   color: var(--muted);
   font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-family: inherit;
+  font-weight: 500;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color 160ms ease, border-color 160ms ease;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.cas-tab:hover {
+  color: var(--text);
 }
 
 .cas-tab.is-active {
@@ -790,22 +1340,39 @@ body.beenest-cas {
   border-bottom-color: var(--accent);
 }
 
+/* ============================================================
+   Footer
+   ============================================================ */
 .beenest-cas-footer {
-  padding: 1rem 2rem;
+  padding: 0.875rem 2rem;
   text-align: center;
   color: var(--muted);
-  font-size: 0.78rem;
-  border-top: 1px solid var(--line);
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(15, 23, 42, 0.04);
+  position: relative;
+  z-index: 10;
 }
 
 .beenest-cas-footer a {
   color: var(--accent);
   text-decoration: none;
+  transition: color 0.15s ease;
 }
 
+.beenest-cas-footer a:hover {
+  color: var(--accent-2);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
 @media (max-width: 640px) {
   .beenest-cas-header {
-    padding: 0.75rem 1rem;
+    padding: 0 1rem;
   }
 
   .beenest-cas-main {
@@ -814,8 +1381,8 @@ body.beenest-cas {
 
   .cas-page-card {
     width: 100%;
-    border-radius: 1.25rem;
-    padding: 1.15rem;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
   }
 
   .cas-btn-group {
@@ -825,21 +1392,14 @@ body.beenest-cas {
   .cas-btn {
     width: 100%;
   }
-}
 
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  .beenest-cas-footer {
+    padding: 0.75rem 1rem;
   }
 }
 
 /* ============================================================
-   CAS 登录确认和成功页面
+   CAS 确认/成功页面
    ============================================================ */
 
 .cas-confirm-info {
@@ -847,32 +1407,32 @@ body.beenest-cas {
 }
 
 .cas-confirm-info .service-name {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: var(--accent);
 }
 
 .cas-confirm-info .service-url {
   color: var(--muted);
-  font-size: 0.88rem;
-  margin-top: 0.25rem;
+  font-size: 0.86rem;
+  margin-top: 0.2rem;
 }
 
 /* ============================================================
-   表单内联元素样式覆盖
-   确保 CAS 原生 form 元素在新主题下正常显示
+   CAS 原生表单覆盖
    ============================================================ */
 
 .cas-page-card .mdc-text-field__input {
   width: 100%;
-  height: 3.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.04);
+  height: 2.875rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
   color: var(--text);
-  padding: 0 1rem;
+  padding: 0 0.8rem;
   outline: none;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
+  font-family: inherit;
 }
 
 .cas-page-card .mdc-notched-outline,
@@ -882,39 +1442,38 @@ body.beenest-cas {
 
 .cas-page-card .mdc-button--raised {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #07111f;
+  color: #fff;
   border: 0;
-  border-radius: 1rem;
-  min-height: 3rem;
+  border-radius: 0.5rem;
+  min-height: 2.5rem;
   padding: 0 1.5rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  box-shadow: 0 10px 28px rgba(168, 187, 255, 0.18);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2), 0 4px 12px rgba(79, 70, 229, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cas-page-card .mdc-button--raised:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 34px rgba(158, 223, 207, 0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2), 0 8px 20px rgba(79, 70, 229, 0.18);
 }
 
 .cas-page-card .mdc-button--outlined {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.6);
   color: var(--text);
-  border-radius: 1rem;
-  min-height: 3rem;
+  border-radius: 0.5rem;
+  min-height: 2.5rem;
   padding: 0 1.5rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease;
+  transition: border-color 0.15s ease;
 }
 
 .cas-page-card .mdc-button--outlined:hover {
-  transform: translateY(-1px);
-  border-color: rgba(126, 231, 199, 0.28);
+  border-color: var(--accent);
 }
 
 .cas-page-card .g-recaptcha {
@@ -924,19 +1483,731 @@ body.beenest-cas {
 }
 
 .cas-page-card .reveal-password {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   color: var(--muted);
-  border-radius: 0.75rem;
-  width: 2.8rem;
-  height: 2.8rem;
+  border-radius: 0.5rem;
+  width: 2.375rem;
+  height: 2.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 160ms ease;
+  transition: border-color 0.15s ease;
 }
 
 .cas-page-card .reveal-password:hover {
-  border-color: rgba(126, 231, 199, 0.28);
+  border-color: var(--accent);
+}
+
+/* ============================================================
+   Status Page · 状态页组件（锁定/禁用/错误/登出等）
+   ============================================================ */
+
+.cas-status-card {
+  text-align: center;
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 5vw, 3.5rem) clamp(2rem, 4vw, 3rem) !important;
+}
+
+.cas-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.cas-status-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.cas-status-icon--danger {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+}
+
+.cas-status-icon--warning {
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--warning);
+}
+
+.cas-status-icon--accent {
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--accent);
+}
+
+.cas-status-icon--success {
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+}
+
+.cas-status-icon--muted {
+  background: rgba(100, 116, 139, 0.08);
+  color: var(--muted);
+}
+
+.cas-status-card h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.cas-status-text {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.cas-status-text a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.cas-status-text a:hover {
+  text-decoration: underline;
+}
+
+.cas-status-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1.75rem;
+}
+
+.cas-error-box {
+  text-align: left;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  body.beenest-cas::before,
+  body.beenest-cas::after {
+    animation: none !important;
+  }
+
+  .cas-page-card {
+    animation: none !important;
+  }
+}
+
+/* ── 密码修改表单 ── */
+
+.cas-pm-card {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 2.5rem 2rem;
+  text-align: left;
+}
+
+.cas-pm-card .cas-status-icon {
+  margin: 0 auto 1rem;
+}
+
+.cas-pm-title {
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.25rem;
+}
+
+.cas-pm-card .cas-status-text {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.cas-pm-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 0.625rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.cas-pm-alert svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.cas-pm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cas-pm-field {
+  position: relative;
+}
+
+.cas-pm-field input {
+  width: 100%;
+  height: 3rem;
+  padding: 0 2.5rem 0 1rem;
+  border: 1.5px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.cas-pm-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.cas-pm-field input::placeholder {
+  color: transparent;
+}
+
+.cas-pm-field label {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: var(--muted);
+  pointer-events: none;
+  transition: all 0.2s;
+  background: var(--surface);
+  padding: 0 0.25rem;
+}
+
+.cas-pm-field input:focus ~ label,
+.cas-pm-field input:not(:placeholder-shown) ~ label {
+  top: 0;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
+.cas-pm-toggle {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+}
+
+.cas-pm-toggle:hover {
+  color: var(--text);
+}
+
+.cas-pm-toggle svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.cas-pm-strength {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: -0.25rem;
+}
+
+.cas-pm-strength-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+.cas-pm-strength-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 2px;
+  transition: width 0.3s, background 0.3s;
+}
+
+.cas-pm-strength-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cas-pm-warn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  font-size: 0.8rem;
+  margin-top: -0.25rem;
+}
+
+.cas-pm-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.cas-pm-actions .cas-btn {
+  flex: 1;
+}
+
+.cas-pm-policy {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1.25rem;
+  border-radius: 0.5rem;
+  background: rgba(79, 70, 229, 0.06);
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  color: var(--accent);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.cas-pm-policy svg {
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Admin Login — 管理控制台登录页（亮色 MD3）
+   全视口浅色 mesh gradient + 居中白色卡片
+   ============================================================ */
+
+body.beenest-admin-login {
+  --adm-bg: #f5f7fb;
+  --adm-card: #ffffff;
+  --adm-text: #1e293b;
+  --adm-text-secondary: #64748b;
+  --adm-muted: #94a3b8;
+  --adm-border: #e2e8f0;
+  --adm-border-focus: #0d9488;
+  --adm-focus-ring: rgba(13, 148, 136, 0.1);
+  --adm-primary: #0d9488;
+  --adm-primary-light: #ccfbf1;
+  --adm-error: #dc2626;
+  --adm-error-bg: #fef2f2;
+  --adm-error-border: #fecaca;
+
+  display: block;
+  overflow: hidden;
+  color-scheme: light;
+}
+
+body.beenest-admin-login .beenest-cas-header,
+body.beenest-admin-login .beenest-cas-footer {
+  display: none;
+}
+
+body.beenest-admin-login .beenest-cas-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #f0f4ff 0%, #f5f7fb 40%, #eef5f2 100%);
+}
+
+body.beenest-admin-login .beenest-cas-main main {
+  width: auto !important;
+}
+
+/* --- 背景动画 orb（柔和粉彩） --- */
+.admin-login-bg {
+  position: fixed;
+  inset: -15%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.admin-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.28;
+  will-change: transform;
+}
+
+.admin-orb-1 {
+  width: 38vw;
+  height: 38vw;
+  max-width: 480px;
+  max-height: 480px;
+  background: radial-gradient(circle, rgba(13, 148, 136, 0.45), transparent 70%);
+  top: -10%;
+  right: -5%;
+  animation: admin-orb-1 20s ease-in-out infinite;
+}
+
+.admin-orb-2 {
+  width: 32vw;
+  height: 32vw;
+  max-width: 420px;
+  max-height: 420px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.3), transparent 70%);
+  bottom: -8%;
+  left: -3%;
+  animation: admin-orb-2 24s ease-in-out infinite;
+}
+
+.admin-orb-3 {
+  width: 22vw;
+  height: 22vw;
+  max-width: 280px;
+  max-height: 280px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.3), transparent 70%);
+  top: 50%;
+  left: 45%;
+  animation: admin-orb-3 18s ease-in-out infinite;
+}
+
+@keyframes admin-orb-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-6%, 8%) scale(1.04); }
+  66% { transform: translate(4%, -5%) scale(0.97); }
+}
+
+@keyframes admin-orb-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(8%, -6%) scale(1.03); }
+  70% { transform: translate(-3%, 5%) scale(0.98); }
+}
+
+@keyframes admin-orb-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-8%, -6%) scale(1.05); }
+}
+
+/* --- 网格背景纹理 --- */
+body.beenest-admin-login .beenest-cas-main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.018) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 75%);
+  pointer-events: none;
+}
+
+/* --- 登录卡片 --- */
+.admin-card {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 400px);
+  padding: clamp(1.75rem, 3.5vw, 2.5rem);
+  border: 1px solid var(--adm-border);
+  border-radius: 1.5rem;
+  background: var(--adm-card);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.06);
+  animation: admin-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes admin-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* --- 卡片头部 --- */
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.admin-shield {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--adm-primary-light);
+  border: 1px solid rgba(13, 148, 136, 0.12);
+  color: var(--adm-primary);
+}
+
+.admin-shield svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.admin-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.admin-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--adm-text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.admin-subtitle {
+  font-size: 0.8rem;
+  color: var(--adm-text-secondary);
+  margin: 0;
+}
+
+/* --- 错误提示 --- */
+.admin-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.75rem;
+  background: var(--adm-error-bg);
+  border: 1px solid var(--adm-error-border);
+  color: var(--adm-error);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.admin-alert-icon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+/* --- 表单 --- */
+.admin-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+/* --- MD3 Outlined TextField（亮色） --- */
+.admin-field {
+  position: relative;
+}
+
+.admin-field label {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.92rem;
+  font-weight: 400;
+  color: var(--adm-muted);
+  pointer-events: none;
+  background: var(--adm-card);
+  padding: 0 0.3rem;
+  transition: top 0.2s cubic-bezier(0.2, 0, 0, 1),
+              font-size 0.2s cubic-bezier(0.2, 0, 0, 1),
+              color 0.2s cubic-bezier(0.2, 0, 0, 1);
+  z-index: 1;
+  line-height: 1;
+}
+
+.admin-field input:focus + label,
+.admin-field input:not(:placeholder-shown) + label {
+  top: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--adm-border-focus);
+}
+
+.admin-field input {
+  width: 100%;
+  height: 3.25rem;
+  padding: 0 0.875rem;
+  border: 1.5px solid var(--adm-border);
+  border-radius: 12px;
+  background: var(--adm-card);
+  color: var(--adm-text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.admin-field input:focus {
+  border-color: var(--adm-border-focus);
+  box-shadow: 0 0 0 3px var(--adm-focus-ring);
+}
+
+.admin-field input::placeholder {
+  color: transparent;
+}
+
+/* 密码字段额外 padding-right 给切换按钮留空间 */
+.admin-field:has(.admin-toggle-pwd) input {
+  padding-right: 3rem;
+}
+
+/* --- 密码可见切换 --- */
+.admin-toggle-pwd {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.2rem;
+  height: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--adm-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+  padding: 0;
+}
+
+.admin-toggle-pwd:hover {
+  color: var(--adm-text-secondary);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.admin-toggle-pwd svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+/* --- 登录按钮 --- */
+.admin-btn {
+  width: 100%;
+  height: 3.25rem;
+  margin-top: 0.5rem;
+  border: none;
+  border-radius: 100px;
+  background: var(--adm-primary);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.admin-btn:hover {
+  background: #0f766e;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+}
+
+.admin-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(13, 148, 136, 0.3);
+}
+
+.admin-btn:disabled {
+  background: rgba(13, 148, 136, 0.38);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: progress;
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-btn-arrow {
+  width: 1.1rem;
+  height: 1.1rem;
+  transition: transform 0.2s ease;
+}
+
+.admin-btn:hover .admin-btn-arrow {
+  transform: translateX(3px);
+}
+
+/* --- 安全提示 --- */
+.admin-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 1.25rem 0 0;
+  font-size: 0.72rem;
+  color: var(--adm-muted);
+  letter-spacing: 0.02em;
+}
+
+.admin-hint-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+/* --- 响应式 --- */
+@media (max-width: 640px) {
+  .admin-card {
+    width: 100%;
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+  }
+
+  .admin-title {
+    font-size: 1.15rem;
+  }
+
+  .admin-shield {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
+
+/* --- 无障碍：减少动画 --- */
+@media (prefers-reduced-motion: reduce) {
+  .admin-orb {
+    animation: none !important;
+  }
+
+  .admin-card {
+    animation: none !important;
+  }
 }

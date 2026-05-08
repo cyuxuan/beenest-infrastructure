@@ -7,6 +7,11 @@ cas:
     name: ${CAS_SERVER_NAME:https://sso.beenest.club}
     prefix: ${CAS_SERVER_PREFIX:${cas.server.name}/cas}
 
+  # 默认语言：中文。若浏览器未显式传 locale，则统一使用 zh_CN。
+  locale:
+    default-value: ${CAS_LOCALE_DEFAULT_VALUE:zh_CN}
+    param-name: ${CAS_LOCALE_PARAM_NAME:locale}
+
   # TGC Cookie 配置
   # encryption key 需要 512 bit (64 字节) 以满足 A256CBC-HS512 JWT 加密要求
   tgc:
@@ -97,7 +102,7 @@ cas:
   interrupt:
     core:
       force-execution: ${CAS_INTERRUPT_FORCE_EXECUTION:false}
-      trigger-mode: "${CAS_INTERRUPT_TRIGGER_MODE:AFTER_AUTHENTICATION}"
+      trigger-mode: ${CAS_INTERRUPT_TRIGGER_MODE:AFTER_AUTHENTICATION}
 
   # Inspektr 审计（替代自定义 AuthAuditService）
   audit:
@@ -135,6 +140,26 @@ cas:
         password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{12,128}$}"
       webflow:
         enabled: true
+      # 密码历史记录功能
+      history:
+        core:
+          enabled: true
+      jdbc:
+        driver-class: org.postgresql.Driver
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
+        user: ${DB_USER:postgres}
+        password: ${DB_PASSWORD}
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        password-encoder:
+          type: BCRYPT
+          strength: 12
+        sql-change-password: "UPDATE cas_user SET password_hash=?, password_changed_time=NOW(), must_change_password=false WHERE username=? AND status=1"
+        sql-find-email: "SELECT email FROM cas_user WHERE username=? AND status=1"
+        sql-find-phone: "SELECT phone FROM cas_user WHERE username=? AND status=1"
+        sql-find-user: "SELECT username FROM cas_user WHERE email=? AND status=1"
+        sql-unlock-account: "UPDATE cas_user SET failed_login_count=0, lock_until_time=NULL WHERE username=?"
+        pool:
+          maximum-lifetime: PT30M
     accept:
       enabled: ${CAS_AUTHN_ACCEPT_ENABLED:false}
       users: ${CAS_AUTHN_ACCEPT_USERS:}
@@ -295,6 +320,8 @@ cas:
 # CAS 模块开关
 # ============================================================
 CasFeatureModule:
+  AccountRegistration:
+    enabled: ${CAS_FEATURE_ACCOUNT_REGISTRATION_ENABLED:true}
   Throttling:
     enabled: ${CAS_FEATURE_THROTTLING_ENABLED:true}
   Consent:
@@ -328,6 +355,9 @@ server:
   ssl:
     enabled: ${SERVER_SSL_ENABLED:false}
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
+  servlet:
+    session:
+      timeout: ${SERVER_SERVLET_SESSION_TIMEOUT:PT30M}
 
 # ============================================================
 # Spring Boot 配置

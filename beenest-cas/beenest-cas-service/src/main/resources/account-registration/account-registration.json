@@ -39,5 +39,25 @@
     "required": true,
     "label": "cas.screen.acct.label.email",
     "title": "cas.screen.acct.title.email"
+  },
+  "userType": {
+    "@class": "org.apereo.cas.acct.AccountRegistrationProperty",
+    "order": 4,
+    "name": "userType",
+    "type": "select",
+    "required": true,
+    "values": ["java.util.ArrayList", ["CUSTOMER", "PILOT"]],
+    "label": "用户类型",
+    "title": "请选择用户类型"
+  },
+  "phone": {
+    "@class": "org.apereo.cas.acct.AccountRegistrationProperty",
+    "order": 5,
+    "name": "phone",
+    "type": "tel",
+    "pattern": "^1[3-9]\\d{9}$",
+    "required": false,
+    "label": "手机号",
+    "title": "请输入手机号"
   }
 }

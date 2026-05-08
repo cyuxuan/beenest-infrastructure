@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+</head>
+<body>
+<span th:fragment="main">
+    <nav class="sidebar-navigation">
+            <ul>
+                <li id="applicationsTabButton" class="active" data-tab-index="0">
+                    <i class="mdi mdi-apps" aria-hidden="true"></i>
+                    <span class="tooltip">服务与应用</span>
+                </li>
+                <li id="systemTabButton" data-tab-index="1">
+                    <i class="mdi mdi-laptop" aria-hidden="true"></i>
+                    <span class="tooltip">系统</span>
+                </li>
+                <li id="ticketsTabButton" data-tab-index="2">
+                    <i class="mdi mdi-database" aria-hidden="true"></i>
+                    <span class="tooltip">票据与票据注册表</span>
+                </li>
+                <li id="tasksTabButton" data-tab-index="3">
+                    <i class="mdi mdi-tire" aria-hidden="true"></i>
+                    <span class="tooltip">任务与后台作业</span>
+                </li>
+                <li id="accessStrategyTabButton" data-tab-index="4">
+                    <i class="mdi mdi-shield-check" aria-hidden="true"></i>
+                    <span class="tooltip">访问策略与授权</span>
+                </li>
+                <li id="loggingTabButton" data-tab-index="5">
+                    <i class="mdi mdi-text" aria-hidden="true"></i>
+                    <span class="tooltip">日志、日志事件与审计记录</span>
+                </li>
+                <li id="ssoSessionsTabButton" data-tab-index="6">
+                    <i class="mdi mdi-account-multiple" aria-hidden="true"></i>
+                    <span class="tooltip">单点登录会话</span>
+                </li>
+                <li id="configurationTabButton" data-tab-index="7">
+                    <i class="mdi mdi-wrench" aria-hidden="true"></i>
+                    <span class="tooltip">CAS 配置与属性</span>
+                </li>
+                <li id="personDirectoryTabButton" data-tab-index="8">
+                    <i class="mdi mdi-card-account-details" aria-hidden="true"></i>
+                    <span class="tooltip">人员目录与属性解析</span>
+                </li>
+                <li id="authenticationTabButton" data-tab-index="9">
+                    <i class="mdi mdi-account-check" aria-hidden="true"></i>
+                    <span class="tooltip">认证源、处理器与策略</span>
+                </li>
+                <li id="consentTabButton" data-tab-index="10">
+                    <i class="mdi mdi-checkerboard" aria-hidden="true"></i>
+                    <span class="tooltip">属性授权决定与记录</span>
+                </li>
+                <li id="protocolsTabButton" data-tab-index="11">
+                    <i class="mdi mdi-protocol" aria-hidden="true"></i>
+                    <span class="tooltip">认证协议（CAS、SAML2、OpenID Connect 等）</span>
+                </li>
+                <li id="throttlesTabButton" data-tab-index="12">
+                    <i class="mdi mdi-account-lock" aria-hidden="true"></i>
+                    <span class="tooltip">限流认证记录与锁定账号</span>
+                </li>
+                <li id="mfaTabButton" data-tab-index="13">
+                    <i class="mdi mdi-two-factor-authentication" aria-hidden="true"></i>
+                    <span class="tooltip">多因素认证与用户设备</span>
+                </li>
+                <li id="tenantsTabButton" data-tab-index="14">
+                    <i class="mdi mdi-home-circle" aria-hidden="true"></i>
+                    <span class="tooltip">多租户与租户</span>
+                </li>
+            </ul>
+        </nav>
+</span>
+</body>
+</html>

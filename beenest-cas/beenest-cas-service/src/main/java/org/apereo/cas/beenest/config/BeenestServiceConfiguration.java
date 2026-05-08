@@ -2,9 +2,13 @@ package org.apereo.cas.beenest.config;
 
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.AppAccessService;
+import org.apereo.cas.beenest.service.BeenestAccountRegistrationProvisioner;
+import org.apereo.cas.beenest.service.BeenestAccountRegistrationRequestValidator;
 import org.apereo.cas.beenest.service.SmsService;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import org.apereo.cas.beenest.sms.AliyunSmsSender;
+import org.apereo.cas.acct.AccountRegistrationRequestValidator;
+import org.apereo.cas.acct.provision.AccountRegistrationProvisionerConfigurer;
 import org.apereo.cas.notifications.sms.SmsSender;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -15,7 +19,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * <p>
  * 显式注册服务 bean，避免依赖组件扫描顺序。
  */
-@AutoConfiguration
+@AutoConfiguration(beforeName = "org.apereo.cas.config.CasAccountManagementWebflowAutoConfiguration")
 public class BeenestServiceConfiguration {
 
     @Bean
@@ -26,6 +30,32 @@ public class BeenestServiceConfiguration {
     @Bean
     public UserIdentityService userIdentityService(final UnifiedUserMapper userMapper) {
         return new UserIdentityService(userMapper);
+    }
+
+    /**
+     * 注册 CAS 原生账号开户注册校验器。
+     * <p>
+     * 该 Bean 名称与 CAS 原生自动配置约定保持一致，用于替换默认 no-op 校验器。
+     *
+     * @param userMapper 统一用户 Mapper
+     * @return 注册请求校验器
+     */
+    @Bean("accountMgmtRegistrationRequestValidator")
+    public AccountRegistrationRequestValidator accountMgmtRegistrationRequestValidator(
+            final UnifiedUserMapper userMapper) {
+        return new BeenestAccountRegistrationRequestValidator(userMapper, false);
+    }
+
+    /**
+     * 注册 CAS 原生账号开户注册落库器配置。
+     *
+     * @param userMapper 统一用户 Mapper
+     * @return 原生开户注册器配置
+     */
+    @Bean
+    public AccountRegistrationProvisionerConfigurer beenestAccountRegistrationProvisionerConfigurer(
+            final UnifiedUserMapper userMapper) {
+        return () -> new BeenestAccountRegistrationProvisioner(userMapper);
     }
 
     @Bean

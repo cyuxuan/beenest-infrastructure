@@ -7,21 +7,18 @@
 
 <body class="beenest-cas">
   <div layout:fragment="content">
-    <div class="cas-page-card" style="text-align: center; max-width: 32rem; margin: 0 auto;">
-      <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.6;">
-        <span class="mdi mdi-logout"></span>
+    <div class="cas-page-card cas-status-card">
+      <div class="cas-status-icon cas-status-icon--success">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 12l2 2 4-4"/>
+          <circle cx="12" cy="12" r="10"/>
+        </svg>
       </div>
       <h2 th:utext="#{screen.logout.header}">登出成功</h2>
-      <p style="color: var(--muted); line-height: 1.7; margin: 1rem 0;"
-         th:with="loginUrl=@{/login}"
-         th:utext="#{screen.logout.success(${loginUrl})}">
+      <p class="cas-status-text" th:with="loginUrl=@{/login}" th:utext="#{screen.logout.success(${loginUrl})}">
         您已成功退出登录。您可以<a th:href="@{/login}">重新登录</a>。
       </p>
-      <p style="color: var(--muted); font-size: 0.88rem;" th:utext="#{screen.logout.security}">
-        为安全起见，请关闭您的浏览器。
-      </p>
-
-      <div class="cas-btn-group" style="justify-content: center; margin-top: 1.5rem;">
+      <div class="cas-status-actions">
         <a th:href="@{/login}" class="cas-btn cas-btn-primary">重新登录</a>
       </div>
     </div>

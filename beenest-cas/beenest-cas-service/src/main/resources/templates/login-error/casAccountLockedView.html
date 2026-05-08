@@ -7,15 +7,16 @@
 
 <body class="beenest-cas">
   <div layout:fragment="content">
-    <div class="cas-page-card" style="text-align: center; max-width: 36rem; margin: 0 auto;">
-      <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--warning);">
-        <span class="mdi mdi-lock-outline"></span>
+    <div class="cas-page-card cas-status-card">
+      <div class="cas-status-icon cas-status-icon--warning">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
       </div>
       <h2>账号已被锁定</h2>
-      <p style="color: var(--muted);">
-        由于多次登录失败，您的账号已被临时锁定，请稍后再试或联系管理员。
-      </p>
-      <div class="cas-btn-group" style="justify-content: center; margin-top: 1.5rem;">
+      <p class="cas-status-text">由于多次登录失败，您的账号已被临时锁定。请稍后再试或联系管理员。</p>
+      <div class="cas-status-actions">
         <a th:href="@{/login}" class="cas-btn cas-btn-primary">返回登录</a>
       </div>
     </div>

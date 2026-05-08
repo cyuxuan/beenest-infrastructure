@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+</head>
+<body>
+<span th:fragment="main">
+    <div class="mdc-tab-bar" role="tablist" id="dashboardTabBar">
+        <div class="mdc-tab-scroller d-none">
+            <div class="mdc-tab-scroller__scroll-area">
+                <div class="mdc-tab-scroller__scroll-content">
+                    <button class="mdc-tab mdc-tab--active" role="tab" aria-selected="true">
+                        <span class="mdc-tab__content">
+                            <span class="mdc-tab__text-label"><i class="mdc-tab__icon mdi mdi-apps"
+                                                                 aria-hidden="true"></i>应用</span>
+                        </span>
+                        <span class="mdc-tab-indicator mdc-tab-indicator--active">
+                            <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                        </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label"><i class="mdc-tab__icon mdi mdi-laptop"
+                                                                     aria-hidden="true"></i>系统</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label"><i class="mdc-tab__icon mdi mdi-database"
+                                                                     aria-hidden="true"></i>票据</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label"><i class="mdc-tab__icon mdi-tire " aria-hidden="true"></i>任务</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-shield-check"
+                                       aria-hidden="true"></i>访问策略</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-text"
+                                       aria-hidden="true"></i>日志</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                     <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-account-multiple"
+                                       aria-hidden="true"></i>单点登录会话</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-wrench"
+                                       aria-hidden="true"></i>配置</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-card-account-details"
+                                       aria-hidden="true"></i>人员目录</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-account-check"
+                                       aria-hidden="true"></i>认证</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                     <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-checkerboard"
+                                       aria-hidden="true"></i>授权同意</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-protocol"
+                                       aria-hidden="true"></i>协议</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-account-lock"
+                                       aria-hidden="true"></i>限流认证</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-two-factor-authentication"
+                                       aria-hidden="true"></i>多因素认证</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                    <button class="mdc-tab" role="tab" aria-selected="true">
+                          <span class="mdc-tab__content">
+                                <span class="mdc-tab__text-label">
+                                    <i class="mdc-tab__icon mdi mdi-home-circle"
+                                       aria-hidden="true"></i>多租户与租户</span>
+                          </span>
+                          <span class="mdc-tab-indicator">
+                                <span class="mdc-tab-indicator__content mdc-tab-indicator__content--underline"></span>
+                          </span>
+                        <span class="mdc-tab__ripple"></span>
+                        <div class="mdc-tab__focus-ring"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</span>
+</body>
+</html>

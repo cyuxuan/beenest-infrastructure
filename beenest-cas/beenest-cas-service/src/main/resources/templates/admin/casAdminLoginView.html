@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout(mainContentClass='container-fluid p-0')}">
+
+<head>
+  <title>数界探索 - 管理控制台登录</title>
+</head>
+
+<!--
+  管理员登录页：全视口暗色 mesh gradient 背景 + 居中毛玻璃卡片。
+  body.beenest-admin-login 触发独立样式覆盖 layout.html 默认布局。
+-->
+<body class="beenest-admin-login">
+
+  <div layout:fragment="content">
+
+    <!-- 动态背景 -->
+    <div class="admin-login-bg">
+      <div class="admin-orb admin-orb-1"></div>
+      <div class="admin-orb admin-orb-2"></div>
+      <div class="admin-orb admin-orb-3"></div>
+    </div>
+
+    <!-- 登录卡片 -->
+    <div class="admin-card">
+
+      <!-- 品牌头部 -->
+      <div class="admin-card-header">
+        <div class="admin-shield">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"
+                  fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M12 8a2 2 0 012 2c0 .74-.4 1.39-1 1.73V14a1 1 0 01-2 0v-2.27A2 2 0 0112 8z"
+                  fill="currentColor" opacity="0.6"/>
+          </svg>
+        </div>
+        <div class="admin-header-text">
+          <h1 class="admin-title">管理控制台</h1>
+          <p class="admin-subtitle">数界探索平台 · 安全认证</p>
+        </div>
+      </div>
+
+      <!-- 错误提示 -->
+      <div class="admin-alert" th:if="${param.error}" role="alert">
+        <svg class="admin-alert-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
+        <span>用户名或密码错误，请重试</span>
+      </div>
+
+      <!-- 登录表单 -->
+      <form name="fm1" th:action="@{/adminlogin}" method="post" class="admin-form">
+
+        <div class="admin-field">
+          <input type="text" id="username" name="username"
+                 placeholder=" "
+                 autocapitalize="none" spellcheck="false"
+                 autocomplete="username" required />
+          <label for="username">管理员账号</label>
+        </div>
+
+        <div class="admin-field">
+          <input type="password" id="password" name="password"
+                 placeholder=" "
+                 autocomplete="current-password" required />
+          <label for="password">密码</label>
+          <button type="button" class="admin-toggle-pwd" id="togglePwd"
+                  onclick="togglePassword()" tabindex="-1" aria-label="切换密码可见">
+            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none">
+              <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 01-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          </button>
+        </div>
+
+        <button type="submit" class="admin-btn">
+          <span>登 录</span>
+          <svg class="admin-btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </form>
+
+      <p class="admin-hint">
+        <svg class="admin-hint-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 018 3zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+        </svg>
+        本页面仅限授权管理员访问，所有操作将被审计记录
+      </p>
+
+    </div>
+
+    <!-- 脚本 -->
+    <script th:inline="javascript">
+      /*<![CDATA[*/
+
+      function togglePassword() {
+        var input = document.getElementById('password');
+        var eye = document.querySelector('.icon-eye');
+        var eyeOff = document.querySelector('.icon-eye-off');
+        if (input.type === 'password') {
+          input.type = 'text';
+          eye.style.display = 'none';
+          eyeOff.style.display = 'block';
+        } else {
+          input.type = 'password';
+          eye.style.display = 'block';
+          eyeOff.style.display = 'none';
+        }
+      }
+
+      var loginText = '登 录';
+      $(window).on('pageshow', function() {
+        var btn = document.querySelector('.admin-btn');
+        if (btn) { btn.disabled = false; btn.querySelector('span').textContent = loginText; }
+      });
+
+      $(document).ready(function() {
+        $('form[name="fm1"]').submit(function() {
+          var btn = document.querySelector('.admin-btn');
+          if (btn) {
+            btn.disabled = true;
+            btn.querySelector('span').textContent = '登录中...';
+          }
+          return true;
+        });
+      });
+
+      /*]]>*/
+    </script>
+
+  </div>
+
+</body>
+</html>

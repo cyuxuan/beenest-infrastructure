@@ -109,7 +109,9 @@ public class UserIdentityService {
             }
         }
 
-        return new UserIdentityResult(reloadUser(user), firstLogin);
+        UnifiedUserDO latestUser = reloadUser(user);
+        ensureLoginAllowed(latestUser);
+        return new UserIdentityResult(latestUser, firstLogin);
     }
 
     /**
@@ -161,7 +163,9 @@ public class UserIdentityService {
         } else if (tryRefreshNickname(user, sanitizedNickname)) {
             userMapper.updateByUserId(user);
         }
-        return new UserIdentityResult(reloadUser(user), firstLogin);
+        UnifiedUserDO latestUser = reloadUser(user);
+        ensureLoginAllowed(latestUser);
+        return new UserIdentityResult(latestUser, firstLogin);
     }
 
     /**
@@ -202,7 +206,9 @@ public class UserIdentityService {
         } else if (tryRefreshNickname(user, sanitizedNickname)) {
             userMapper.updateByUserId(user);
         }
-        return new UserIdentityResult(reloadUser(user), firstLogin);
+        UnifiedUserDO latestUser = reloadUser(user);
+        ensureLoginAllowed(latestUser);
+        return new UserIdentityResult(latestUser, firstLogin);
     }
 
     /**
@@ -223,7 +229,9 @@ public class UserIdentityService {
             firstLogin = true;
             LOGGER.info("手机号自动注册: userId={}, phone={}", user.getUserId(), phone);
         }
-        return new UserIdentityResult(user, firstLogin);
+        UnifiedUserDO latestUser = reloadUser(user);
+        ensureLoginAllowed(latestUser);
+        return new UserIdentityResult(latestUser, firstLogin);
     }
 
     /**
@@ -236,15 +244,26 @@ public class UserIdentityService {
         if (user == null) {
             return null;
         }
-        // 检查目标账号状态
-        if (user.getStatus() != null && user.getStatus() == CasConstant.USER_STATUS_LOCKED) {
-            throw new BizException(403, "关联账号已被锁定，请联系管理员");
-        }
-        if (user.getStatus() != null && user.getStatus() == CasConstant.USER_STATUS_DISABLED) {
-            throw new BizException(403, "关联账号已被禁用，请联系管理员");
-        }
+        ensureLoginAllowed(user);
         LOGGER.info("通过手机号合并账号: userId={}, phone={}", user.getUserId(), phone);
         return user;
+    }
+
+    /**
+     * 检查账号是否允许继续登录/合并。
+     *
+     * @param user 用户
+     */
+    private void ensureLoginAllowed(UnifiedUserDO user) {
+        if (user == null || user.getStatus() == null) {
+            return;
+        }
+        if (user.getStatus() == CasConstant.USER_STATUS_LOCKED) {
+            throw new BizException(403, "关联账号已被锁定，请联系管理员");
+        }
+        if (user.getStatus() == CasConstant.USER_STATUS_DISABLED) {
+            throw new BizException(403, "关联账号已被禁用，请联系管理员");
+        }
     }
 
     /**
@@ -332,7 +351,7 @@ public class UserIdentityService {
         user.setOpenid(openid);
         user.setUnionid(unionid);
         user.setLoginType("WECHAT");
-        user.setUserType(UserTypeUtils.normalize(userType));
+        user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("MINIAPP");
         user.setNickname(nickname);
         if (StringUtils.isNotBlank(phone)) {
@@ -352,7 +371,7 @@ public class UserIdentityService {
         user.setDouyinOpenid(openid);
         user.setDouyinUnionid(unionid);
         user.setLoginType("DOUYIN_MINI");
-        user.setUserType(UserTypeUtils.normalize(userType));
+        user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("MINIAPP");
         user.setNickname(nickname);
         user.setStatus(CasConstant.USER_STATUS_ACTIVE);
@@ -366,7 +385,7 @@ public class UserIdentityService {
         user.setUserId(generateUserId());
         user.setAlipayUid(alipayUid);
         user.setLoginType("ALIPAY_MINI");
-        user.setUserType(UserTypeUtils.normalize(userType));
+        user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("MINIAPP");
         user.setNickname(nickname);
         user.setStatus(CasConstant.USER_STATUS_ACTIVE);
@@ -381,7 +400,7 @@ public class UserIdentityService {
         user.setPhone(phone);
         user.setPhoneVerified(true);
         user.setLoginType("PHONE_SMS");
-        user.setUserType(UserTypeUtils.normalize(userType));
+        user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("SMS");
         user.setNickname("用户" + phone.substring(Math.max(0, phone.length() - 4)));
         user.setStatus(CasConstant.USER_STATUS_ACTIVE);

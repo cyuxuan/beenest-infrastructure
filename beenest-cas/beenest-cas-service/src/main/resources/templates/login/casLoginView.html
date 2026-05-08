@@ -7,186 +7,255 @@
 </head>
 
 <!--
-  Material Design 3 企业级登录页面。
-  body.beenest-login 触发 MD3 浅色主题，
-  覆盖 layout.html 的暗色通用页面样式。
+  全视口分屏登录页：左侧动画 mesh gradient 品牌面板 + 右侧 MD3 表单面板。
+  body.beenest-login 触发浅色企业主题。
 -->
 <body class="beenest-login">
 
   <div layout:fragment="content" th:with="loginFormEnabled=${#cas.isTrue(#cas.theme('cas.login-form.enabled'))},
                                             loginFormViewable=${#cas.isLoginFormViewable(#vars)}">
 
-    <!-- 左上角品牌（固定定位，在卡片外层） -->
-    <div class="md-login-brand">
-      <div class="md-brand-icon">
-        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
-          <path d="M16 6L8 12v10l8 4 8-4V12L16 6z" fill="currentColor" opacity="0.9"/>
-          <path d="M16 6v20M8 12l8 4 8-4M8 22l8-6 8 6" stroke="#fff" stroke-width="0.5" opacity="0.4"/>
-        </svg>
+    <div class="split-layout">
+
+      <!-- ========== 左侧品牌面板（55%） ========== -->
+      <div class="split-left">
+        <div class="mesh-gradient">
+          <div class="orb orb-1"></div>
+          <div class="orb orb-2"></div>
+          <div class="orb orb-3"></div>
+          <div class="orb orb-4"></div>
+        </div>
+        <div class="mesh-grid"></div>
+
+        <div class="split-left-content">
+          <div class="split-brand">
+            <div class="split-brand-icon">
+              <svg viewBox="0 0 32 32" fill="none">
+                <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
+                <path d="M16 6L8 12v10l8 4 8-4V12L16 6z" fill="currentColor" opacity="0.9"/>
+              </svg>
+            </div>
+            <div class="split-brand-text">
+              <span class="split-brand-name">数界探索</span>
+              <span class="split-brand-tagline">Digital Boundary Exploration</span>
+            </div>
+          </div>
+
+          <div class="split-hero">
+            <h2 class="split-hero-title">以科技丈量天地<br/>用智慧连接未来</h2>
+            <p class="split-hero-subtitle">探索低空经济新边界，让无人机服务触手可及</p>
+          </div>
+
+          <div class="split-features">
+            <div class="split-feature">
+              <div class="split-feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              </div>
+              <div>
+                <div class="split-feature-title">无人机约飞服务</div>
+                <div class="split-feature-desc">一键预约，智能调度，专业飞行尽在掌握</div>
+              </div>
+            </div>
+            <div class="split-feature">
+              <div class="split-feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a4 4 0 014 4c0 1.95-1.4 3.58-3.25 3.93"/><path d="M8.5 8.5L5 12l3.5 3.5"/><path d="M15.5 8.5L19 12l-3.5 3.5"/><circle cx="12" cy="18" r="3"/></svg>
+              </div>
+              <div>
+                <div class="split-feature-title">AI 智能应用</div>
+                <div class="split-feature-desc">深度学习驱动，赋能行业智能化转型</div>
+              </div>
+            </div>
+            <div class="split-feature">
+              <div class="split-feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
+              </div>
+              <div>
+                <div class="split-feature-title">数字空间构建</div>
+                <div class="split-feature-desc">空地协同，打造三维数字世界新基建</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <h1 class="md-brand-title">Beenest</h1>
-      <p class="md-brand-subtitle">统一身份认证平台</p>
+
+      <!-- ========== 右侧表单面板（45%） ========== -->
+      <div class="split-right">
+        <div class="split-right-inner">
+
+          <!-- SSO 已存在提示 -->
+          <div class="md-alert md-alert-warning"
+               th:if="${existingSingleSignOnSessionAvailable}">
+            <svg class="md-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            <span>
+              <span th:if="${registeredService}"
+                    th:utext="#{screen.welcome.forcedsso(${existingSingleSignOnSessionPrincipal?.id},${registeredService.name})}" />
+              <span th:unless="${registeredService}"
+                    th:utext="#{screen.welcome.forcedsso(${existingSingleSignOnSessionPrincipal?.id}, 'CAS')}" />
+            </span>
+          </div>
+
+          <!-- 登录表单区域 -->
+          <div th:if="${loginFormViewable and loginFormEnabled}">
+
+            <div class="md-form-header">
+              <h2 class="md-form-title">欢迎回来</h2>
+              <p class="md-form-subtitle">登录数界探索平台，开启智能服务</p>
+            </div>
+
+            <!-- MD3 Tab 切换 -->
+            <div class="md-tabs" id="modeSwitch">
+              <button type="button" class="md-tab is-active" data-mode="password"
+                      onclick="switchLoginMode('password')">账号登录</button>
+              <button type="button" class="md-tab" data-mode="sms"
+                      onclick="switchLoginMode('sms')">短信登录</button>
+              <div class="md-tab-indicator"></div>
+            </div>
+
+            <form method="post" id="fm1" th:object="${credential}" action="login"
+                  onsubmit="loginFormSubmission();">
+
+              <!-- 认证错误消息 -->
+              <div class="md-alert md-alert-error"
+                   th:if="${#fields.hasErrors('*')}" role="alert">
+                <svg class="md-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}">Error message</span>
+              </div>
+
+              <!-- ===== 密码登录模式 ===== -->
+              <div id="passwordMode" class="md-form">
+                <div class="md-field">
+                  <input type="text" id="username" name="username"
+                         th:field="*{username}"
+                         th:readonly="!${#cas.isLoginFormUsernameInputVisible(#vars)}"
+                         placeholder=" "
+                         autocapitalize="none" spellcheck="false"
+                         autocomplete="username" required />
+                  <label for="username">用户名 / 手机号</label>
+                </div>
+
+                <div class="md-field">
+                  <input type="password" id="password" name="password"
+                         th:field="*{password}"
+                         placeholder=" "
+                         autocomplete="current-password" required />
+                  <label for="password">密码</label>
+                </div>
+
+                <!-- 认证源选择 -->
+                <div class="md-field" th:if="${availableAuthenticationHandlerNames != null and availableAuthenticationHandlerNames.size() > 1}">
+                  <select id="source" name="source">
+                    <option value="" disabled selected></option>
+                    <option th:each="handler : ${availableAuthenticationHandlerNames}"
+                            th:value="${handler}" th:text="${handler}">Source</option>
+                  </select>
+                  <label for="source">认证源</label>
+                </div>
+
+                <!-- Remember Me -->
+                <div class="md-option" th:if="${rememberMeAuthenticationEnabled}">
+                  <label class="md-checkbox">
+                    <input type="checkbox" name="rememberMe" id="rememberMe" value="true" />
+                    <span class="md-checkbox-box"></span>
+                    <span>记住我（30天）</span>
+                  </label>
+                </div>
+
+                <!-- 警告重定向 -->
+                <div class="md-option" th:if="${#cas.isTrue(#cas.theme('cas.warn-on-redirect.enabled'))}">
+                  <label class="md-checkbox">
+                    <input type="checkbox" name="warn" id="warn" value="true" />
+                    <span class="md-checkbox-box"></span>
+                    <span>转向前警告</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- ===== 短信验证码登录模式 ===== -->
+              <div id="smsMode" class="md-form is-hidden">
+                <div class="md-field">
+                  <input type="text" id="smsPhone" data-sms-field="username"
+                         placeholder=" "
+                         autocapitalize="none" spellcheck="false"
+                         autocomplete="tel" />
+                  <label for="smsPhone">手机号</label>
+                </div>
+
+                <div class="md-field md-field-sms">
+                  <input type="text" id="smsCode" data-sms-field="password"
+                         placeholder=" "
+                         autocomplete="one-time-code" />
+                  <label for="smsCode">验证码</label>
+                  <button type="button" class="md-sms-btn" id="sendSmsBtn"
+                          onclick="sendSmsCode()">获取验证码</button>
+                </div>
+
+                <p class="md-hint">验证码将发送至注册手机号，首次登录自动创建账号。</p>
+              </div>
+
+              <!-- Hidden CAS form fields -->
+              <div class="md-hidden">
+                <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+                <input type="hidden" name="loginMethod" id="loginMethod" value="password" />
+                <input type="hidden" name="_eventId" value="submit" />
+                <input type="hidden" name="geolocation" />
+                <input type="hidden" name="deviceFingerprint" />
+                <p th:if="${#strings.equalsIgnoreCase(httpRequestMethod, 'POST')}">
+                  <span th:each="entry : ${httpRequestInitialPostParameters}" th:remove="tag">
+                    <span th:each="entryValue : ${entry.value}" th:remove="tag">
+                      <input type="hidden" th:name="${entry.key}" th:value="${entryValue}" />
+                    </span>
+                  </span>
+                </p>
+              </div>
+
+              <!-- MD3 Filled Button -->
+              <button type="submit" class="md-btn md-btn-filled" id="submitBtn">
+                <span class="md-btn-text" th:text="#{screen.welcome.button.login}">登 录</span>
+              </button>
+            </form>
+
+            <!-- 密码管理链接 -->
+            <div class="md-links" th:if="${#cas.isTrue(#cas.theme('cas.pm-links.enabled')) or accountRegistrationEnabled}">
+              <a th:if="${#cas.isTrue(#cas.theme('cas.pm-links.enabled'))}"
+                 th:href="@{/login}"
+                 onclick="event.preventDefault(); location.href = contextPath + '/login?action=resetPassword';">
+                忘记密码？
+              </a>
+              <a th:if="${accountRegistrationEnabled}"
+                 href="#"
+                 onclick="event.preventDefault(); document.getElementById('signupForm').submit();">
+                注册账号
+              </a>
+            </div>
+            <form id="signupForm" method="post" action="login" class="md-hidden"
+                  th:if="${accountRegistrationEnabled}">
+              <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
+              <input type="hidden" name="_eventId" value="signup" />
+            </form>
+          </div>
+
+          <!-- 登录表单不可用时的 fallback -->
+          <div th:unless="${loginFormViewable and loginFormEnabled}" class="md-fallback">
+            <div th:if="${#fields.hasErrors('*')}">
+              <div class="md-alert md-alert-error">
+                <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}">Error</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 条款提示 -->
+          <p class="md-terms" th:if="${#cas.isTrue(#cas.theme('cas.login-form.terms-of-use.enabled'))}">
+            登录即表示您同意<a href="#">服务条款</a>和<a href="#">隐私政策</a>
+          </p>
+
+          <footer class="md-footer">
+            <span>&copy; 2024–2026 深圳数界探索科技有限公司</span>
+          </footer>
+
+        </div>
+      </div>
+
     </div>
-
-    <div class="md-login">
-
-      <!-- SSO 已存在提示 -->
-      <div class="md-alert md-alert-warning"
-           th:if="${existingSingleSignOnSessionAvailable}">
-        <svg class="md-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-        <span>
-          <span th:if="${registeredService}"
-                th:utext="#{screen.welcome.forcedsso(${existingSingleSignOnSessionPrincipal?.id},${registeredService.name})}" />
-          <span th:unless="${registeredService}"
-                th:utext="#{screen.welcome.forcedsso(${existingSingleSignOnSessionPrincipal?.id}, 'CAS')}" />
-        </span>
-      </div>
-
-      <!-- 登录表单区域 -->
-      <div th:if="${loginFormViewable and loginFormEnabled}">
-
-        <!-- MD3 Tab 切换 -->
-        <div class="md-tabs" id="modeSwitch">
-          <button type="button" class="md-tab is-active" data-mode="password"
-                  onclick="switchLoginMode('password')">账号登录</button>
-          <button type="button" class="md-tab" data-mode="sms"
-                  onclick="switchLoginMode('sms')">短信登录</button>
-          <div class="md-tab-indicator"></div>
-        </div>
-
-        <form method="post" id="fm1" th:object="${credential}" action="login"
-              onsubmit="loginFormSubmission();">
-
-          <!-- 认证错误消息 -->
-          <div class="md-alert md-alert-error"
-               th:if="${#fields.hasErrors('*')}" role="alert">
-            <svg class="md-alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
-            <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}">Error message</span>
-          </div>
-
-          <!-- ===== 密码登录模式 ===== -->
-          <div id="passwordMode" class="md-form">
-            <div class="md-field">
-              <label for="username">用户名 / 手机号</label>
-              <input type="text" id="username" name="username"
-                     th:field="*{username}"
-                     th:readonly="!${#cas.isLoginFormUsernameInputVisible(#vars)}"
-                     placeholder="请输入用户名或手机号"
-                     autocapitalize="none" spellcheck="false"
-                     autocomplete="username" required />
-            </div>
-
-            <div class="md-field">
-              <label for="password">密码</label>
-              <input type="password" id="password" name="password"
-                     th:field="*{password}"
-                     placeholder="请输入密码"
-                     autocomplete="current-password" required />
-            </div>
-
-            <!-- 认证源选择 -->
-            <div class="md-field" th:if="${availableAuthenticationHandlerNames != null and availableAuthenticationHandlerNames.size() > 1}">
-              <label for="source">认证源</label>
-              <select id="source" name="source">
-                <option th:each="handler : ${availableAuthenticationHandlerNames}"
-                        th:value="${handler}" th:text="${handler}">Source</option>
-              </select>
-            </div>
-
-            <!-- Remember Me -->
-            <div class="md-option" th:if="${rememberMeAuthenticationEnabled}">
-              <label class="md-checkbox">
-                <input type="checkbox" name="rememberMe" id="rememberMe" value="true" />
-                <span class="md-checkbox-box"></span>
-                <span>记住我（30天）</span>
-              </label>
-            </div>
-
-            <!-- 警告重定向 -->
-            <div class="md-option" th:if="${#cas.isTrue(#cas.theme('cas.warn-on-redirect.enabled'))}">
-              <label class="md-checkbox">
-                <input type="checkbox" name="warn" id="warn" value="true" />
-                <span class="md-checkbox-box"></span>
-                <span>转向前警告</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- ===== 短信验证码登录模式 ===== -->
-          <div id="smsMode" class="md-form is-hidden">
-            <div class="md-field">
-              <label for="smsPhone">手机号</label>
-              <input type="text" id="smsPhone" data-sms-field="username"
-                     placeholder="请输入手机号"
-                     autocapitalize="none" spellcheck="false"
-                     autocomplete="tel" />
-            </div>
-
-            <div class="md-field md-field-sms">
-              <label for="smsCode">验证码</label>
-              <input type="text" id="smsCode" data-sms-field="password"
-                     placeholder="请输入验证码"
-                     autocomplete="one-time-code" />
-              <button type="button" class="md-sms-btn" id="sendSmsBtn"
-                      onclick="sendSmsCode()">获取验证码</button>
-            </div>
-
-            <p class="md-hint">验证码将发送至注册手机号，首次登录自动创建账号。</p>
-          </div>
-
-          <!-- Hidden CAS form fields -->
-          <div class="md-hidden">
-            <input type="hidden" name="execution" th:value="${flowExecutionKey}" />
-            <input type="hidden" name="_eventId" value="submit" />
-            <input type="hidden" name="geolocation" />
-            <input type="hidden" name="deviceFingerprint" />
-            <p th:if="${#strings.equalsIgnoreCase(httpRequestMethod, 'POST')}">
-              <span th:each="entry : ${httpRequestInitialPostParameters}" th:remove="tag">
-                <span th:each="entryValue : ${entry.value}" th:remove="tag">
-                  <input type="hidden" th:name="${entry.key}" th:value="${entryValue}" />
-                </span>
-              </span>
-            </p>
-          </div>
-
-          <!-- MD3 Filled Button -->
-          <button type="submit" class="md-btn md-btn-filled" id="submitBtn">
-            <span class="md-btn-text" th:text="#{screen.welcome.button.login}">登 录</span>
-          </button>
-        </form>
-
-        <!-- 密码管理链接 -->
-        <div class="md-links" th:if="${#cas.isTrue(#cas.theme('cas.pm-links.enabled'))}">
-          <a th:href="@{/login}"
-             onclick="event.preventDefault(); location.href = contextPath + '/login?action=resetPassword';">
-            忘记密码？
-          </a>
-        </div>
-      </div>
-
-      <!-- 登录表单不可用时的 fallback -->
-      <div th:unless="${loginFormViewable and loginFormEnabled}" class="md-fallback">
-        <div th:if="${#fields.hasErrors('*')}">
-          <div class="md-alert md-alert-error">
-            <span th:each="err : ${#fields.errors('*')}" th:utext="${err + ' '}">Error</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 条款提示 -->
-      <p class="md-terms" th:if="${#cas.isTrue(#cas.theme('cas.login-form.terms-of-use.enabled'))}">
-        登录即表示您同意<a href="#">服务条款</a>和<a href="#">隐私政策</a>
-      </p>
-
-    </div>
-
-    <!-- 底部版权 -->
-    <footer class="md-footer">
-      <span>&copy; 2024–2026 Beenest</span>
-      <span class="md-footer-dot">&middot;</span>
-      <span>Powered by Apereo CAS 7.3</span>
-    </footer>
 
     <!-- ===== 登录页面内联脚本 ===== -->
     <script th:inline="javascript">
@@ -201,7 +270,6 @@
           tab.classList.toggle('is-active', tab.dataset.mode === mode);
         });
 
-        // 移动 tab indicator
         var indicator = document.querySelector('.md-tab-indicator');
         var activeTab = document.querySelector('.md-tab.is-active');
         if (indicator && activeTab) {
@@ -210,6 +278,8 @@
         }
 
         if (mode === 'password') {
+          var loginMethod = document.getElementById('loginMethod');
+          if (loginMethod) loginMethod.value = 'password';
           passwordMode.classList.remove('is-hidden');
           smsMode.classList.add('is-hidden');
           var smsInputs = smsMode.querySelectorAll('input[type="text"], input[type="tel"]');
@@ -219,6 +289,8 @@
           if (pwdUsername) pwdUsername.setAttribute('required', 'required');
           if (pwdPassword) pwdPassword.setAttribute('required', 'required');
         } else {
+          var loginMethod = document.getElementById('loginMethod');
+          if (loginMethod) loginMethod.value = 'sms';
           passwordMode.classList.add('is-hidden');
           smsMode.classList.remove('is-hidden');
           var pwdInputs = passwordMode.querySelectorAll('input[required]');
@@ -226,7 +298,6 @@
         }
       }
 
-      // 初始化 tab indicator 位置
       document.addEventListener('DOMContentLoaded', function() {
         var activeTab = document.querySelector('.md-tab.is-active');
         var indicator = document.querySelector('.md-tab-indicator');
