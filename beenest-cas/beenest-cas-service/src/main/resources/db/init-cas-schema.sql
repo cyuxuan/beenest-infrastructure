@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS cas_user (
     user_id                 VARCHAR(32) NOT NULL UNIQUE,
     user_type               VARCHAR(20) DEFAULT 'CUSTOMER',
     identity                VARCHAR(20),
+    roles                   VARCHAR(500)    DEFAULT NULL,
     source                  VARCHAR(20) DEFAULT 'WEB',
     login_type              VARCHAR(20),
     -- 微信
