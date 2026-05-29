@@ -449,6 +449,47 @@ public Map<String, Object> createInvitation(
 
 ## 配置变更
 
+### 邮件发送配置（QQ 邮箱 SMTP）
+
+CAS 原生 `CommunicationsManager` 通过 Spring Boot `spring.mail` 配置发送邮件。
+
+**application.yml**（敏感信息通过环境变量注入）：
+
+```yaml
+spring:
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+          socketFactory:
+            class: javax.net.ssl.SSLSocketFactory
+            port: 465
+
+cas:
+  notifications:
+    core:
+      email:
+        from: ${MAIL_USERNAME:}
+        subject: "[Beenest] 账号开通通知"
+      sms:
+        enabled: false  # 暂不启用 SMS 通知，使用阿里云短信单独配置
+```
+
+**.env**（本地开发，不提交到 git）：
+
+```
+MAIL_USERNAME=你的QQ邮箱@qq.com
+MAIL_PASSWORD=hzfrvhrcbotdbgcd
+```
+
 ### application.yml
 
 ```yaml
@@ -461,14 +502,12 @@ management:
 cas:
   acct-mgmt:
     registration:
-      # 原生配置，控制注册令牌过期时间和邮件模板
       core:
         account-registration-properties-location: classpath:/account-registration-properties/registration-properties.json
 
 beenest:
   user:
     auto-grant-service-ids: ${BEENEST_AUTO_GRANT_SERVICE_IDS:10001}
-    # 自动赋予的角色映射：serviceId → 角色
     auto-grant-roles:
       10001: ROLE_DRONE_SYSTEM
       10003: ROLE_PAYMENT
@@ -495,7 +534,8 @@ beenest:
 | `BeenestAccessStrategy.java` | **删除** |
 | `AppAccessService.java` | **删除** |
 | `BeenestServiceConfiguration.java` 或 `CasOverlayOverrideConfiguration.java` | 移除空壳 Bean，注册新 Endpoint Bean |
-| `application.yml` | `exposure.include` 追加 `casUsers,serviceAuthorization`；添加 `auto-grant-roles` |
+| `application.yml` | `exposure.include` 追加 `casUsers,serviceAuthorization`；添加 `auto-grant-roles`；添加 `spring.mail` + `cas.notifications` 邮件配置 |
+| `.env` | 追加 `MAIL_USERNAME` 和 `MAIL_PASSWORD` 环境变量 |
 | `casPalantirDashboardView.html` | 添加 Account tab 和 Authorization tab fragment |
 | `navigationsidebar.html` | 添加 Account 和 Authorization 导航项 |
 | `dashboardtabs.html` | 添加 Account 和 Authorization tab 按钮 |
