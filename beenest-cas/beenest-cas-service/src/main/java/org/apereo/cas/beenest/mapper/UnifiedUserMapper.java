@@ -73,5 +73,38 @@ public interface UnifiedUserMapper {
      * @param userId 用户ID（cas_user.id，而非 user_id 业务标识）
      * @return 影响行数：1=已解锁，0=未解锁（非锁定或未到期）
      */
+    /**
+     * 分页查询用户列表
+     */
+    List<UnifiedUserDO> selectAllPaged(@Param("query") String query,
+                                       @Param("status") Integer status,
+                                       @Param("offset") long offset,
+                                       @Param("limit") int limit);
+
+    /**
+     * 统计符合条件的用户数
+     */
+    long countByQuery(@Param("query") String query, @Param("status") Integer status);
+
+    /**
+     * 根据角色查询用户列表
+     */
+    List<UnifiedUserDO> selectByRole(@Param("role") String role);
+
+    /**
+     * 为用户追加角色（仅当角色不存在时追加）
+     */
+    int addRole(@Param("userId") String userId, @Param("role") String role);
+
+    /**
+     * 为用户移除角色
+     */
+    int removeRole(@Param("userId") String userId, @Param("role") String role);
+
+    /**
+     * 更新必须修改密码标记
+     */
+    void updateMustChangePassword(@Param("userId") String userId, @Param("mustChangePassword") boolean mustChangePassword);
+
     int unlockAccountIfNeeded(@Param("userId") Long userId);
 }

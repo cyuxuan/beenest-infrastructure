@@ -16,6 +16,8 @@ public class UnifiedUserDO {
     private String userId;
     private String userType;
     private String identity;
+    /** 用户应用角色（逗号分隔），如 "ROLE_DRONE_SYSTEM,ROLE_PAYMENT" */
+    private String roles;
     private String source;
     private String loginType;
 

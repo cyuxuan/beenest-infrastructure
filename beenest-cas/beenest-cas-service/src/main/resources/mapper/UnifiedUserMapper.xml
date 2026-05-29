@@ -9,7 +9,7 @@
         phone_verified, email_verified, mfa_enabled,
         status, failed_login_count, lock_until_time,
         last_login_time, last_login_ip, last_login_ua, last_login_device, token_version,
-        created_time, updated_time
+        created_time, updated_time, roles
     </sql>
 
     <select id="selectByUserId" resultType="org.apereo.cas.beenest.entity.UnifiedUserDO">
@@ -152,5 +152,65 @@
             #{uid}
         </foreach>
     </select>
+
+    <select id="selectAllPaged" resultType="org.apereo.cas.beenest.entity.UnifiedUserDO">
+        SELECT <include refid="columns"/> FROM cas_user u
+        WHERE u.status != 4
+        <if test="query != null and query != ''">
+            AND (u.username LIKE '%' || #{query} || '%'
+                 OR u.nickname LIKE '%' || #{query} || '%'
+                 OR u.phone LIKE '%' || #{query} || '%'
+                 OR u.email LIKE '%' || #{query} || '%'
+                 OR u.user_id LIKE '%' || #{query} || '%')
+        </if>
+        <if test="status != null">
+            AND u.status = #{status}
+        </if>
+        ORDER BY u.created_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByQuery" resultType="long">
+        SELECT COUNT(*) FROM cas_user u
+        WHERE u.status != 4
+        <if test="query != null and query != ''">
+            AND (u.username LIKE '%' || #{query} || '%'
+                 OR u.nickname LIKE '%' || #{query} || '%'
+                 OR u.phone LIKE '%' || #{query} || '%'
+                 OR u.email LIKE '%' || #{query} || '%'
+                 OR u.user_id LIKE '%' || #{query} || '%')
+        </if>
+        <if test="status != null">
+            AND u.status = #{status}
+        </if>
+    </select>
+
+    <select id="selectByRole" resultType="org.apereo.cas.beenest.entity.UnifiedUserDO">
+        SELECT <include refid="columns"/> FROM cas_user u
+        WHERE u.status != 4 AND u.roles LIKE '%' || #{role} || '%'
+        ORDER BY u.created_time DESC
+    </select>
+
+    <update id="addRole">
+        UPDATE cas_user SET
+            roles = CASE WHEN roles IS NULL OR roles = '' THEN #{role}
+                         ELSE roles || ',' || #{role} END,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND (roles IS NULL OR roles NOT LIKE '%' || #{role} || '%')
+    </update>
+
+    <update id="removeRole">
+        UPDATE cas_user SET
+            roles = TRIM(BOTH ',' FROM
+                REPLACE(REPLACE(',' || roles || ',', ',' || #{role} || ',', ','), ',,', ',')),
+            updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="updateMustChangePassword">
+        UPDATE cas_user SET must_change_password = #{mustChangePassword}, updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+    </update>
 
 </mapper>
