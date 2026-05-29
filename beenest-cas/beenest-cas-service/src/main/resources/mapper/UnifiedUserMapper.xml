@@ -132,6 +132,19 @@
         WHERE user_id = #{userId}
     </update>
 
+    <!-- 原子性解锁已过期的锁定账号：status=2 且 lock_until_time 已到期时恢复为正常状态 -->
+    <update id="unlockAccountIfNeeded">
+        UPDATE cas_user SET
+            status = 1,
+            failed_login_count = 0,
+            lock_until_time = NULL,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{userId}
+          AND status = 2
+          AND lock_until_time IS NOT NULL
+          AND lock_until_time &lt;= CURRENT_TIMESTAMP
+    </update>
+
     <select id="selectByUserIds" resultType="org.apereo.cas.beenest.entity.UnifiedUserDO">
         SELECT <include refid="columns"/> FROM cas_user
         WHERE status != 4 AND user_id IN

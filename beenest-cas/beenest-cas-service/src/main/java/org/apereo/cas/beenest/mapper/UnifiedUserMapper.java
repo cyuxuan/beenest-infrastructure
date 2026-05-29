@@ -63,4 +63,15 @@ public interface UnifiedUserMapper {
 
     /** 锁定账号到指定时间 */
     void lockAccount(@Param("userId") String userId, @Param("lockUntilTime") LocalDateTime lockUntilTime);
+
+    /**
+     * 原子性解锁已过期的锁定账号（防并发）。
+     * <p>
+     * 当 status=2 且 lock_until_time 已到期时，一次性恢复为正常状态。
+     * 使用 WHERE 条件保证原子性，避免读→判断→写的竞态条件。
+     *
+     * @param userId 用户ID（cas_user.id，而非 user_id 业务标识）
+     * @return 影响行数：1=已解锁，0=未解锁（非锁定或未到期）
+     */
+    int unlockAccountIfNeeded(@Param("userId") Long userId);
 }

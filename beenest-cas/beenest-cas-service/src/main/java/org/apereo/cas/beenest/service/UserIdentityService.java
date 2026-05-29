@@ -1,5 +1,7 @@
 package org.apereo.cas.beenest.service;
 
+import org.apereo.cas.beenest.authn.exception.AccountDisabledException;
+import org.apereo.cas.beenest.authn.exception.AccountLockedException;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.util.UserTypeUtils;
@@ -12,6 +14,8 @@ import org.springframework.dao.DuplicateKeyException;
 
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -251,6 +255,8 @@ public class UserIdentityService {
 
     /**
      * 检查账号是否允许继续登录/合并。
+     * <p>
+     * 锁定账号如果已过自动解锁时间，则原子性恢复为正常状态并允许登录。
      *
      * @param user 用户
      */
@@ -258,12 +264,39 @@ public class UserIdentityService {
         if (user == null || user.getStatus() == null) {
             return;
         }
+        // 1. 锁定状态：尝试自动解锁
         if (user.getStatus() == CasConstant.USER_STATUS_LOCKED) {
-            throw new BizException(403, "关联账号已被锁定，请联系管理员");
+            int unlocked = userMapper.unlockAccountIfNeeded(user.getId());
+            if (unlocked > 0) {
+                LOGGER.info("账号自动解锁: userId={}, lockUntilTime={}", user.getUserId(), user.getLockUntilTime());
+                user.setStatus(CasConstant.USER_STATUS_ACTIVE);
+                user.setFailedLoginCount(0);
+                user.setLockUntilTime(null);
+                return;
+            }
+            // 仍在锁定期，计算剩余分钟数
+            long remainingMinutes = calculateRemainingLockMinutes(user.getLockUntilTime());
+            throw new BizException(403, "账号已锁定，" + remainingMinutes + "分钟后自动解锁");
         }
+        // 2. 禁用状态：不允许登录
         if (user.getStatus() == CasConstant.USER_STATUS_DISABLED) {
-            throw new BizException(403, "关联账号已被禁用，请联系管理员");
+            throw new BizException(403, "账号已禁用，请联系管理员");
         }
+        // 3. 已删除状态
+        if (user.getStatus() == CasConstant.USER_STATUS_DELETED) {
+            throw new BizException(403, "账号不存在");
+        }
+    }
+
+    /**
+     * 计算账号锁定的剩余分钟数（向上取整，最少1分钟）。
+     */
+    private long calculateRemainingLockMinutes(LocalDateTime lockUntilTime) {
+        if (lockUntilTime == null) {
+            return CasConstant.LOCK_DURATION_MINUTES;
+        }
+        long seconds = Duration.between(LocalDateTime.now(), lockUntilTime).getSeconds();
+        return Math.max(1, (seconds + 59) / 60);
     }
 
     /**

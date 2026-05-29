@@ -1,6 +1,9 @@
 package org.apereo.cas.beenest.authn.handler;
 
+import org.apereo.cas.beenest.authn.exception.AccountDisabledException;
+import org.apereo.cas.beenest.authn.exception.AccountLockedException;
 import org.apereo.cas.beenest.authn.web.WebLoginModeResolver;
+import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import javax.security.auth.login.FailedLoginException;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,16 +58,26 @@ public class UsernamePasswordAuthenticationHandler implements AuthenticationHand
 
         UnifiedUserDO user = userMapper.selectByUsername(username);
         if (user == null) {
-            throw new FailedLoginException("账号不存在");
+            LOGGER.debug("用户不存在: {}", username);
+            throw new FailedLoginException("用户名或密码错误");
         }
-        if (user.getStatus() != null && user.getStatus() != 1) {
-            throw new FailedLoginException("账号已禁用");
-        }
+
+        // 1. 检查账号状态（含自动解锁）
+        ensureLoginAllowed(user);
+
+        // 2. 校验密码
         if (StringUtils.isBlank(user.getPasswordHash())) {
-            throw new FailedLoginException("账号未设置密码");
+            LOGGER.debug("账号未设置密码: userId={}", user.getUserId());
+            throw new FailedLoginException("用户名或密码错误");
         }
         if (!PASSWORD_ENCODER.matches(rawPassword, user.getPasswordHash())) {
-            throw new FailedLoginException("用户名或密码错误");
+            handleLoginFailure(user);
+        }
+
+        // 3. 登录成功，重置失败计数
+        if (user.getFailedLoginCount() != null && user.getFailedLoginCount() > 0) {
+            userMapper.resetFailedLoginCount(user.getUserId());
+            LOGGER.info("登录成功，重置失败计数: userId={}", user.getUserId());
         }
 
         Map<String, List<Object>> attributes = buildUserAttributes(user);
@@ -73,6 +88,78 @@ public class UsernamePasswordAuthenticationHandler implements AuthenticationHand
     @Override
     public boolean supports(final Credential credential) {
         return credential instanceof UsernamePasswordCredential && WebLoginModeResolver.isPasswordMode();
+    }
+
+    /**
+     * 检查账号是否允许登录，支持自动解锁。
+     * <p>
+     * 锁定账号如果已过自动解锁时间，则恢复为正常状态并允许登录；
+     * 仍在锁定期则抛出异常并提示剩余时间。
+     */
+    private void ensureLoginAllowed(final UnifiedUserDO user)
+            throws AccountLockedException, AccountDisabledException, FailedLoginException {
+        if (user.getStatus() == null) {
+            return;
+        }
+        // 锁定状态：尝试自动解锁
+        if (user.getStatus() == CasConstant.USER_STATUS_LOCKED) {
+            int unlocked = userMapper.unlockAccountIfNeeded(user.getId());
+            if (unlocked > 0) {
+                LOGGER.info("密码登录自动解锁: userId={}, lockUntilTime={}", user.getUserId(), user.getLockUntilTime());
+                user.setStatus(CasConstant.USER_STATUS_ACTIVE);
+                user.setFailedLoginCount(0);
+                user.setLockUntilTime(null);
+                return;
+            }
+            long remainingMinutes = calculateRemainingLockMinutes(user.getLockUntilTime());
+            LOGGER.warn("账号仍在锁定期: userId={}, 剩余{}分钟", user.getUserId(), remainingMinutes);
+            throw new AccountLockedException("账号已锁定，请" + remainingMinutes + "分钟后重试");
+        }
+        // 禁用状态：不允许登录
+        if (user.getStatus() == CasConstant.USER_STATUS_DISABLED) {
+            throw new AccountDisabledException("账号已禁用，请联系管理员");
+        }
+        // 已删除状态：统一模糊提示，防止账号枚举攻击
+        if (user.getStatus() == CasConstant.USER_STATUS_DELETED) {
+            LOGGER.debug("已删除账号尝试登录: userId={}", user.getUserId());
+            throw new FailedLoginException("用户名或密码错误");
+        }
+    }
+
+    /**
+     * 处理登录失败：递增失败计数，达到阈值则锁定账号。
+     */
+    private void handleLoginFailure(final UnifiedUserDO user)
+            throws AccountLockedException, FailedLoginException {
+        // 1. 递增失败计数（原子操作）
+        userMapper.incrementFailedLoginCount(user.getUserId());
+        int newCount = (user.getFailedLoginCount() != null ? user.getFailedLoginCount() : 0) + 1;
+
+        // 2. 达到锁定阈值：锁定账号
+        if (newCount >= CasConstant.MAX_FAILED_LOGIN_ATTEMPTS) {
+            LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(CasConstant.LOCK_DURATION_MINUTES);
+            userMapper.lockAccount(user.getUserId(), lockUntil);
+            LOGGER.warn("连续登录失败{}次，账号已锁定: userId={}, 解锁时间={}",
+                    newCount, user.getUserId(), lockUntil);
+            throw new AccountLockedException(
+                    "连续登录失败次数过多，账号已锁定，请" + CasConstant.LOCK_DURATION_MINUTES + "分钟后重试");
+        }
+
+        // 3. 未达阈值，提示剩余次数
+        int remaining = CasConstant.MAX_FAILED_LOGIN_ATTEMPTS - newCount;
+        LOGGER.debug("登录失败: userId={}, 已失败{}次, 剩余{}次", user.getUserId(), newCount, remaining);
+        throw new FailedLoginException("用户名或密码错误，还剩" + remaining + "次尝试机会");
+    }
+
+    /**
+     * 计算账号锁定的剩余分钟数（向上取整，最少1分钟）。
+     */
+    private long calculateRemainingLockMinutes(final LocalDateTime lockUntilTime) {
+        if (lockUntilTime == null) {
+            return CasConstant.LOCK_DURATION_MINUTES;
+        }
+        long seconds = Duration.between(LocalDateTime.now(), lockUntilTime).getSeconds();
+        return Math.max(1, (seconds + 59) / 60);
     }
 
     @Override
