@@ -13,8 +13,11 @@
     ]
   },
   "accessStrategy": {
-    "@class": "org.apereo.cas.beenest.authn.strategy.BeenestAccessStrategy",
+    "@class": "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
     "enabled": true,
-    "ssoEnabled": true
+    "ssoEnabled": true,
+    "requiredAttributes": {
+      "memberOf": ["java.util.ArrayList", ["ROLE_PAYMENT"]]
+    }
   }
 }

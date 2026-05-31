@@ -15,8 +15,12 @@
   "logoutType": "BACK_CHANNEL",
   "logoutUrl": "https://drone.beenest.club/cas/callback",
   "accessStrategy": {
-    "@class": "org.apereo.cas.beenest.authn.strategy.BeenestAccessStrategy",
+    "@class": "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
     "enabled": true,
-    "ssoEnabled": true
+    "ssoEnabled": true,
+    "unauthorizedRedirectUrl": "https://sso.beenest.club/cas/login",
+    "requiredAttributes": {
+      "memberOf": ["java.util.ArrayList", ["ROLE_DRONE_SYSTEM"]]
+    }
   }
 }
