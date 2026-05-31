@@ -35,6 +35,8 @@
     </script>
 
     <script type="text/javascript" th:src="@{/js/beenest-palantir-i18n.js}"></script>
+    <script type="text/javascript" th:src="@{/js/beenest-account-mgmt.js}"></script>
+    <script type="text/javascript" th:src="@{/js/beenest-service-auth.js}"></script>
     <script type="text/javascript" th:src="@{/js/palantir.js}"></script>
 </head>
 
@@ -85,6 +87,8 @@
                     <div th:replace="~{fragments/palantir/throttlestab :: main}"/>
                     <div th:replace="~{fragments/palantir/mfatab :: main}"/>
                     <div th:replace="~{fragments/palantir/multitenancytab :: main}"/>
+                    <div th:replace="~{fragments/palantir/accounttab :: main}"/>
+                    <div th:replace="~{fragments/palantir/authorizationtab :: main}"/>
                 </div>
             </div>
         </div>

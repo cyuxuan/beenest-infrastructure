@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8"/>
+</head>
+<body>
+<span th:fragment="main">
+<div id="authorizationTabPanel" class="d-none">
+    <div class="pal-tab-header">
+        <h3>服务授权</h3>
+    </div>
+    <div class="pal-split-layout">
+        <!-- 左侧：应用列表 -->
+        <div class="pal-split-left">
+            <h4>已注册应用</h4>
+            <div id="serviceListContainer" class="pal-card-list">
+                <div class="pal-loading">加载中...</div>
+            </div>
+        </div>
+        <!-- 右侧：用户列表 + 操作 -->
+        <div class="pal-split-right">
+            <div id="serviceUserPanel" class="d-none">
+                <h4 id="serviceUserName">选择一个应用</h4>
+                <div id="serviceUserInfo" class="pal-info-bar"></div>
+                <div class="pal-toolbar">
+                    <input type="text" id="authUserSearchInput" placeholder="搜索用户..."
+                           oninput="searchUsersForGrant()" class="pal-search-input"/>
+                    <button class="pal-btn pal-btn-primary" onclick="showGrantDialog()">
+                        <i class="mdi mdi-account-plus"></i>授权用户
+                    </button>
+                </div>
+                <div id="serviceUserListContainer" class="pal-table-container">
+                    <table class="pal-table">
+                        <thead>
+                            <tr>
+                                <th>用户名</th>
+                                <th>昵称</th>
+                                <th>类型</th>
+                                <th>状态</th>
+                                <th>角色</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="serviceUserListBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="noServiceSelected" class="pal-empty-state">
+                <i class="mdi mdi-arrow-left"></i>
+                <p>请从左侧选择一个应用</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 授权对话框 -->
+    <div id="grantDialog" class="pal-dialog d-none">
+        <div class="pal-dialog-overlay" onclick="hideGrantDialog()"></div>
+        <div class="pal-dialog-content">
+            <h4>授权用户访问</h4>
+            <div class="pal-form-group">
+                <label>用户 ID</label>
+                <input type="text" id="grantUserId" class="pal-input" placeholder="输入用户ID"/>
+            </div>
+            <div id="grantSearchResults" class="pal-search-results"></div>
+            <div class="pal-dialog-actions">
+                <button class="pal-btn pal-btn-primary" onclick="grantAccess()">授权</button>
+                <button class="pal-btn" onclick="hideGrantDialog()">取消</button>
+            </div>
+            <div id="grantResult" class="pal-result-msg d-none"></div>
+        </div>
+    </div>
+</div>
+</span>
+</body>
+</html>
