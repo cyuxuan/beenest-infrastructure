@@ -13,11 +13,15 @@ import org.apereo.cas.beenest.controller.MiniAppLoginController;
 import org.apereo.cas.beenest.controller.SessionManagementController;
 import org.apereo.cas.beenest.controller.SmsController;
 import org.apereo.cas.beenest.controller.TokenRefreshController;
+import org.apereo.cas.beenest.endpoint.CasUsersEndpoint;
+import org.apereo.cas.beenest.endpoint.ServiceAuthorizationEndpoint;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.apereo.cas.beenest.service.CasNativeLoginService;
 import org.apereo.cas.beenest.service.CasTokenLifecycleService;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import org.apereo.cas.beenest.service.SmsService;
+import org.apereo.cas.acct.provision.AccountRegistrationProvisioner;
+import org.apereo.cas.services.ServicesManager;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
 import org.apereo.cas.authentication.AuthenticationHandler;
@@ -239,6 +243,21 @@ public class CasOverlayOverrideConfiguration {
     public SessionManagementController sessionManagementController(
             final TicketRegistry ticketRegistry) {
         return new SessionManagementController(ticketRegistry);
+    }
+
+    // ===== Actuator 端点注册 =====
+
+    @Bean
+    public CasUsersEndpoint casUsersEndpoint(final UnifiedUserMapper userMapper,
+                                               final AccountRegistrationProvisioner registrationProvisioner) {
+        return new CasUsersEndpoint(userMapper, registrationProvisioner);
+    }
+
+    @Bean
+    public ServiceAuthorizationEndpoint serviceAuthorizationEndpoint(
+            final ServicesManager servicesManager,
+            final UnifiedUserMapper userMapper) {
+        return new ServiceAuthorizationEndpoint(servicesManager, userMapper);
     }
 
     /**
