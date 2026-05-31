@@ -1,15 +1,15 @@
 {
   "@class": "org.apereo.cas.services.CasRegisteredService",
-  "serviceId": "^https?://(beenest-payment|payment\\.beenest\\.club)(:[0-9]+)?/.*|^https?://localhost:8082/.*",
+  "serviceId": "^https://payment\\.beenest\\.club/.*",
   "name": "beenest-payment",
   "id": 10003,
-  "description": "Beenest 支付微服务",
-  "evaluationOrder": 100,
+  "description": "支付微服务",
+  "evaluationOrder": 20,
   "attributeReleasePolicy": {
     "@class": "org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy",
     "allowedAttributes": [
       "java.util.ArrayList",
-      ["userId", "username", "userType", "phone", "email", "nickname", "loginType"]
+      ["userId", "username", "userType", "phone", "email", "nickname"]
     ]
   },
   "accessStrategy": {
@@ -17,7 +17,8 @@
     "enabled": true,
     "ssoEnabled": true,
     "requiredAttributes": {
-      "memberOf": ["java.util.ArrayList", ["ROLE_PAYMENT"]]
+      "@class": "java.util.TreeMap",
+      "memberOf": ["java.util.HashSet", ["ROLE_PAYMENT"]]
     }
   }
 }

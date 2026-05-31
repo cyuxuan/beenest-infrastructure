@@ -36,6 +36,7 @@ import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.slf4j.Logger;
@@ -249,15 +250,21 @@ public class CasOverlayOverrideConfiguration {
 
     @Bean
     public CasUsersEndpoint casUsersEndpoint(final UnifiedUserMapper userMapper,
-                                               final AccountRegistrationProvisioner registrationProvisioner) {
-        return new CasUsersEndpoint(userMapper, registrationProvisioner);
+                                               final AccountRegistrationProvisioner registrationProvisioner,
+                                               final CasConfigurationProperties casProperties,
+                                               final ConfigurableApplicationContext applicationContext) {
+        log.info(">>> CasUsersEndpoint Bean 创建成功");
+        return new CasUsersEndpoint(casProperties, applicationContext, userMapper, registrationProvisioner);
     }
 
     @Bean
     public ServiceAuthorizationEndpoint serviceAuthorizationEndpoint(
             final ServicesManager servicesManager,
-            final UnifiedUserMapper userMapper) {
-        return new ServiceAuthorizationEndpoint(servicesManager, userMapper);
+            final UnifiedUserMapper userMapper,
+            final CasConfigurationProperties casProperties,
+            final ConfigurableApplicationContext applicationContext) {
+        log.info(">>> ServiceAuthorizationEndpoint Bean 创建成功");
+        return new ServiceAuthorizationEndpoint(casProperties, applicationContext, servicesManager, userMapper);
     }
 
     /**

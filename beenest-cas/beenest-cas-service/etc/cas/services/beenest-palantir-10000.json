@@ -1,15 +1,15 @@
 {
   "@class": "org.apereo.cas.services.CasRegisteredService",
-  "serviceId": "^http://localhost:8081/cas/palantir$",
+  "serviceId": "^https://sso\\.beenest\\.club/cas/.*",
   "name": "beenest-palantir",
   "id": 10000,
-  "description": "Beenest CAS Palantir 管理控制台",
-  "evaluationOrder": 50,
+  "description": "Palantir 监控面板",
+  "evaluationOrder": 1,
   "attributeReleasePolicy": {
     "@class": "org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy",
     "allowedAttributes": [
       "java.util.ArrayList",
-      ["userId", "username", "userType", "phone", "email", "nickname", "loginType"]
+      ["userId", "username", "userType"]
     ]
   },
   "accessStrategy": {
@@ -17,7 +17,8 @@
     "enabled": true,
     "ssoEnabled": true,
     "requiredAttributes": {
-      "memberOf": ["java.util.ArrayList", ["ROLE_ADMIN"]]
+      "@class": "java.util.TreeMap",
+      "memberOf": ["java.util.HashSet", ["ROLE_ADMIN"]]
     }
   }
 }

@@ -315,6 +315,12 @@ cas:
           access: ANONYMOUS
         status:
           access: ANONYMOUS
+        cas-users:
+          access: ROLE
+          required-roles: ADMIN
+        service-authorization:
+          access: ROLE
+          required-roles: ADMIN
 
 # ============================================================
 # CAS 模块开关

@@ -6,12 +6,19 @@ import org.apereo.cas.acct.provision.AccountRegistrationProvisioner;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
+import org.apereo.cas.configuration.CasConfigurationProperties;
+import org.apereo.cas.web.BaseCasRestActuatorEndpoint;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.boot.actuate.endpoint.Access;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
-import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
-import org.springframework.boot.actuate.endpoint.annotation.Selector;
-import org.springframework.boot.actuate.endpoint.annotation.WriteOperation;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.*;
 
@@ -22,14 +29,17 @@ import java.util.*;
  * Palantir 前端通过 actuatorEndpoints.casUsers 调用。
  */
 @Slf4j
-@Endpoint(id = "casUsers")
-public class CasUsersEndpoint {
+@Endpoint(id = "casUsers", defaultAccess = Access.NONE)
+public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
 
     private final UnifiedUserMapper userMapper;
     private final AccountRegistrationProvisioner registrationProvisioner;
 
-    public CasUsersEndpoint(UnifiedUserMapper userMapper,
-                            AccountRegistrationProvisioner registrationProvisioner) {
+    public CasUsersEndpoint(final CasConfigurationProperties casProperties,
+                            final ConfigurableApplicationContext applicationContext,
+                            final UnifiedUserMapper userMapper,
+                            final AccountRegistrationProvisioner registrationProvisioner) {
+        super(casProperties, applicationContext);
         this.userMapper = userMapper;
         this.registrationProvisioner = registrationProvisioner;
     }
@@ -37,8 +47,12 @@ public class CasUsersEndpoint {
     /**
      * 列出用户（分页、搜索、状态过滤）
      */
-    @ReadOperation
-    public Map<String, Object> listUsers(String query, Integer status, Integer page, Integer size) {
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> listUsers(@RequestParam(value = "query", required = false) String query,
+                                         @RequestParam(value = "status", required = false) Integer status,
+                                         @RequestParam(value = "page", required = false) Integer page,
+                                         @RequestParam(value = "size", required = false) Integer size) {
         int p = page != null ? page : 0;
         int s = size != null ? size : 20;
         long offset = (long) p * s;
@@ -58,8 +72,9 @@ public class CasUsersEndpoint {
     /**
      * 获取用户详情
      */
-    @ReadOperation
-    public Map<String, Object> getUser(@Selector String userId) {
+    @GetMapping(value = "/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> getUser(@PathVariable("userId") String userId) {
         UnifiedUserDO user = userMapper.selectByUserId(userId);
         if (user == null) {
             return Map.of("error", "用户不存在", "userId", userId);
@@ -70,15 +85,15 @@ public class CasUsersEndpoint {
     /**
      * 管理员添加用户（创建邀请）
      */
-    @WriteOperation
-    public Map<String, Object> createInvitation(@Selector String username,
-                                                 String email,
-                                                 String phone,
-                                                 String roles) {
+    @PostMapping(value = "/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> createInvitation(@PathVariable("username") String username,
+                                                @RequestParam(value = "email", required = false) String email,
+                                                @RequestParam(value = "phone", required = false) String phone,
+                                                @RequestParam(value = "roles", required = false) String roles) {
         // 1. 构造 CAS 原生 AccountRegistrationRequest
         var request = new AccountRegistrationRequest();
         request.getProperties().put("username", username);
-        // 管理员创建的用户需要后续设置密码，先填一个随机值
         request.getProperties().put("password", UUID.randomUUID().toString().replace("-", "").substring(0, 16));
         request.getProperties().put("userType", "CUSTOMER");
         if (StringUtils.isNotBlank(email)) {
@@ -91,7 +106,7 @@ public class CasUsersEndpoint {
             request.getProperties().put("roles", roles);
         }
 
-        // 2. 调用注册落库器
+        // 2. 调用原生注册落库器
         AccountRegistrationResponse response;
         try {
             response = registrationProvisioner.provision(request);
@@ -122,11 +137,12 @@ public class CasUsersEndpoint {
     /**
      * 更新用户状态（禁用/启用/解锁/强制改密）
      */
-    @WriteOperation
-    public Map<String, Object> updateUser(@Selector String userId,
-                                           Integer status,
-                                           String action,
-                                           Boolean mustChangePassword) {
+    @PostMapping(value = "/{userId}/update", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> updateUser(@PathVariable("userId") String userId,
+                                          @RequestParam(value = "status", required = false) Integer status,
+                                          @RequestParam(value = "action", required = false) String action,
+                                          @RequestParam(value = "mustChangePassword", required = false) Boolean mustChangePassword) {
         UnifiedUserDO user = userMapper.selectByUserId(userId);
         if (user == null) {
             return Map.of("error", "用户不存在", "userId", userId);

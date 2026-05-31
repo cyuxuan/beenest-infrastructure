@@ -116,6 +116,54 @@
     }
   }
 
+  /* ─── 用户管理 & 服务授权 Tab 激活 ────────────────────── */
+  function hookCustomTabs() {
+    /* palantir.js 的 sidebar 点击最终会调用 activateDashboardTab(idx)
+       → tabs.activateTab(idx) → 触发 MDCTabBar:activated DOM 事件
+       → material.js 的 listener 执行 .attribute-tab show/hide
+       我们在同一 DOM 事件上追加一个 listener，当 index=15 或 16 时
+       调用 loadAccountTab / loadAuthorizationTab 填充内容 */
+    var tabBarEl = document.getElementById("dashboardTabBar");
+    if (!tabBarEl) return false;
+
+    tabBarEl.addEventListener("MDCTabBar:activated", function (e) {
+      var idx = e.detail.index;
+      if (idx === 15 && typeof window.loadAccountTab === "function") {
+        /* attribute-tab 刚被 material.js 移除 d-none，
+           等 DOM 更新后再填充内容 */
+        setTimeout(window.loadAccountTab, 50);
+      }
+      if (idx === 16 && typeof window.loadAuthorizationTab === "function") {
+        setTimeout(window.loadAuthorizationTab, 50);
+      }
+    });
+
+    /* palantir.js 的 sidebar 点击用 .off().on("click") 覆盖式绑定，
+       任何 .on("click") 绑定都会被下一次 palantir.js 初始化覆盖掉。
+       因此使用事件委托（delegated event），绑定在父容器上不会被 .off() 影响 */
+    jQuery("nav.sidebar-navigation").on("click.pal-custom-tabs", "ul li", function () {
+      var idx = jQuery(this).data("tab-index");
+      if (idx === 15 && typeof window.loadAccountTab === "function") {
+        setTimeout(window.loadAccountTab, 100);
+      }
+      if (idx === 16 && typeof window.loadAuthorizationTab === "function") {
+        setTimeout(window.loadAuthorizationTab, 100);
+      }
+    });
+
+    /* 页面初始化时如果 localStorage 记录的 tab 是 15/16，
+       需要在 palantir.js 初始化完成后自动加载 */
+    var savedTab = window.localStorage.getItem("PalantirSelectedTab");
+    if (savedTab === "15" && typeof window.loadAccountTab === "function") {
+      setTimeout(window.loadAccountTab, 500);
+    }
+    if (savedTab === "16" && typeof window.loadAuthorizationTab === "function") {
+      setTimeout(window.loadAuthorizationTab, 500);
+    }
+
+    return true;
+  }
+
   /* ─── 初始化调度 ───────────────────────────────────────── */
   var initAttempts = 0;
   var maxInitAttempts = 120; /* ~6 秒 */
@@ -126,6 +174,7 @@
     applyAceTheme();
     applyHljsDarkTheme();
     patchJqueryUiSelectMenu();
+    hookCustomTabs();
 
     /* palantir.js 初始化完成后再修补分组行 */
     if (document.getElementById("dashboard") && !document.getElementById("dashboard").classList.contains("d-none")) {

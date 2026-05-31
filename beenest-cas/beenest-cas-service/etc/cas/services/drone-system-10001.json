@@ -1,6 +1,6 @@
 {
   "@class": "org.apereo.cas.services.CasRegisteredService",
-  "serviceId": "^https://drone.beenest.club/.*",
+  "serviceId": "^https://drone\\.beenest\\.club/.*",
   "name": "drone-system",
   "id": 10001,
   "description": "飞鸽无人机管理系统",
@@ -20,7 +20,8 @@
     "ssoEnabled": true,
     "unauthorizedRedirectUrl": "https://sso.beenest.club/cas/login",
     "requiredAttributes": {
-      "memberOf": ["java.util.ArrayList", ["ROLE_DRONE_SYSTEM"]]
+      "@class": "java.util.TreeMap",
+      "memberOf": ["java.util.HashSet", ["ROLE_DRONE_SYSTEM"]]
     }
   }
 }

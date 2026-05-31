@@ -2,14 +2,22 @@ package org.apereo.cas.beenest.endpoint;
 
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
+import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.services.RegisteredService;
 import org.apereo.cas.services.ServicesManager;
+import org.apereo.cas.web.BaseCasRestActuatorEndpoint;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.actuate.endpoint.annotation.DeleteOperation;
+import org.springframework.boot.actuate.endpoint.Access;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
-import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
-import org.springframework.boot.actuate.endpoint.annotation.Selector;
-import org.springframework.boot.actuate.endpoint.annotation.WriteOperation;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.*;
 
@@ -20,14 +28,17 @@ import java.util.*;
  * 角色名从 Service JSON 的 accessStrategy.requiredAttributes.memberOf 提取。
  */
 @Slf4j
-@Endpoint(id = "serviceAuthorization")
-public class ServiceAuthorizationEndpoint {
+@Endpoint(id = "serviceAuthorization", defaultAccess = Access.NONE)
+public class ServiceAuthorizationEndpoint extends BaseCasRestActuatorEndpoint {
 
     private final ServicesManager servicesManager;
     private final UnifiedUserMapper userMapper;
 
-    public ServiceAuthorizationEndpoint(ServicesManager servicesManager,
-                                         UnifiedUserMapper userMapper) {
+    public ServiceAuthorizationEndpoint(final CasConfigurationProperties casProperties,
+                                         final ConfigurableApplicationContext applicationContext,
+                                         final ServicesManager servicesManager,
+                                         final UnifiedUserMapper userMapper) {
+        super(casProperties, applicationContext);
         this.servicesManager = servicesManager;
         this.userMapper = userMapper;
     }
@@ -35,7 +46,8 @@ public class ServiceAuthorizationEndpoint {
     /**
      * 列出所有已注册应用及其角色要求
      */
-    @ReadOperation
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
     public List<Map<String, Object>> listServices() {
         var services = new ArrayList<Map<String, Object>>();
         for (RegisteredService svc : servicesManager.getAllServices()) {
@@ -54,15 +66,15 @@ public class ServiceAuthorizationEndpoint {
     /**
      * 列出有权限访问该服务的用户
      */
-    @ReadOperation
-    public Map<String, Object> getServiceUsers(@Selector long serviceId) {
+    @GetMapping(value = "/{serviceId}/users", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> getServiceUsers(@PathVariable("serviceId") long serviceId) {
         RegisteredService svc = servicesManager.findServiceBy(serviceId);
         if (svc == null) {
             return Map.of("error", "服务不存在", "serviceId", serviceId);
         }
         String role = extractRequiredRole(svc);
         if (role == null) {
-            // 无角色要求 = 所有已认证用户可访问
             return Map.of("serviceId", serviceId, "name", svc.getName(),
                     "requiredRole", "无", "users", List.of(), "openAccess", true);
         }
@@ -77,11 +89,32 @@ public class ServiceAuthorizationEndpoint {
     }
 
     /**
+     * 搜索用户（用于授权对话框）
+     */
+    @GetMapping(value = "/searchUsers", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> searchUsers(@RequestParam("q") String query) {
+        List<UnifiedUserDO> users = userMapper.selectAllPaged(query, null, 0, 10);
+        List<Map<String, Object>> userList = new ArrayList<>();
+        for (UnifiedUserDO u : users) {
+            Map<String, Object> info = new LinkedHashMap<>();
+            info.put("userId", u.getUserId());
+            info.put("username", u.getUsername());
+            info.put("phone", u.getPhone());
+            userList.add(info);
+        }
+        return Map.of("users", userList);
+    }
+
+    /**
      * 授权用户访问服务
      */
-    @WriteOperation
-    public Map<String, Object> grantAccess(@Selector long serviceId,
-                                            String userId) {
+    @PostMapping(value = "/grant", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> grantAccess(@RequestBody Map<String, Object> body) {
+        long serviceId = Long.parseLong(String.valueOf(body.get("serviceId")));
+        String userId = String.valueOf(body.get("userId"));
+
         RegisteredService svc = servicesManager.findServiceBy(serviceId);
         if (svc == null) {
             return Map.of("error", "服务不存在", "serviceId", serviceId);
@@ -107,9 +140,12 @@ public class ServiceAuthorizationEndpoint {
     /**
      * 撤销用户服务访问
      */
-    @DeleteOperation
-    public Map<String, Object> revokeAccess(@Selector long serviceId,
-                                             String userId) {
+    @PostMapping(value = "/revoke", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> revokeAccess(@RequestBody Map<String, Object> body) {
+        long serviceId = Long.parseLong(String.valueOf(body.get("serviceId")));
+        String userId = String.valueOf(body.get("userId"));
+
         RegisteredService svc = servicesManager.findServiceBy(serviceId);
         if (svc == null) {
             return Map.of("error", "服务不存在", "serviceId", serviceId);

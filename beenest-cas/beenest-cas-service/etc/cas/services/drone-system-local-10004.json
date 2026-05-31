@@ -1,6 +1,6 @@
 {
   "@class": "org.apereo.cas.services.CasRegisteredService",
-  "serviceId": "^https?://(localhost(:8080)?|drone\\.beenest\\.club)/login/cas$",
+  "serviceId": "^https?://(localhost(:3000)?|drone\\.beenest\\.club)/login/cas$",
   "name": "drone-system-local",
   "id": 10004,
   "description": "飞鸽无人机管理系统本地回调",
@@ -17,7 +17,8 @@
     "enabled": true,
     "ssoEnabled": true,
     "requiredAttributes": {
-      "memberOf": ["java.util.ArrayList", ["ROLE_DRONE_SYSTEM"]]
+      "@class": "java.util.TreeMap",
+      "memberOf": ["java.util.HashSet", ["ROLE_DRONE_SYSTEM"]]
     }
   }
 }

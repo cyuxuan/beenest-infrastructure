@@ -11,8 +11,8 @@ public class BcryptHashGeneratorTest {
 
     @Test
     void generateAndVerifyHash() {
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        // 符合策略: 12-128位，含大小写+数字+特殊字符
+        // 与 application.yml 中 cas.authn.pm.jdbc.password-encoder.strength=12 保持一致
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
         String rawPassword = "admin123";
         String hash = encoder.encode(rawPassword);
 

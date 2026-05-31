@@ -1,212 +1,264 @@
 /**
- * Palantir 服务授权 Tab 前端交互。
- * <p>
- * 通过 actuatorEndpoints.serviceAuthorization 调用 ServiceAuthorizationEndpoint API。
+ * Palantir 服务授权 Tab 交互逻辑
+ * 依赖：jQuery（Palantir 页面内置）、Palantir actuatorEndpoints
+ * 注意：脚本在 jQuery 之前加载，所以使用延迟初始化模式
  */
 (function () {
-    'use strict';
+  'use strict';
 
-    window.loadServices = loadServices;
-    window.selectService = selectService;
-    window.grantAccess = grantAccess;
-    window.revokeAccess = revokeAccess;
-    window.showGrantDialog = showGrantDialog;
-    window.hideGrantDialog = hideGrantDialog;
-    window.searchUsersForGrant = searchUsersForGrant;
+  var API = {
+    services: '/cas/actuator/serviceAuthorization',
+    grant: '/cas/actuator/serviceAuthorization/grant',
+    revoke: '/cas/actuator/serviceAuthorization/revoke'
+  };
 
-    let selectedServiceId = null;
-    let selectedServiceRole = null;
+  var selectedService = null;
 
-    /**
-     * 加载应用列表
-     */
-    function loadServices() {
-        fetch('/actuator/serviceAuthorization', {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (services) {
-                renderServiceList(services);
-            })
-            .catch(function (e) {
-                var container = document.getElementById('serviceListContainer');
-                container.textContent = '加载失败: ' + e.message;
-            });
-    }
+  /** 渲染服务授权 Tab */
+  function render() {
+    var $container = jQuery('#beenest-service-auth');
+    $container.html(
+      '<div class="pal-tab-header">' +
+        '<h3>服务授权</h3>' +
+      '</div>' +
+      '<div class="pal-split-layout">' +
+        // 左栏：服务列表
+        '<div class="pal-split-left">' +
+          '<h4>已注册服务</h4>' +
+          '<input type="text" class="pal-search-input" id="pal-svc-search" placeholder="搜索服务…" style="max-width:100%;margin-bottom:10px">' +
+          '<div class="pal-card-list" id="pal-svc-list"></div>' +
+        '</div>' +
+        // 右栏：已授权用户
+        '<div class="pal-split-right">' +
+          '<div id="pal-svc-detail">' +
+            '<div class="pal-empty-state">请选择左侧服务查看授权用户</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pal-dialog" id="pal-auth-dialog" style="display:none"></div>'
+    );
+    bindEvents();
+    loadServices();
+  }
 
-    function renderServiceList(services) {
-        var container = document.getElementById('serviceListContainer');
-        container.textContent = '';
-        services.forEach(function (svc) {
-            var card = document.createElement('div');
-            card.className = 'pal-card-item';
-            card.dataset.serviceId = svc.id;
+  function bindEvents() {
+    jQuery(document)
+      .off('input.pal-auth', '#pal-svc-search')
+      .on('input.pal-auth', '#pal-svc-search', filterServices)
+      .off('click.pal-auth', '.pal-svc-card')
+      .on('click.pal-auth', '.pal-svc-card', function () {
+        selectedService = { id: jQuery(this).data('svc-id'), name: jQuery(this).data('svc-name') };
+        jQuery('.pal-svc-card').removeClass('active');
+        jQuery(this).addClass('active');
+        loadServiceUsers();
+      })
+      .off('click.pal-auth', '.pal-grant-btn')
+      .on('click.pal-auth', '.pal-grant-btn', function () {
+        openAuthDialog(selectedService.id, selectedService.name, 'grant');
+      })
+      .off('click.pal-auth', '.pal-revoke-user-btn')
+      .on('click.pal-auth', '.pal-revoke-user-btn', function () {
+        var userId = jQuery(this).data('user-id');
+        var username = jQuery(this).data('username');
+        doRevoke(selectedService.id, userId, username);
+      })
+      .off('click.pal-auth', '#pal-auth-submit')
+      .on('click.pal-auth', '#pal-auth-submit', submitAuthChange)
+      .off('click.pal-auth', '#pal-auth-cancel')
+      .on('click.pal-auth', '#pal-auth-cancel', closeAuthDialog);
+  }
 
-            var nameEl = document.createElement('div');
-            nameEl.className = 'pal-card-item-name';
-            nameEl.textContent = svc.name;
-            card.appendChild(nameEl);
+  function loadServices() {
+    var $list = jQuery('#pal-svc-list');
+    $list.html('<div class="pal-loading">加载中…</div>');
 
-            var roleEl = document.createElement('div');
-            roleEl.className = 'pal-card-item-detail';
-            roleEl.textContent = '角色: ' + (svc.requiredRole || '开放访问');
-            card.appendChild(roleEl);
+    $.ajax({
+      url: API.services,
+      method: 'GET'
+    }).done(function (resp) {
+      // 端点返回的是数组（不是 {services: [...]}）
+      var svcs = Array.isArray(resp) ? resp : (resp.services || []);
+      if (svcs.length === 0) {
+        $list.html('<div class="pal-empty-state">暂无注册服务</div>');
+        return;
+      }
+      var html = '';
+      $.each(svcs, function (_, s) {
+        html += '<div class="pal-card-item pal-svc-card" data-svc-id="' + esc(s.id) + '" data-svc-name="' + esc(s.name) + '">' +
+          '<div class="pal-card-item-name">' + esc(s.name) + '</div>' +
+          '<div class="pal-card-item-detail">ID: ' + esc(s.id) + '</div>' +
+        '</div>';
+      });
+      $list.html(html);
+    }).fail(function (xhr) {
+      $list.html('<div class="pal-empty-state">加载失败</div>');
+    });
+  }
 
-            var idEl = document.createElement('div');
-            idEl.className = 'pal-card-item-detail';
-            idEl.textContent = 'ID: ' + svc.id + ' | ' + (svc.serviceId || '');
-            card.appendChild(idEl);
+  function filterServices() {
+    var q = (jQuery('#pal-svc-search').val() || '').toLowerCase();
+    jQuery('.pal-svc-card').each(function () {
+      var name = (jQuery(this).data('svc-name') || '').toLowerCase();
+      jQuery(this).toggle(name.indexOf(q) >= 0);
+    });
+  }
 
-            card.addEventListener('click', function () { selectService(svc.id); });
-            container.appendChild(card);
+  function loadServiceUsers() {
+    if (!selectedService) return;
+    var $detail = jQuery('#pal-svc-detail');
+
+    $detail.html(
+      '<h4>' + esc(selectedService.name) + ' - 授权用户</h4>' +
+      '<div class="pal-toolbar">' +
+        '<button class="pal-btn pal-btn-primary pal-grant-btn">授权用户</button>' +
+      '</div>' +
+      '<div class="pal-table-container">' +
+        '<table class="pal-table" id="pal-svc-user-table">' +
+          '<thead><tr><th>ID</th><th>用户名</th><th>手机号</th><th>授权时间</th><th>操作</th></tr></thead>' +
+          '<tbody><tr><td colspan="5" class="pal-loading">加载中…</td></tr></tbody>' +
+        '</table>' +
+      '</div>'
+    );
+
+    $.ajax({
+      url: API.services + '/' + selectedService.id + '/users',
+      method: 'GET'
+    }).done(function (resp) {
+      var users = resp.users || [];
+      var $tbody = jQuery('#pal-svc-user-table tbody');
+
+      if (users.length === 0) {
+        $tbody.html('<tr><td colspan="5" class="pal-empty-state">暂无授权用户</td></tr>');
+        return;
+      }
+
+      var html = '';
+      $.each(users, function (_, u) {
+        html += '<tr>' +
+          '<td>' + esc(u.userId) + '</td>' +
+          '<td>' + esc(u.username) + '</td>' +
+          '<td>' + esc(u.phone || '-') + '</td>' +
+          '<td>' + esc(u.grantedTime || '-') + '</td>' +
+          '<td><button class="pal-btn pal-btn-sm pal-btn-danger pal-revoke-user-btn" data-user-id="' + esc(u.userId) + '" data-username="' + esc(u.username) + '">撤销</button></td>' +
+        '</tr>';
+      });
+      $tbody.html(html);
+    }).fail(function () {
+      jQuery('#pal-svc-user-table tbody').html('<tr><td colspan="5" class="pal-empty-state">加载失败</td></tr>');
+    });
+  }
+
+  function openAuthDialog(serviceId, serviceName, mode) {
+    var $dialog = jQuery('#pal-auth-dialog');
+    $dialog.html(
+      '<div class="pal-dialog-overlay"></div>' +
+      '<div class="pal-dialog-content">' +
+        '<h4>授权用户 - ' + esc(serviceName) + '</h4>' +
+        '<div class="pal-form-group">' +
+          '<label>搜索用户</label>' +
+          '<input type="text" class="pal-input" id="pal-auth-user-search" placeholder="输入用户名或手机号搜索">' +
+        '</div>' +
+        '<div class="pal-search-results" id="pal-auth-search-results"></div>' +
+        '<div class="pal-form-group" id="pal-auth-selected" style="display:none">' +
+          '<label>已选择用户</label>' +
+          '<div id="pal-auth-selected-user" style="font-size:13px;color:var(--pal-text-0)"></div>' +
+        '</div>' +
+        '<div id="pal-auth-result"></div>' +
+        '<div class="pal-dialog-actions">' +
+          '<button class="pal-btn" id="pal-auth-cancel">取消</button>' +
+          '<button class="pal-btn pal-btn-primary" id="pal-auth-submit" data-svc-id="' + serviceId + '" disabled>确认授权</button>' +
+        '</div>' +
+      '</div>'
+    ).show();
+
+    // 搜索用户
+    var searchTimer = null;
+    jQuery(document).off('input.pal-auth-search').on('input.pal-auth-search', '#pal-auth-user-search', function () {
+      var q = jQuery(this).val().trim();
+      clearTimeout(searchTimer);
+      if (q.length < 2) { jQuery('#pal-auth-search-results').empty(); return; }
+      searchTimer = setTimeout(function () {
+        $.ajax({
+          url: API.services + '/searchUsers',
+          method: 'GET',
+          data: { q: q }
+        }).done(function (resp) {
+          var users = resp.users || [];
+          var html = '';
+          $.each(users, function (_, u) {
+            html += '<div class="pal-search-result-item" data-user-id="' + esc(u.userId) + '" data-username="' + esc(u.username) + '">' +
+              esc(u.username) + (u.phone ? ' (' + esc(u.phone) + ')' : '') +
+            '</div>';
+          });
+          jQuery('#pal-auth-search-results').html(html || '<div style="padding:8px;color:var(--pal-text-2)">无匹配用户</div>');
+        }).fail(function () {
+          jQuery('#pal-auth-search-results').html('<div style="padding:8px;color:var(--pal-text-2)">搜索失败</div>');
         });
-    }
+      }, 300);
+    });
 
-    /**
-     * 选择应用，加载其用户列表
-     */
-    function selectService(serviceId) {
-        selectedServiceId = serviceId;
-        document.getElementById('noServiceSelected').classList.add('d-none');
-        document.getElementById('serviceUserPanel').classList.remove('d-none');
+    // 选择用户
+    jQuery(document).off('click.pal-auth-select').on('click.pal-auth-select', '.pal-search-result-item', function () {
+      var userId = jQuery(this).data('userId');
+      var username = jQuery(this).data('username');
+      jQuery('#pal-auth-selected').show();
+      jQuery('#pal-auth-selected-user').text(username + ' (ID: ' + userId + ')');
+      jQuery('#pal-auth-submit').prop('disabled', false).data('userId', userId);
+      jQuery('#pal-auth-search-results').empty();
+      jQuery('#pal-auth-user-search').val('');
+    });
+  }
 
-        fetch('/actuator/serviceAuthorization/' + serviceId, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                selectedServiceRole = data.requiredRole;
-                var nameEl = document.getElementById('serviceUserName');
-                nameEl.textContent = data.name + ' — 授权用户';
-                var infoEl = document.getElementById('serviceUserInfo');
-                infoEl.textContent = 'Service ID: ' + data.serviceId + ' | 角色要求: ' + (data.requiredRole || '开放访问');
-                renderServiceUsers(data.users || [], data.openAccess);
-            })
-            .catch(function (e) {
-                alert('加载失败: ' + e.message);
-            });
-    }
+  function closeAuthDialog() {
+    jQuery('#pal-auth-dialog').hide().empty();
+    jQuery(document).off('input.pal-auth-search click.pal-auth-select');
+  }
 
-    function renderServiceUsers(users, openAccess) {
-        var tbody = document.getElementById('serviceUserListBody');
-        tbody.textContent = '';
-        if (openAccess) {
-            var td = document.createElement('td');
-            td.colSpan = 6;
-            td.textContent = '该服务开放访问，所有已认证用户均可使用';
-            tbody.appendChild(document.createElement('tr').appendChild(td));
-            return;
-        }
-        if (users.length === 0) {
-            var td = document.createElement('td');
-            td.colSpan = 6;
-            td.textContent = '暂无授权用户';
-            tbody.appendChild(document.createElement('tr').appendChild(td));
-            return;
-        }
-        users.forEach(function (u) {
-            var tr = document.createElement('tr');
-            tr.appendChild(createTd(u.username || '-'));
-            tr.appendChild(createTd(u.nickname || '-'));
-            tr.appendChild(createTd(u.userType || '-'));
-            tr.appendChild(createTd(u.status === 1 ? '正常' : u.status === 2 ? '锁定' : '禁用'));
-            tr.appendChild(createTd(u.roles || '-'));
-            // 操作
-            var td = document.createElement('td');
-            var btn = document.createElement('button');
-            btn.className = 'pal-btn pal-btn-sm pal-btn-danger';
-            btn.textContent = '移除';
-            btn.addEventListener('click', function () { revokeAccess(u.userId); });
-            td.appendChild(btn);
-            tr.appendChild(td);
-            tbody.appendChild(tr);
-        });
-    }
+  function submitAuthChange() {
+    var serviceId = jQuery('#pal-auth-submit').data('svcId');
+    var userId = jQuery('#pal-auth-submit').data('userId');
+    var $result = jQuery('#pal-auth-result');
 
-    function createTd(text) {
-        var td = document.createElement('td');
-        td.textContent = text;
-        return td;
-    }
+    if (!userId) { $result.html('<div class="pal-result-msg pal-error">请选择用户</div>'); return; }
 
-    function revokeAccess(userId) {
-        if (!confirm('确认移除该用户对此服务的访问权限？')) return;
-        fetch('/actuator/serviceAuthorization/' + selectedServiceId + '?userId=' + encodeURIComponent(userId), {
-            method: 'DELETE',
-            headers: { 'Accept': 'application/json' }
-        })
-            .then(function (r) { return r.json(); })
-            .then(function () { selectService(selectedServiceId); })
-            .catch(function (e) { alert('操作失败: ' + e.message); });
-    }
+    $.ajax({
+      url: API.grant,
+      method: 'POST',
+      data: JSON.stringify({ serviceId: serviceId, userId: userId }),
+      contentType: 'application/json'
+    }).done(function () {
+      $result.html('<div class="pal-result-msg pal-success">授权成功</div>');
+      setTimeout(function () { closeAuthDialog(); loadServiceUsers(); }, 1000);
+    }).fail(function (xhr) {
+      $result.html('<div class="pal-result-msg pal-error">授权失败: ' + (xhr.responseText || xhr.statusText || '未知错误') + '</div>');
+    });
+  }
 
-    function showGrantDialog() {
-        if (!selectedServiceId) { alert('请先选择一个服务'); return; }
-        document.getElementById('grantDialog').classList.remove('d-none');
-        document.getElementById('grantResult').classList.add('d-none');
-        document.getElementById('grantSearchResults').textContent = '';
-    }
+  function doRevoke(serviceId, userId, username) {
+    if (!confirm('确认撤销用户 ' + username + ' 的授权？')) return;
 
-    function hideGrantDialog() {
-        document.getElementById('grantDialog').classList.add('d-none');
-    }
+    $.ajax({
+      url: API.revoke,
+      method: 'POST',
+      data: JSON.stringify({ serviceId: serviceId, userId: userId }),
+      contentType: 'application/json'
+    }).done(function () {
+      loadServiceUsers();
+    }).fail(function (xhr) {
+      alert('撤销失败: ' + (xhr.responseText || xhr.statusText || '未知错误'));
+    });
+  }
 
-    function grantAccess() {
-        var userId = document.getElementById('grantUserId').value.trim();
-        if (!userId) { alert('请输入用户 ID'); return; }
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
-        fetch('/actuator/serviceAuthorization/' + selectedServiceId + '?userId=' + encodeURIComponent(userId), {
-            method: 'POST',
-            headers: { 'Accept': 'application/json' }
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                var resultEl = document.getElementById('grantResult');
-                resultEl.classList.remove('d-none');
-                resultEl.className = 'pal-result-msg ' + (data.success ? 'pal-success' : 'pal-error');
-                resultEl.textContent = data.success
-                    ? '授权成功！用户角色: ' + (data.roles || '')
-                    : '授权失败: ' + (data.error || data.message || '未知错误');
-                if (data.success) {
-                    hideGrantDialog();
-                    selectService(selectedServiceId);
-                }
-            })
-            .catch(function (e) {
-                var resultEl = document.getElementById('grantResult');
-                resultEl.classList.remove('d-none');
-                resultEl.className = 'pal-result-msg pal-error';
-                resultEl.textContent = '请求失败: ' + e.message;
-            });
-    }
+  // 暴露给 Palantir tab 切换时调用
+  window.loadAuthorizationTab = function () {
+    var $c = jQuery('#beenest-service-auth');
+    if ($c.children().length === 0) { render(); }
+    else { loadServices(); }
+  };
 
-    function searchUsersForGrant() {
-        var query = document.getElementById('authUserSearchInput').value.trim();
-        if (!query) {
-            document.getElementById('grantSearchResults').textContent = '';
-            return;
-        }
-        // 使用 casUsers endpoint 搜索用户
-        fetch('/actuator/casUsers?query=' + encodeURIComponent(query) + '&size=5', {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                var container = document.getElementById('grantSearchResults');
-                container.textContent = '';
-                var users = data.users || [];
-                users.forEach(function (u) {
-                    var item = document.createElement('div');
-                    item.className = 'pal-search-result-item';
-                    item.textContent = u.username + ' (' + u.userId + ') — ' + (u.nickname || '') + ' [' + (u.userType || '') + ']';
-                    item.addEventListener('click', function () {
-                        document.getElementById('grantUserId').value = u.userId;
-                    });
-                    container.appendChild(item);
-                });
-            });
-    }
 })();

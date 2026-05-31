@@ -134,6 +134,9 @@ configurations {
         exclude(group: "org.slf4j", module: "slf4j-simple")
         exclude(group: "org.slf4j", module: "jcl-over-slf4j")
         exclude(group: "org.apache.logging.log4j", module: "log4j-to-slf4j")
+        // 排除旧版 BouncyCastle，统一使用 CAS 自带的 bcprov-jdk18on，避免 SAML/OIDC 密钥生成时方法冲突。
+        exclude(group: "org.bouncycastle", module: "bcprov-jdk15on")
+        exclude(group: "org.bouncycastle", module: "bcpkix-jdk15on")
         if (nativeImage) {
             exclude(group: "org.apache.groovy", module: "groovy-templates")
         }

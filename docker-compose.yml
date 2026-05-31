@@ -119,7 +119,7 @@ services:
       - "8081:8081"
     volumes:
       - ./beenest-cas/beenest-cas-service/build/libs/cas.war:/app/app.war
-      - ./beenest-cas/beenest-cas-service/etc/cas/oidc/jwks.json:/etc/cas/oidc/jwks.json:ro
+      - ./beenest-cas/beenest-cas-service/etc/cas/oidc/jwks.json:/etc/cas/oidc/jwks.json
       - ./beenest-cas/beenest-cas-service/etc/cas/saml:/etc/cas/saml
       - beenest-cas-logs:/app/logs
     working_dir: /app
