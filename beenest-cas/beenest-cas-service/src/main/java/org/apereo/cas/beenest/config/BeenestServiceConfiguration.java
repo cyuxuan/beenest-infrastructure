@@ -1,7 +1,6 @@
 package org.apereo.cas.beenest.config;
 
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
-import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.beenest.service.BeenestAccountRegistrationProvisioner;
 import org.apereo.cas.beenest.service.BeenestAccountRegistrationRequestValidator;
 import org.apereo.cas.beenest.service.SmsService;
@@ -21,11 +20,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  */
 @AutoConfiguration(beforeName = "org.apereo.cas.config.CasAccountManagementWebflowAutoConfiguration")
 public class BeenestServiceConfiguration {
-
-    @Bean
-    public AppAccessService appAccessService() {
-        return new AppAccessService();
-    }
 
     @Bean
     public UserIdentityService userIdentityService(final UnifiedUserMapper userMapper) {

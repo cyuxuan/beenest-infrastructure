@@ -20,7 +20,6 @@ import org.apereo.cas.beenest.dto.AppLoginRequestDTO;
 import org.apereo.cas.beenest.dto.AppLogoutRequestDTO;
 import org.apereo.cas.beenest.dto.TokenResponseDTO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
-import org.apereo.cas.beenest.service.AppAccessService;
 import org.apereo.cas.ticket.TicketGrantingTicket;
 import org.apereo.cas.ticket.TicketGrantingTicketFactory;
 import org.apereo.cas.ticket.factory.DefaultTicketFactory;
@@ -50,7 +49,6 @@ public class AppLoginController {
     private final TicketRegistry ticketRegistry;
     private final DefaultTicketFactory defaultTicketFactory;
     private final StringRedisTemplate redisTemplate;
-    private final AppAccessService appAccessService;
     private final UnifiedUserMapper userMapper;
     private final TokenTtlProperties tokenTtlProperties;
 
@@ -102,10 +100,6 @@ public class AppLoginController {
             }
 
             Principal principal = authResult.getAuthentication().getPrincipal();
-            Long serviceId = resolveBusinessServiceId(httpRequest);
-            if (serviceId != null) {
-                appAccessService.autoGrantOnRegister(principal.getId(), serviceId);
-            }
 
             // 3. 创建 TGT
             TicketGrantingTicketFactory<TicketGrantingTicket> tgtFactory =
