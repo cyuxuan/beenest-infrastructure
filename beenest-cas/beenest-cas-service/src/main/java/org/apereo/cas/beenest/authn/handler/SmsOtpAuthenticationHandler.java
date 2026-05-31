@@ -4,6 +4,7 @@ import org.apereo.cas.beenest.authn.credential.SmsOtpCredential;
 import org.apereo.cas.beenest.authn.web.WebLoginModeResolver;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
+import org.apereo.cas.beenest.service.BeenestPrincipalAttributesBuilder;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -156,6 +157,8 @@ public class SmsOtpAuthenticationHandler implements AuthenticationHandler {
         if (StringUtils.isNotBlank(user.getNickname())) {
             attrs.put("nickname", List.of(user.getNickname()));
         }
+        // 合并 memberOf 属性（基础角色 + 应用角色）
+        attrs.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
         return attrs;
     }
 }

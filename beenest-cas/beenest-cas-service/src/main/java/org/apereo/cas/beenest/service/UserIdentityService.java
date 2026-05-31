@@ -5,6 +5,7 @@ import org.apereo.cas.beenest.authn.exception.AccountLockedException;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.util.UserTypeUtils;
+import org.apereo.cas.beenest.config.AutoGrantProperties;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class UserIdentityService {
     }
 
     private final UnifiedUserMapper userMapper;
+    private final AutoGrantProperties autoGrantProperties;
     /**
      * 微信渠道：查找或注册用户
      */
@@ -312,6 +314,8 @@ public class UserIdentityService {
     private UnifiedUserDO safeCreate(UnifiedUserDO user) {
         try {
             userMapper.insert(user);
+            // 新注册用户自动赋权
+            autoGrantRoles(user.getUserId());
             return user;
         } catch (DuplicateKeyException e) {
             // 并发场景：另一个线程已用相同手机号创建了用户
@@ -459,5 +463,16 @@ public class UserIdentityService {
 
         UnifiedUserDO latestUser = userMapper.selectByUserId(user.getUserId());
         return latestUser != null ? latestUser : user;
+    }
+
+    /**
+     * 为新注册用户自动赋予 auto-grant 角色。
+     */
+    private void autoGrantRoles(String userId) {
+        for (var entry : autoGrantProperties.getAutoGrantRoles().entrySet()) {
+            if (autoGrantProperties.getAutoGrantServiceIds().contains(entry.getKey())) {
+                userMapper.addRole(userId, entry.getValue());
+            }
+        }
     }
 }

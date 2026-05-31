@@ -11,6 +11,7 @@ import org.apereo.cas.acct.provision.AccountRegistrationProvisionerConfigurer;
 import org.apereo.cas.notifications.sms.SmsSender;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
@@ -19,11 +20,13 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * 显式注册服务 bean，避免依赖组件扫描顺序。
  */
 @AutoConfiguration(beforeName = "org.apereo.cas.config.CasAccountManagementWebflowAutoConfiguration")
+@EnableConfigurationProperties(AutoGrantProperties.class)
 public class BeenestServiceConfiguration {
 
     @Bean
-    public UserIdentityService userIdentityService(final UnifiedUserMapper userMapper) {
-        return new UserIdentityService(userMapper);
+    public UserIdentityService userIdentityService(final UnifiedUserMapper userMapper,
+                                                    final AutoGrantProperties autoGrantProperties) {
+        return new UserIdentityService(userMapper, autoGrantProperties);
     }
 
     /**
@@ -44,12 +47,14 @@ public class BeenestServiceConfiguration {
      * 注册 CAS 原生账号开户注册落库器配置。
      *
      * @param userMapper 统一用户 Mapper
+     * @param autoGrantProperties 自动赋权配置
      * @return 原生开户注册器配置
      */
     @Bean
     public AccountRegistrationProvisionerConfigurer beenestAccountRegistrationProvisionerConfigurer(
-            final UnifiedUserMapper userMapper) {
-        return () -> new BeenestAccountRegistrationProvisioner(userMapper);
+            final UnifiedUserMapper userMapper,
+            final AutoGrantProperties autoGrantProperties) {
+        return () -> new BeenestAccountRegistrationProvisioner(userMapper, autoGrantProperties);
     }
 
     @Bean

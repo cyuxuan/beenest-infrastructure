@@ -3,6 +3,7 @@ package org.apereo.cas.beenest.authn.handler;
 import org.apereo.cas.beenest.authn.credential.AlipayMiniCredential;
 import org.apereo.cas.beenest.config.MiniAppProperties;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
+import org.apereo.cas.beenest.service.BeenestPrincipalAttributesBuilder;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
@@ -227,6 +228,8 @@ public class AlipayMiniAuthenticationHandler implements AuthenticationHandler {
         if (StringUtils.isNotBlank(user.getEmail())) {
             attributes.put("email", List.of(user.getEmail()));
         }
+        // 合并 memberOf 属性（基础角色 + 应用角色）
+        attributes.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
 
         Principal principal = principalFactory.createPrincipal(user.getUserId(), attributes);
         return new DefaultAuthenticationHandlerExecutionResult(this, credential, principal, List.of());

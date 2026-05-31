@@ -2,6 +2,7 @@ package org.apereo.cas.beenest.authn.handler;
 
 import org.apereo.cas.beenest.authn.credential.WechatMiniCredential;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
+import org.apereo.cas.beenest.service.BeenestPrincipalAttributesBuilder;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
@@ -140,6 +141,8 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
         if (StringUtils.isNotBlank(user.getEmail())) {
             attrs.put("email", List.of(user.getEmail()));
         }
+        // 合并 memberOf 属性（基础角色 + 应用角色）
+        attrs.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
         return attrs;
     }
 

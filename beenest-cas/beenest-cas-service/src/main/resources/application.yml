@@ -92,7 +92,7 @@ cas:
         signing:
           key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY}
       registration-properties:
-        location: classpath:/account-registration/account-registration.json
+        location: classpath:/account-registration-properties/registration-properties.json
     mail:
       attribute-name: email
       from: ${ACCOUNT_REGISTRATION_FROM:no-reply@beenest.club}
@@ -438,6 +438,9 @@ beenest:
     template-code: ${SMS_TEMPLATE_CODE:}
   user:
     auto-grant-service-ids: ${BEENEST_AUTO_GRANT_SERVICE_IDS:10001}
+    auto-grant-roles:
+      10001: ROLE_DRONE_SYSTEM
+      10003: ROLE_PAYMENT
   mfa:
     encryption-key: ${MFA_ENCRYPTION_KEY}
   # Admin API 认证 Token（生产环境必须配置，否则管理接口无法访问）

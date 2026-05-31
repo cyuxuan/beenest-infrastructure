@@ -3,6 +3,7 @@ package org.apereo.cas.beenest.authn.handler;
 import org.apereo.cas.beenest.authn.credential.DouyinMiniCredential;
 import org.apereo.cas.beenest.config.MiniAppProperties;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
+import org.apereo.cas.beenest.service.BeenestPrincipalAttributesBuilder;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -133,6 +134,8 @@ public class DouyinMiniAuthenticationHandler implements AuthenticationHandler {
         if (StringUtils.isNotBlank(user.getPhone())) {
             attrs.put("phone", List.of(user.getPhone()));
         }
+        // 合并 memberOf 属性（基础角色 + 应用角色）
+        attrs.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
         return attrs;
     }
 }

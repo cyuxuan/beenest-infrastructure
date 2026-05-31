@@ -3,6 +3,7 @@ package org.apereo.cas.beenest.authn.handler;
 import org.apereo.cas.beenest.authn.exception.AccountDisabledException;
 import org.apereo.cas.beenest.authn.exception.AccountLockedException;
 import org.apereo.cas.beenest.authn.web.WebLoginModeResolver;
+import org.apereo.cas.beenest.service.BeenestPrincipalAttributesBuilder;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
@@ -203,6 +204,8 @@ public class UsernamePasswordAuthenticationHandler implements AuthenticationHand
         if (StringUtils.isNotBlank(user.getNickname())) {
             attrs.put("nickname", List.of(user.getNickname()));
         }
+        // 合并 memberOf 属性（基础角色 + 应用角色）
+        attrs.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
         return attrs;
     }
 }

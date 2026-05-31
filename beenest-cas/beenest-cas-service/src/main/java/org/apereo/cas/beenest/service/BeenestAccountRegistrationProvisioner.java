@@ -5,6 +5,7 @@ import org.apereo.cas.acct.AccountRegistrationResponse;
 import org.apereo.cas.acct.provision.AccountRegistrationProvisioner;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.util.UserTypeUtils;
+import org.apereo.cas.beenest.config.AutoGrantProperties;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
     private static final PasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder(12);
 
     private final UnifiedUserMapper userMapper;
+    private final AutoGrantProperties autoGrantProperties;
 
     /**
      * 根据 CAS 原生注册请求创建用户名密码账号。
