@@ -1,6 +1,7 @@
 package org.apereo.cas.beenest.client.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Import;
     CasProxyConfiguration.class,
     CasBearerTokenConfiguration.class,
     CasSloConfiguration.class,
+    CasAccessControlAutoConfiguration.class,
 })
 public class CasSecurityAutoConfiguration {
 

@@ -7,10 +7,17 @@ import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.apereo.cas.beenest.client.details.CasUserDetails;
 import org.springframework.security.core.Authentication;
+import org.apereo.cas.beenest.client.accesscontrol.AccessControlResult;
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlDeniedHandler;
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * CAS 登录成功处理器。
@@ -28,13 +35,19 @@ public class CasLoginSuccessHandler implements AuthenticationSuccessHandler {
     private final ActiveSessionRegistry activeSessionRegistry;
     private final AuthenticationSuccessHandler delegate;
 
+    /** 访问控制协调器（可选，未启用时为 null） */
+    private final CasAccessControlManager accessControlManager;
+
+    /** 访问控制拒绝处理器（可选，未启用时为 null） */
+    private final CasAccessControlDeniedHandler deniedHandler;
+
     /**
      * 构造 CAS 登录成功处理器。
      *
      * @param activeSessionRegistry 活跃会话注册表
      */
     public CasLoginSuccessHandler(ActiveSessionRegistry activeSessionRegistry) {
-        this(activeSessionRegistry, new SavedRequestAwareAuthenticationSuccessHandler());
+        this(activeSessionRegistry, new SavedRequestAwareAuthenticationSuccessHandler(), null, null);
     }
 
     /**
@@ -45,8 +58,25 @@ public class CasLoginSuccessHandler implements AuthenticationSuccessHandler {
      */
     public CasLoginSuccessHandler(ActiveSessionRegistry activeSessionRegistry,
                                   AuthenticationSuccessHandler delegate) {
+        this(activeSessionRegistry, delegate, null, null);
+    }
+
+    /**
+     * 构造 CAS 登录成功处理器（含访问控制）。
+     *
+     * @param activeSessionRegistry 活跃会话注册表
+     * @param delegate              后续成功处理器
+     * @param accessControlManager  访问控制协调器（可选）
+     * @param deniedHandler         访问控制拒绝处理器（可选）
+     */
+    public CasLoginSuccessHandler(ActiveSessionRegistry activeSessionRegistry,
+                                  AuthenticationSuccessHandler delegate,
+                                  CasAccessControlManager accessControlManager,
+                                  CasAccessControlDeniedHandler deniedHandler) {
         this.activeSessionRegistry = activeSessionRegistry;
         this.delegate = delegate;
+        this.accessControlManager = accessControlManager;
+        this.deniedHandler = deniedHandler;
     }
 
     @Override

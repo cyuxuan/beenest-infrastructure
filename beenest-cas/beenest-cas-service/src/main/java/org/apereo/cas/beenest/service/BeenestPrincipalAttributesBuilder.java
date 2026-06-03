@@ -37,6 +37,14 @@ public final class BeenestPrincipalAttributesBuilder {
                 }
             }
         }
-        return Map.of("memberOf", List.copyOf(memberOf));
+        var attrs = new HashMap<String, List<Object>>();
+        attrs.put("memberOf", List.copyOf(memberOf));
+
+        // 3. 输出 tokenVersion，供 Client Starter 感知权限变更
+        if (user.getTokenVersion() != null) {
+            attrs.put("tokenVersion", List.of(String.valueOf(user.getTokenVersion())));
+        }
+
+        return Map.copyOf(attrs);
     }
 }

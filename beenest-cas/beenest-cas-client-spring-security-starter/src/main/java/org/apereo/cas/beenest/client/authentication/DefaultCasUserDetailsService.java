@@ -1,9 +1,9 @@
 package org.apereo.cas.beenest.client.authentication;
 
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
 import org.apereo.cas.beenest.client.details.CasUserDetails;
 import org.apereo.cas.beenest.client.session.CasUserSession;
 import org.apereo.cas.client.validation.Assertion;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.GrantedAuthority;
@@ -29,13 +29,36 @@ import java.util.Set;
  * </ul>
  */
 @Slf4j
-@RequiredArgsConstructor
 public class DefaultCasUserDetailsService implements CasUserDetailsService {
 
     private static final String[] ROLE_KEYS = {"roles", "role"};
     private static final String[] AUTHORITY_KEYS = {"authorities", "authority", "permissions", "permission", "grantedAuthorities", "grantedAuthority"};
 
     private final ObjectProvider<CasUserRegistrationService> registrationServiceProvider;
+
+    /** 访问控制协调器（可选，未启用时为 null） */
+    private final ObjectProvider<CasAccessControlManager> accessControlManagerProvider;
+
+    /**
+     * 构造默认 CAS 用户详情加载器。
+     *
+     * @param registrationServiceProvider 用户注册服务（可选）
+     */
+    public DefaultCasUserDetailsService(ObjectProvider<CasUserRegistrationService> registrationServiceProvider) {
+        this(registrationServiceProvider, null);
+    }
+
+    /**
+     * 构造默认 CAS 用户详情加载器（含访问控制）。
+     *
+     * @param registrationServiceProvider     用户注册服务（可选）
+     * @param accessControlManagerProvider    访问控制协调器（可选）
+     */
+    public DefaultCasUserDetailsService(ObjectProvider<CasUserRegistrationService> registrationServiceProvider,
+                                         ObjectProvider<CasAccessControlManager> accessControlManagerProvider) {
+        this.registrationServiceProvider = registrationServiceProvider;
+        this.accessControlManagerProvider = accessControlManagerProvider;
+    }
 
     @Override
     public UserDetails loadUserByCasAssertion(String userId, Assertion assertion) {
@@ -58,6 +81,16 @@ public class DefaultCasUserDetailsService implements CasUserDetailsService {
     }
 
     private void maybeRegisterLocalUser(CasUserSession session, CasUserRegistrationService registrationService) {
+        // 访问控制 SPI 已激活时，由 CasAccessControlManager 统一处理用户创建/禁用
+        // 不再调用 CasUserRegistrationService，避免重复创建
+        if (accessControlManagerProvider != null) {
+            CasAccessControlManager acm = accessControlManagerProvider.getIfAvailable();
+            if (acm != null && acm.isEnabled()) {
+                log.debug("访问控制 SPI 已激活，跳过 CasUserRegistrationService 注册");
+                return;
+            }
+        }
+
         try {
             if (!registrationService.userExists(session.getUserId())
                     && registrationService.canAutoRegister(session)) {

@@ -2,6 +2,7 @@
  * Palantir 服务授权 Tab 交互逻辑
  * 依赖：jQuery（Palantir 页面内置）、Palantir actuatorEndpoints
  * 注意：脚本在 jQuery 之前加载，所以使用延迟初始化模式
+ * 后端响应格式：R<T> = { code: 200, message: "success", data: {...} }
  */
 (function () {
   'use strict';
@@ -13,6 +14,12 @@
   };
 
   var selectedService = null;
+
+  /** 判断 R<T> 响应是否成功 */
+  function isOk(resp) { return resp && resp.code === 200; }
+
+  /** 获取 R<T> 的 data 字段 */
+  function getData(resp) { return resp && resp.data; }
 
   /** 渲染服务授权 Tab */
   function render() {
@@ -72,20 +79,25 @@
     var $list = jQuery('#pal-svc-list');
     $list.html('<div class="pal-loading">加载中…</div>');
 
-    $.ajax({
+    jQuery.ajax({
       url: API.services,
       method: 'GET'
     }).done(function (resp) {
-      // 端点返回的是数组（不是 {services: [...]}）
-      var svcs = Array.isArray(resp) ? resp : (resp.services || []);
+      // R<List<ServiceInfoVO>> 响应，data 直接是数组
+      var svcs = getData(resp);
+      if (!isOk(resp) || !Array.isArray(svcs)) {
+        $list.html('<div class="pal-empty-state">加载失败</div>');
+        return;
+      }
       if (svcs.length === 0) {
         $list.html('<div class="pal-empty-state">暂无注册服务</div>');
         return;
       }
       var html = '';
-      $.each(svcs, function (_, s) {
+      jQuery.each(svcs, function (_, s) {
+        var roleHint = s.requiredRole ? ' [' + esc(s.requiredRole) + ']' : ' [开放访问]';
         html += '<div class="pal-card-item pal-svc-card" data-svc-id="' + esc(s.id) + '" data-svc-name="' + esc(s.name) + '">' +
-          '<div class="pal-card-item-name">' + esc(s.name) + '</div>' +
+          '<div class="pal-card-item-name">' + esc(s.name) + roleHint + '</div>' +
           '<div class="pal-card-item-detail">ID: ' + esc(s.id) + '</div>' +
         '</div>';
       });
@@ -114,17 +126,30 @@
       '</div>' +
       '<div class="pal-table-container">' +
         '<table class="pal-table" id="pal-svc-user-table">' +
-          '<thead><tr><th>ID</th><th>用户名</th><th>手机号</th><th>授权时间</th><th>操作</th></tr></thead>' +
+          '<thead><tr><th>ID</th><th>用户名</th><th>手机号</th><th>角色</th><th>操作</th></tr></thead>' +
           '<tbody><tr><td colspan="5" class="pal-loading">加载中…</td></tr></tbody>' +
         '</table>' +
       '</div>'
     );
 
-    $.ajax({
+    jQuery.ajax({
       url: API.services + '/' + selectedService.id + '/users',
       method: 'GET'
     }).done(function (resp) {
-      var users = resp.users || [];
+      // R<ServiceUsersVO> 响应
+      var d = getData(resp);
+      if (!isOk(resp) || !d) {
+        jQuery('#pal-svc-user-table tbody').html('<tr><td colspan="5" class="pal-empty-state">加载失败</td></tr>');
+        return;
+      }
+
+      // 开放访问的服务无需授权
+      if (d.openAccess) {
+        jQuery('#pal-svc-user-table tbody').html('<tr><td colspan="5" class="pal-empty-state">该服务为开放访问，所有已认证用户均可使用</td></tr>');
+        return;
+      }
+
+      var users = d.users || [];
       var $tbody = jQuery('#pal-svc-user-table tbody');
 
       if (users.length === 0) {
@@ -133,12 +158,18 @@
       }
 
       var html = '';
-      $.each(users, function (_, u) {
+      jQuery.each(users, function (_, u) {
+        // roles 是 List<String>
+        var rolesArr = Array.isArray(u.roles) ? u.roles : [];
+        var roleBadges = rolesArr.map(function (r) {
+          return '<span class="pal-badge pal-badge-' + roleBadgeClass(r) + '">' + esc(r) + '</span>';
+        }).join(' ');
+
         html += '<tr>' +
           '<td>' + esc(u.userId) + '</td>' +
           '<td>' + esc(u.username) + '</td>' +
           '<td>' + esc(u.phone || '-') + '</td>' +
-          '<td>' + esc(u.grantedTime || '-') + '</td>' +
+          '<td>' + roleBadges + '</td>' +
           '<td><button class="pal-btn pal-btn-sm pal-btn-danger pal-revoke-user-btn" data-user-id="' + esc(u.userId) + '" data-username="' + esc(u.username) + '">撤销</button></td>' +
         '</tr>';
       });
@@ -146,6 +177,15 @@
     }).fail(function () {
       jQuery('#pal-svc-user-table tbody').html('<tr><td colspan="5" class="pal-empty-state">加载失败</td></tr>');
     });
+  }
+
+  function roleBadgeClass(role) {
+    switch ((role || '').toUpperCase()) {
+      case 'ADMIN': return 'danger';
+      case 'PILOT': return 'info';
+      case 'CUSTOMER': return 'warning';
+      default: return 'success';
+    }
   }
 
   function openAuthDialog(serviceId, serviceName, mode) {
@@ -171,26 +211,31 @@
       '</div>'
     ).show();
 
-    // 搜索用户
+    // 搜索用户（带防抖）
     var searchTimer = null;
     jQuery(document).off('input.pal-auth-search').on('input.pal-auth-search', '#pal-auth-user-search', function () {
       var q = jQuery(this).val().trim();
       clearTimeout(searchTimer);
       if (q.length < 2) { jQuery('#pal-auth-search-results').empty(); return; }
       searchTimer = setTimeout(function () {
-        $.ajax({
+        jQuery.ajax({
           url: API.services + '/searchUsers',
           method: 'GET',
           data: { q: q }
         }).done(function (resp) {
-          var users = resp.users || [];
+          // R<List<UserDetailVO>> 响应，data 直接是数组
+          var users = getData(resp);
+          if (!isOk(resp) || !Array.isArray(users) || users.length === 0) {
+            jQuery('#pal-auth-search-results').html('<div style="padding:8px;color:var(--pal-text-2)">无匹配用户</div>');
+            return;
+          }
           var html = '';
-          $.each(users, function (_, u) {
+          jQuery.each(users, function (_, u) {
             html += '<div class="pal-search-result-item" data-user-id="' + esc(u.userId) + '" data-username="' + esc(u.username) + '">' +
               esc(u.username) + (u.phone ? ' (' + esc(u.phone) + ')' : '') +
             '</div>';
           });
-          jQuery('#pal-auth-search-results').html(html || '<div style="padding:8px;color:var(--pal-text-2)">无匹配用户</div>');
+          jQuery('#pal-auth-search-results').html(html);
         }).fail(function () {
           jQuery('#pal-auth-search-results').html('<div style="padding:8px;color:var(--pal-text-2)">搜索失败</div>');
         });
@@ -221,31 +266,43 @@
 
     if (!userId) { $result.html('<div class="pal-result-msg pal-error">请选择用户</div>'); return; }
 
-    $.ajax({
+    jQuery.ajax({
       url: API.grant,
       method: 'POST',
-      data: JSON.stringify({ serviceId: serviceId, userId: userId }),
+      data: JSON.stringify({ serviceId: Number(serviceId), userId: userId }),
       contentType: 'application/json'
-    }).done(function () {
-      $result.html('<div class="pal-result-msg pal-success">授权成功</div>');
-      setTimeout(function () { closeAuthDialog(); loadServiceUsers(); }, 1000);
+    }).done(function (resp) {
+      if (isOk(resp)) {
+        $result.html('<div class="pal-result-msg pal-success">授权成功</div>');
+        setTimeout(function () { closeAuthDialog(); loadServiceUsers(); }, 1000);
+      } else {
+        $result.html('<div class="pal-result-msg pal-error">' + esc(resp.message || '授权失败') + '</div>');
+      }
     }).fail(function (xhr) {
-      $result.html('<div class="pal-result-msg pal-error">授权失败: ' + (xhr.responseText || xhr.statusText || '未知错误') + '</div>');
+      var msg = '授权失败';
+      try { var r = JSON.parse(xhr.responseText); msg = r.message || msg; } catch(e) { msg = xhr.statusText || msg; }
+      $result.html('<div class="pal-result-msg pal-error">' + esc(msg) + '</div>');
     });
   }
 
   function doRevoke(serviceId, userId, username) {
     if (!confirm('确认撤销用户 ' + username + ' 的授权？')) return;
 
-    $.ajax({
+    jQuery.ajax({
       url: API.revoke,
       method: 'POST',
-      data: JSON.stringify({ serviceId: serviceId, userId: userId }),
+      data: JSON.stringify({ serviceId: Number(serviceId), userId: userId }),
       contentType: 'application/json'
-    }).done(function () {
-      loadServiceUsers();
+    }).done(function (resp) {
+      if (isOk(resp)) {
+        loadServiceUsers();
+      } else {
+        alert(resp.message || '撤销失败');
+      }
     }).fail(function (xhr) {
-      alert('撤销失败: ' + (xhr.responseText || xhr.statusText || '未知错误'));
+      var msg = '撤销失败';
+      try { var r = JSON.parse(xhr.responseText); msg = r.message || msg; } catch(e) { msg = xhr.statusText || msg; }
+      alert(msg);
     });
   }
 

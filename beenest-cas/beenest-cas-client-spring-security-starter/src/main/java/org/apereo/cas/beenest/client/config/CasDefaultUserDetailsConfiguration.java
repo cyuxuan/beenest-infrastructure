@@ -1,5 +1,6 @@
 package org.apereo.cas.beenest.client.config;
 
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
 import org.apereo.cas.beenest.client.authentication.CasUserDetailsService;
 import org.apereo.cas.beenest.client.authentication.DefaultCasUserDetailsService;
 import org.springframework.beans.factory.ObjectProvider;
@@ -22,7 +23,8 @@ public class CasDefaultUserDetailsConfiguration {
     @Bean
     @ConditionalOnMissingBean(CasUserDetailsService.class)
     public CasUserDetailsService defaultCasUserDetailsService(
-            ObjectProvider<org.apereo.cas.beenest.client.authentication.CasUserRegistrationService> registrationServiceProvider) {
-        return new DefaultCasUserDetailsService(registrationServiceProvider);
+            ObjectProvider<org.apereo.cas.beenest.client.authentication.CasUserRegistrationService> registrationServiceProvider,
+            ObjectProvider<CasAccessControlManager> accessControlManagerProvider) {
+        return new DefaultCasUserDetailsService(registrationServiceProvider, accessControlManagerProvider);
     }
 }

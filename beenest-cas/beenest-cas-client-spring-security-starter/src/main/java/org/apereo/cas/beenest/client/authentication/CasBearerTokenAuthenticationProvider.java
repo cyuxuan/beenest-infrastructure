@@ -12,6 +12,8 @@ import org.apereo.cas.client.authentication.AttributePrincipalImpl;
 import org.apereo.cas.client.validation.Assertion;
 import org.apereo.cas.client.validation.AssertionImpl;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.apereo.cas.beenest.client.accesscontrol.AccessControlResult;
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,8 +22,10 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -53,6 +57,9 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
     private final CasTokenRefresher tokenRefresher;
     private final BearerAuthorityVersionService authorityVersionService;
 
+    /** 访问控制协调器（可选，未启用时为 null） */
+    private final CasAccessControlManager accessControlManager;
+
     /**
      * 正在执行中的刷新请求去重映射。
      * <p>
@@ -78,6 +85,17 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
                                                 CasUserDetailsService userDetailsService,
                                                 CasTokenRefresher tokenRefresher,
                                                 BearerAuthorityVersionService authorityVersionService) {
+        this(nativeTicketValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, authorityVersionService, null);
+    }
+
+    public CasBearerTokenAuthenticationProvider(CasNativeTicketValidator nativeTicketValidator,
+                                                CasSecurityProperties properties,
+                                                BearerTokenCache tokenCache,
+                                                BearerTokenRevocationService revocationService,
+                                                CasUserDetailsService userDetailsService,
+                                                CasTokenRefresher tokenRefresher,
+                                                BearerAuthorityVersionService authorityVersionService,
+                                                CasAccessControlManager accessControlManager) {
         this.nativeTicketValidator = nativeTicketValidator;
         this.properties = properties;
         this.tokenCache = tokenCache;
@@ -85,6 +103,7 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         this.userDetailsService = userDetailsService;
         this.tokenRefresher = tokenRefresher;
         this.authorityVersionService = authorityVersionService;
+        this.accessControlManager = accessControlManager;
     }
 
     @SuppressWarnings("null")
@@ -263,7 +282,21 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             authorityVersionService.updateUserVersion(casUserDetails.getUserId(), currentVersion);
         }
 
-        // 使用三参数构造函数，携带新的 refreshToken（如果有）
+        // 5. 访问控制 SPI 检查（如果启用）
+        if (accessControlManager != null && accessControlManager.isEnabled() && casUserDetails != null) {
+            Set<String> casRoles = casUserDetails.getAuthorities().stream()
+                .map(auth -> auth.getAuthority())
+                .collect(Collectors.toSet());
+            Map<String, Object> casAttributes = new HashMap<>(casUserDetails.getCasUserSession().getAttributes());
+
+            AccessControlResult acResult = accessControlManager.onAuthentication(
+                casUserDetails.getUsername(), casRoles, casAttributes);
+            if (!acResult.granted()) {
+                throw new BadCredentialsException(acResult.reason());
+            }
+        }
+
+        // 6. 构造最终认证 Token
         if (newRefreshToken != null) {
             return new CasBearerTokenAuthenticationToken(accessToken, newRefreshToken, casUserDetails);
         }

@@ -1,5 +1,7 @@
 package org.apereo.cas.beenest.client.config;
 
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlDeniedHandler;
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
 import org.apereo.cas.beenest.client.authentication.CasBearerTokenAuthenticationFilter;
 import org.apereo.cas.beenest.client.authentication.CasBearerTokenAuthenticationProvider;
 import org.apereo.cas.beenest.client.session.ActiveSessionRegistry;
@@ -47,7 +49,9 @@ public class CasAuthenticationConfigurerConfiguration {
             ObjectProvider<CasAuthenticationEntryPoint> entryPointProvider,
             ObjectProvider<ActiveSessionRegistry> activeSessionRegistryProvider,
             ObjectProvider<CasBearerTokenAuthenticationFilter> bearerTokenFilterProvider,
-            ObjectProvider<CasBearerTokenAuthenticationProvider> bearerTokenProviderProvider) {
+            ObjectProvider<CasBearerTokenAuthenticationProvider> bearerTokenProviderProvider,
+            ObjectProvider<CasAccessControlManager> accessControlManagerProvider,
+            ObjectProvider<CasAccessControlDeniedHandler> deniedHandlerProvider) {
         ServiceProperties sp = serviceProperties.getIfAvailable();
         CasAuthenticationFilter casFilter = null;
         if (sp != null) {
@@ -56,7 +60,11 @@ public class CasAuthenticationConfigurerConfiguration {
             casFilter.setServiceProperties(sp);
             ActiveSessionRegistry activeSessionRegistry = activeSessionRegistryProvider.getIfAvailable();
             if (activeSessionRegistry != null) {
-                casFilter.setAuthenticationSuccessHandler(new CasLoginSuccessHandler(activeSessionRegistry));
+                casFilter.setAuthenticationSuccessHandler(new CasLoginSuccessHandler(
+                    activeSessionRegistry,
+                    new org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler(),
+                    accessControlManagerProvider.getIfAvailable(),
+                    deniedHandlerProvider.getIfAvailable()));
             }
         }
         return new CasAuthenticationConfigurer(

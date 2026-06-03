@@ -4,8 +4,15 @@ import org.apereo.cas.acct.AccountRegistrationRequest;
 import org.apereo.cas.acct.AccountRegistrationResponse;
 import org.apereo.cas.acct.provision.AccountRegistrationProvisioner;
 import org.apereo.cas.beenest.common.constant.CasConstant;
+import org.apereo.cas.beenest.common.response.R;
+import org.apereo.cas.beenest.dto.CreateUserRequestDTO;
+import org.apereo.cas.beenest.dto.RoleChangeRequestDTO;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
+import org.apereo.cas.beenest.vo.OperationResultVO;
+import org.apereo.cas.beenest.vo.UserDetailVO;
+import org.apereo.cas.beenest.vo.UserDetailVOConverter;
+import org.apereo.cas.beenest.vo.UserListVO;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.web.BaseCasRestActuatorEndpoint;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
@@ -25,7 +33,7 @@ import java.util.*;
 /**
  * CAS 用户管理 Actuator 端点。
  * <p>
- * 提供 cas_user 表的查看、管理（禁用/启用/解锁/重置密码）和邀请注册功能。
+ * 提供 cas_user 表的查看、管理（禁用/启用/解锁/重置密码）和创建用户功能。
  * Palantir 前端通过 actuatorEndpoints.casUsers 调用。
  */
 @Slf4j
@@ -49,10 +57,10 @@ public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Map<String, Object> listUsers(@RequestParam(value = "query", required = false) String query,
-                                         @RequestParam(value = "status", required = false) Integer status,
-                                         @RequestParam(value = "page", required = false) Integer page,
-                                         @RequestParam(value = "size", required = false) Integer size) {
+    public R<UserListVO> listUsers(@RequestParam(value = "query", required = false) String query,
+                                  @RequestParam(value = "status", required = false) Integer status,
+                                  @RequestParam(value = "page", required = false) Integer page,
+                                  @RequestParam(value = "size", required = false) Integer size) {
         int p = page != null ? page : 0;
         int s = size != null ? size : 20;
         long offset = (long) p * s;
@@ -60,13 +68,14 @@ public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
         List<UnifiedUserDO> users = userMapper.selectAllPaged(query, status, offset, s + 1);
         long total = userMapper.countByQuery(query, status);
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("users", users.subList(0, Math.min(users.size(), s)));
-        result.put("total", total);
-        result.put("page", p);
-        result.put("size", s);
-        result.put("hasMore", users.size() > s);
-        return result;
+        UserListVO vo = new UserListVO();
+        vo.setUsers(users.subList(0, Math.min(users.size(), s)).stream()
+                .map(UserDetailVOConverter::toVO).toList());
+        vo.setTotal(total);
+        vo.setPage(p);
+        vo.setSize(s);
+        vo.setHasMore(users.size() > s);
+        return R.ok(vo);
     }
 
     /**
@@ -74,64 +83,107 @@ public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
      */
     @GetMapping(value = "/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Map<String, Object> getUser(@PathVariable("userId") String userId) {
+    public R<UserDetailVO> getUser(@PathVariable("userId") String userId) {
         UnifiedUserDO user = userMapper.selectByUserId(userId);
         if (user == null) {
-            return Map.of("error", "用户不存在", "userId", userId);
+            return R.fail(404, "用户不存在");
         }
-        return toUserMap(user);
+        return R.ok(UserDetailVOConverter.toVO(user));
     }
 
     /**
-     * 管理员添加用户（创建邀请）
+     * 管理员创建用户。
+     * <p>
+     * 通过 CAS 原生 AccountRegistrationProvisioner 创建用户，
+     * 自动执行去重校验、密码加密、自动赋权等逻辑。
      */
-    @PostMapping(value = "/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Map<String, Object> createInvitation(@PathVariable("username") String username,
-                                                @RequestParam(value = "email", required = false) String email,
-                                                @RequestParam(value = "phone", required = false) String phone,
-                                                @RequestParam(value = "roles", required = false) String roles) {
+    public R<OperationResultVO> createUser(@RequestBody CreateUserRequestDTO request) {
         // 1. 构造 CAS 原生 AccountRegistrationRequest
-        var request = new AccountRegistrationRequest();
-        request.getProperties().put("username", username);
-        request.getProperties().put("password", UUID.randomUUID().toString().replace("-", "").substring(0, 16));
-        request.getProperties().put("userType", "CUSTOMER");
-        if (StringUtils.isNotBlank(email)) {
-            request.getProperties().put("email", email);
+        var regRequest = new AccountRegistrationRequest();
+        regRequest.getProperties().put("username", request.getUsername());
+        regRequest.getProperties().put("password", request.getPassword());
+        if (StringUtils.isNotBlank(request.getEmail())) {
+            regRequest.getProperties().put("email", request.getEmail());
         }
-        if (StringUtils.isNotBlank(phone)) {
-            request.getProperties().put("phone", phone);
+        if (StringUtils.isNotBlank(request.getPhone())) {
+            regRequest.getProperties().put("phone", request.getPhone());
         }
-        if (StringUtils.isNotBlank(roles)) {
-            request.getProperties().put("roles", roles);
+        if (StringUtils.isNotBlank(request.getFirstName())) {
+            regRequest.getProperties().put("firstName", request.getFirstName());
+        }
+        if (StringUtils.isNotBlank(request.getLastName())) {
+            regRequest.getProperties().put("lastName", request.getLastName());
+        }
+        if (StringUtils.isNotBlank(request.getUserType())) {
+            regRequest.getProperties().put("userType", request.getUserType());
         }
 
         // 2. 调用原生注册落库器
         AccountRegistrationResponse response;
         try {
-            response = registrationProvisioner.provision(request);
+            response = registrationProvisioner.provision(regRequest);
         } catch (Throwable e) {
-            LOGGER.error("管理员邀请注册异常: username={}", username, e);
-            return Map.of("success", false, "message", "注册失败：" + e.getMessage());
+            LOGGER.error("管理员创建用户异常: username={}", request.getUsername(), e);
+            return R.fail("创建失败：" + e.getMessage());
         }
-        boolean success = response.isSuccess();
 
-        if (success) {
+        if (response.isSuccess()) {
             String userId = response.getProperty("userId", String.class);
-            LOGGER.info("管理员邀请注册成功: username={}, email={}, userId={}", username, email, userId);
-            return Map.of(
-                    "success", true,
-                    "userId", userId != null ? userId : "",
-                    "message", "用户创建成功"
-            );
+            LOGGER.info("管理员创建用户成功: username={}, userId={}", request.getUsername(), userId);
+            return R.ok(OperationResultVO.of("用户创建成功", userId != null ? userId : ""));
         }
 
-        LOGGER.warn("管理员邀请注册失败: username={}", username);
+        LOGGER.warn("管理员创建用户失败: username={}", request.getUsername());
         String message = response.getProperty("message", String.class);
-        return Map.of(
-                "success", false,
-                "message", message != null ? message : "注册失败"
-        );
+        return R.fail(message != null ? message : "创建失败");
+    }
+
+    /**
+     * 为用户追加角色
+     */
+    @PostMapping(value = "/addRole", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public R<OperationResultVO> addRole(@RequestBody RoleChangeRequestDTO request) {
+        String userId = request.getUserId();
+        String role = StringUtils.upperCase(request.getRole());
+
+        UnifiedUserDO user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            return R.fail(404, "用户不存在");
+        }
+
+        userMapper.addRole(userId, role);
+        LOGGER.info("追加角色成功: userId={}, role={}", userId, role);
+
+        UnifiedUserDO refreshed = userMapper.selectByUserId(userId);
+        var result = OperationResultVO.of("角色追加成功", userId);
+        result.setRoles(UserDetailVOConverter.parseRoles(refreshed.getRoles()));
+        return R.ok(result);
+    }
+
+    /**
+     * 为用户移除角色
+     */
+    @PostMapping(value = "/removeRole", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public R<OperationResultVO> removeRole(@RequestBody RoleChangeRequestDTO request) {
+        String userId = request.getUserId();
+        String role = StringUtils.upperCase(request.getRole());
+
+        UnifiedUserDO user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            return R.fail(404, "用户不存在");
+        }
+
+        userMapper.removeRole(userId, role);
+        LOGGER.info("移除角色成功: userId={}, role={}", userId, role);
+
+        UnifiedUserDO refreshed = userMapper.selectByUserId(userId);
+        var result = OperationResultVO.of("角色移除成功", userId);
+        result.setRoles(UserDetailVOConverter.parseRoles(refreshed.getRoles()));
+        return R.ok(result);
     }
 
     /**
@@ -139,13 +191,13 @@ public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
      */
     @PostMapping(value = "/{userId}/update", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Map<String, Object> updateUser(@PathVariable("userId") String userId,
-                                          @RequestParam(value = "status", required = false) Integer status,
-                                          @RequestParam(value = "action", required = false) String action,
-                                          @RequestParam(value = "mustChangePassword", required = false) Boolean mustChangePassword) {
+    public R<UserDetailVO> updateUser(@PathVariable("userId") String userId,
+                                      @RequestParam(value = "status", required = false) Integer status,
+                                      @RequestParam(value = "action", required = false) String action,
+                                      @RequestParam(value = "mustChangePassword", required = false) Boolean mustChangePassword) {
         UnifiedUserDO user = userMapper.selectByUserId(userId);
         if (user == null) {
-            return Map.of("error", "用户不存在", "userId", userId);
+            return R.fail(404, "用户不存在");
         }
 
         // 1. 状态变更
@@ -153,7 +205,7 @@ public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
             if (status != CasConstant.USER_STATUS_ACTIVE
                     && status != CasConstant.USER_STATUS_DISABLED
                     && status != CasConstant.USER_STATUS_LOCKED) {
-                return Map.of("error", "无效的状态值", "status", status);
+                return R.fail(400, "无效的状态值");
             }
             userMapper.updateStatus(userId, status);
             LOGGER.info("用户状态变更: userId={}, status={}", userId, status);
@@ -173,23 +225,6 @@ public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
         }
 
         UnifiedUserDO updated = userMapper.selectByUserId(userId);
-        return toUserMap(updated);
-    }
-
-    private Map<String, Object> toUserMap(UnifiedUserDO user) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("userId", user.getUserId());
-        map.put("username", user.getUsername());
-        map.put("nickname", user.getNickname());
-        map.put("phone", user.getPhone());
-        map.put("email", user.getEmail());
-        map.put("userType", user.getUserType());
-        map.put("status", user.getStatus());
-        map.put("roles", user.getRoles());
-        map.put("lastLoginTime", user.getLastLoginTime() != null ? user.getLastLoginTime().toString() : null);
-        map.put("createdTime", user.getCreatedTime() != null ? user.getCreatedTime().toString() : null);
-        map.put("failedLoginCount", user.getFailedLoginCount());
-        map.put("lockUntilTime", user.getLockUntilTime() != null ? user.getLockUntilTime().toString() : null);
-        return map;
+        return R.ok(UserDetailVOConverter.toVO(updated));
     }
 }

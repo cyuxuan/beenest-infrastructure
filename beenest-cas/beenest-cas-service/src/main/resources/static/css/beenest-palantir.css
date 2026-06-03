@@ -1401,6 +1401,17 @@ body.beenest-palantir-dashboard .pal-form-group label {
   margin-bottom: 4px;
 }
 
+/* Form Row — 双列布局 */
+body.beenest-palantir-dashboard .pal-form-row {
+  display: flex;
+  gap: 12px;
+}
+
+body.beenest-palantir-dashboard .pal-form-row .pal-form-group {
+  flex: 1;
+  min-width: 0;
+}
+
 body.beenest-palantir-dashboard .pal-input {
   background: var(--pal-bg-3) !important;
   color: var(--pal-text-0) !important;

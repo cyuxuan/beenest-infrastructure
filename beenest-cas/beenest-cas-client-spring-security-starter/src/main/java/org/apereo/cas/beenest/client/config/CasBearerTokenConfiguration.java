@@ -1,5 +1,6 @@
 package org.apereo.cas.beenest.client.config;
 
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
 import org.apereo.cas.beenest.client.authentication.*;
 import org.apereo.cas.beenest.client.cache.BearerTokenCache;
 import org.apereo.cas.beenest.client.cache.BearerAuthorityVersionService;
@@ -61,9 +62,11 @@ public class CasBearerTokenConfiguration {
             BearerTokenRevocationService revocationService,
             CasUserDetailsService userDetailsService,
             CasTokenRefresher tokenRefresher,
-            BearerAuthorityVersionService authorityVersionService) {
+            BearerAuthorityVersionService authorityVersionService,
+            ObjectProvider<CasAccessControlManager> accessControlManagerProvider) {
         return new CasBearerTokenAuthenticationProvider(
-            nativeTicketValidator, properties, tokenCache, revocationService, userDetailsService, tokenRefresher, authorityVersionService);
+            nativeTicketValidator, properties, tokenCache, revocationService, userDetailsService,
+            tokenRefresher, authorityVersionService, accessControlManagerProvider.getIfAvailable());
     }
 
     /**

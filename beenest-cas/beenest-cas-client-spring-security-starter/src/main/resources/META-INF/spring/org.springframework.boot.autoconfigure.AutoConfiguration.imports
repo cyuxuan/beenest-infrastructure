@@ -1,2 +1,3 @@
 org.apereo.cas.beenest.client.config.CasBusinessLoginProxyConfiguration
 org.apereo.cas.beenest.client.config.CasSecurityAutoConfiguration
+org.apereo.cas.beenest.client.accesscontrol.CasAccessControlAutoConfiguration

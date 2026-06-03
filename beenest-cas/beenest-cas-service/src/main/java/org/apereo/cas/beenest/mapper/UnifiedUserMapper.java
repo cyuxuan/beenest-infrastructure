@@ -65,15 +65,6 @@ public interface UnifiedUserMapper {
     void lockAccount(@Param("userId") String userId, @Param("lockUntilTime") LocalDateTime lockUntilTime);
 
     /**
-     * 原子性解锁已过期的锁定账号（防并发）。
-     * <p>
-     * 当 status=2 且 lock_until_time 已到期时，一次性恢复为正常状态。
-     * 使用 WHERE 条件保证原子性，避免读→判断→写的竞态条件。
-     *
-     * @param userId 用户ID（cas_user.id，而非 user_id 业务标识）
-     * @return 影响行数：1=已解锁，0=未解锁（非锁定或未到期）
-     */
-    /**
      * 分页查询用户列表
      */
     List<UnifiedUserDO> selectAllPaged(@Param("query") String query,
@@ -107,4 +98,7 @@ public interface UnifiedUserMapper {
     void updateMustChangePassword(@Param("userId") String userId, @Param("mustChangePassword") boolean mustChangePassword);
 
     int unlockAccountIfNeeded(@Param("userId") Long userId);
+
+    /** 递增用户 tokenVersion，使已发放的 Token 在刷新时触发重新检查 */
+    void incrementTokenVersion(@Param("userId") String userId);
 }
