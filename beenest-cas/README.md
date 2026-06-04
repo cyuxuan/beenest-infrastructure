@@ -380,6 +380,127 @@ public class CacheConfig {
 - Bearer Token 认证默认会先查本地缓存，再必要时远程 CAS 校验；缓存命中时会直接复用已解析的用户权限，避免每个请求都重复触发业务权限加载。若你要强制更快收敛权限变更，可以把缓存 TTL 调小，但会增加 CAS 和业务权限源压力。
 - 如果你希望多实例场景下的 logout 更快生效，建议业务系统接一个共享的 `CacheManager`，starter 会自动把撤销态写进去。
 
+## 9. 用户授权同步（访问控制 SPI）
+
+### 问题背景
+
+CAS 管理用户对各应用的访问权限（通过 `cas_user.roles` + Service JSON `accessStrategy.requiredAttributes.memberOf`）。当管理员在 Palantir 授权/撤销用户访问某应用时，CAS 只修改了自身数据库，下游应用系统无法感知变更。
+
+下游应用维护有独立的用户和权限体系。用户被授权访问某应用时，需要在下游创建对应账号；撤销时需要禁用账号并强制下线。
+
+### 设计理念：零耦合 SPI
+
+- **CAS 不主动推送** — 不配置回调 URL，不依赖下游 API
+- **下游应用通过 SPI 自主决策** — 在用户登录/Token 刷新时，根据 CAS 角色决定本地账号状态
+- **完全向后兼容** — 不实现 SPI 的应用保持现有行为不变
+
+### 工作原理
+
+```
+CAS 管理员: grant/revoke → 修改 cas_user.roles + 递增 tokenVersion
+                                         ↓
+用户登录/Token 刷新 → CAS 返回 memberOf + tokenVersion
+                                         ↓
+Client Starter: CasAccessControlManager.onAuthentication()
+  ├─ 有权限 + 无本地用户 → SPI.createLocalUser()    (自动创建)
+  ├─ 无权限 + 有本地用户 → SPI.disableLocalUser()   (禁用+下线)
+  ├─ 有权限 + 有本地用户 → SPI.updateLocalUser()    (同步信息)
+  └─ 无权限 + 无本地用户 → 拒绝访问               (兜底)
+```
+
+### 下游应用接入（两步）
+
+**第一步：实现 SPI 接口**
+
+```java
+@Component
+public class MyAppAccessControlService implements CasUserAccessControlService {
+
+    private final SysUserMapper userMapper;
+    private final SessionRegistry sessionRegistry;
+
+    @Override
+    public String getRequiredRole() {
+        return "ROLE_DRONE_SYSTEM";  // 本应用对应的 CAS 角色
+    }
+
+    @Override
+    public boolean isLocalUserActive(String userId) {
+        SysUser user = userMapper.selectByCasUserId(userId);
+        return user != null && user.getStatus() == 1;
+    }
+
+    @Override
+    public String createLocalUser(String userId, Set<String> casRoles,
+                                   Map<String, Object> casAttributes) {
+        SysUser user = new SysUser();
+        user.setCasUserId(userId);
+        user.setUsername((String) casAttributes.get("username"));
+        user.setNickname((String) casAttributes.get("nickname"));
+        user.setPhone((String) casAttributes.get("phone"));
+        user.setEmail((String) casAttributes.get("email"));
+        user.setStatus(1);
+        userMapper.insert(user);
+        return String.valueOf(user.getId());
+    }
+
+    @Override
+    public void disableLocalUser(String userId, Set<String> casRoles) {
+        // 1. 禁用账号
+        userMapper.updateStatusByCasUserId(userId, 0);
+        // 2. 强制下线所有会话
+        for (var session : sessionRegistry.getAllSessions(userId, false)) {
+            session.expireNow();
+        }
+    }
+
+    @Override
+    public void updateLocalUser(String userId, Set<String> casRoles,
+                                 Map<String, Object> casAttributes) {
+        // 同步昵称、手机号等基本信息
+        userMapper.updateProfileByCasUserId(userId, casAttributes);
+    }
+}
+```
+
+**第二步：配置**
+
+```yaml
+cas:
+  client:
+    access-control:
+      enabled: true
+      # required-role 不配置时由 SPI 的 getRequiredRole() 提供
+      auto-create-on-grant: true    # 有权限但无本地用户时自动创建（默认 true）
+      auto-disable-on-revoke: true  # 无权限但有本地用户时自动禁用（默认 true）
+      force-logout-on-disable: true # 禁用时同时强制下线（默认 true）
+```
+
+### 配置属性说明
+
+| 属性 | 默认值 | 说明 |
+|------|--------|------|
+| `cas.client.access-control.enabled` | `false` | 是否启用访问控制 SPI |
+| `cas.client.access-control.required-role` | — | 本应用要求的 CAS 角色名（可覆盖 SPI 的 `getRequiredRole()`） |
+| `cas.client.access-control.auto-create-on-grant` | `true` | 有权限但无本地用户时是否自动创建 |
+| `cas.client.access-control.auto-disable-on-revoke` | `true` | 无权限但有本地用户时是否自动禁用 |
+| `cas.client.access-control.force-logout-on-disable` | `true` | 禁用用户时是否同时强制下线 |
+
+### 边界场景
+
+| 场景 | 处理方式 |
+|------|----------|
+| SPI 实现抛异常 | Client Starter 捕获异常，降级为拒绝（避免因同步失败阻断认证） |
+| CAS 角色变更但用户未登录 | 用户下次登录/Token 刷新时自动检测并处理 |
+| 并发创建本地用户 | SPI 实现需自行处理幂等性（如数据库 UNIQUE 约束） |
+| 禁用后 CAS 又重新授权 | 下次登录时 `isLocalUserActive()` 返回 false，触发 `createLocalUser()` 重新创建 |
+| 多实例部署 | SPI 实现操作数据库，天然支持多实例；会话销毁通过 Spring Security SessionRegistry 或 Redis 集群 |
+| 不实现 SPI 的应用 | 自动配置不激活，完全不影响现有行为 |
+
+### 与 CasUserRegistrationService 的关系
+
+`CasUserRegistrationService` 是现有的首次登录自动注册接口。当 `CasUserAccessControlService` 激活时，优先使用后者（功能更完整），`DefaultCasUserDetailsService` 中的旧注册逻辑自动跳过，避免重复创建。
+
 # Build
 
 To build the project, use:

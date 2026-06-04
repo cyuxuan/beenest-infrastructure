@@ -7,9 +7,9 @@ import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.apereo.cas.beenest.client.details.CasUserDetails;
 import org.springframework.security.core.Authentication;
-import org.apereo.cas.beenest.client.accesscontrol.AccessControlResult;
 import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlDeniedHandler;
 import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
+import org.apereo.cas.beenest.client.accesscontrol.AccessControlResult;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 
@@ -83,9 +83,22 @@ public class CasLoginSuccessHandler implements AuthenticationSuccessHandler {
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
-        // 1. 仅在 principal 是我们自己的 CasUserDetails 时，才写入本地会话快照
+        // 1. 访问控制 SPI 检查（如果启用）
+        if (accessControlManager != null && accessControlManager.isEnabled()) {
+            Set<String> casRoles = extractCasRoles(authentication);
+            Map<String, Object> casAttributes = extractCasAttributes(authentication);
+            String userId = authentication.getName();
+
+            AccessControlResult result = accessControlManager.onAuthentication(userId, casRoles, casAttributes);
+            if (!result.granted()) {
+                deniedHandler.onAuthenticationSuccess(request, response, authentication);
+                return;
+            }
+        }
+
+        // 2. 仅在 principal 是我们自己的 CasUserDetails 时，才写入本地会话快照
         if (authentication != null && authentication.getPrincipal() instanceof CasUserDetails casUserDetails) {
-            // 2. 提前创建 Session，并把 CAS 用户会话和 ST 一并写入注册表
+            // 3. 提前创建 Session，并把 CAS 用户会话和 ST 一并写入注册表
             CasUserSession userSession = casUserDetails.getCasUserSession();
             String serviceTicket = request.getParameter(SERVICE_TICKET_PARAM);
             HttpSession httpSession = request.getSession(true);
@@ -96,7 +109,26 @@ public class CasLoginSuccessHandler implements AuthenticationSuccessHandler {
             log.debug("CAS 登录成功，但 principal 不是 CasUserDetails，跳过会话注册");
         }
 
-        // 3. 保留 Spring Security 默认跳转逻辑
+        // 4. 保留 Spring Security 默认跳转逻辑
         delegate.onAuthenticationSuccess(request, response, authentication);
+    }
+
+    /**
+     * 从认证信息中提取 CAS 角色（memberOf 属性）。
+     */
+    private Set<String> extractCasRoles(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+            .map(auth -> auth.getAuthority())
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * 从认证信息中提取 CAS 其他属性。
+     */
+    private Map<String, Object> extractCasAttributes(Authentication authentication) {
+        if (authentication.getPrincipal() instanceof CasUserDetails userDetails) {
+            return new HashMap<>(userDetails.getAttributes());
+        }
+        return Map.of();
     }
 }
