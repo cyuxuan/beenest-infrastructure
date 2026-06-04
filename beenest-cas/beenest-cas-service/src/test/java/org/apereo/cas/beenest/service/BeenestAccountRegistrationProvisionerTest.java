@@ -2,8 +2,10 @@ package org.apereo.cas.beenest.service;
 
 import org.apereo.cas.acct.AccountRegistrationRequest;
 import org.apereo.cas.acct.AccountRegistrationResponse;
+import org.apereo.cas.beenest.config.AutoGrantProperties;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,16 +13,34 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.Map;
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * BeenestAccountRegistrationProvisioner 单元测试。
+ */
 @ExtendWith(MockitoExtension.class)
 class BeenestAccountRegistrationProvisionerTest {
 
     @Mock
     private UnifiedUserMapper userMapper;
+
+    private AutoGrantProperties autoGrantProperties;
+
+    @BeforeEach
+    void setUp() {
+        autoGrantProperties = new AutoGrantProperties();
+        autoGrantProperties.setAutoGrantServiceIds(Set.of(10001L));
+        autoGrantProperties.setAutoGrantRoles(Map.of(
+                10001L, "ROLE_DRONE_SYSTEM",
+                10003L, "ROLE_PAYMENT"
+        ));
+    }
 
     @Test
     void provisionsNativeRegistrationIntoCasUser() throws Throwable {
@@ -33,7 +53,8 @@ class BeenestAccountRegistrationProvisionerTest {
         request.putProperty("phone", "13800138000");
         request.putProperty("userType", "PILOT");
 
-        BeenestAccountRegistrationProvisioner provisioner = new BeenestAccountRegistrationProvisioner(userMapper);
+        BeenestAccountRegistrationProvisioner provisioner =
+                new BeenestAccountRegistrationProvisioner(userMapper, autoGrantProperties);
         AccountRegistrationResponse response = provisioner.provision(request);
 
         assertThat(response.isSuccess()).isTrue();
@@ -52,6 +73,26 @@ class BeenestAccountRegistrationProvisionerTest {
     }
 
     @Test
+    void autoGrantsRolesAfterSuccessfulRegistration() throws Throwable {
+        AccountRegistrationRequest request = new AccountRegistrationRequest();
+        request.putProperty("username", "pilot01");
+        request.putProperty("password", "Pilot123!");
+        request.putProperty("email", "pilot01@example.com");
+
+        BeenestAccountRegistrationProvisioner provisioner =
+                new BeenestAccountRegistrationProvisioner(userMapper, autoGrantProperties);
+        AccountRegistrationResponse response = provisioner.provision(request);
+
+        assertThat(response.isSuccess()).isTrue();
+        // autoGrantServiceIds 包含 10001，autoGrantRoles 中 10001 → ROLE_DRONE_SYSTEM
+        // 10003 不在 autoGrantServiceIds 中，不会被赋权
+        verify(userMapper).addRole(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("ROLE_DRONE_SYSTEM"));
+        verify(userMapper, never()).addRole(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("ROLE_PAYMENT"));
+    }
+
+    @Test
     void preventsClientAdminRegistration() throws Throwable {
         AccountRegistrationRequest request = new AccountRegistrationRequest();
         request.putProperty("username", "someone");
@@ -59,7 +100,8 @@ class BeenestAccountRegistrationProvisionerTest {
         request.putProperty("email", "someone@example.com");
         request.putProperty("userType", "ADMIN");
 
-        BeenestAccountRegistrationProvisioner provisioner = new BeenestAccountRegistrationProvisioner(userMapper);
+        BeenestAccountRegistrationProvisioner provisioner =
+                new BeenestAccountRegistrationProvisioner(userMapper, autoGrantProperties);
         AccountRegistrationResponse response = provisioner.provision(request);
 
         assertThat(response.isSuccess()).isTrue();
@@ -79,10 +121,14 @@ class BeenestAccountRegistrationProvisionerTest {
         request.putProperty("password", "Pilot123!");
         request.putProperty("email", "pilot01@example.com");
 
-        BeenestAccountRegistrationProvisioner provisioner = new BeenestAccountRegistrationProvisioner(userMapper);
+        BeenestAccountRegistrationProvisioner provisioner =
+                new BeenestAccountRegistrationProvisioner(userMapper, autoGrantProperties);
         AccountRegistrationResponse response = provisioner.provision(request);
 
         assertThat(response.isFailure()).isTrue();
         verify(userMapper, never()).insert(org.mockito.ArgumentMatchers.any());
+        // 注册失败时不应自动赋权
+        verify(userMapper, never()).addRole(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 }

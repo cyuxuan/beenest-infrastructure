@@ -22,6 +22,9 @@ import java.util.UUID;
  * <p>
  * 保留 Apereo CAS 的原生 account-registration webflow，
  * 在激活完成后把用户名密码账号写入统一的 cas_user 表。
+ * <p>
+ * 注册成功后会自动赋予 {@link AutoGrantProperties} 中配置的角色，
+ * 确保与 {@link UserIdentityService#safeCreate} 的行为一致。
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -34,6 +37,9 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
 
     /**
      * 根据 CAS 原生注册请求创建用户名密码账号。
+     * <p>
+     * 注册成功后自动赋予 auto-grant 角色，与 {@link UserIdentityService} 的
+     * {@code safeCreate()} 行为保持一致。
      *
      * @param request CAS 原生注册请求
      * @return 注册响应
@@ -44,6 +50,8 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
             new BeenestAccountRegistrationRequestValidator(userMapper, true).validate(request);
             UnifiedUserDO user = buildUser(request);
             userMapper.insert(user);
+            // 新注册用户自动赋权（与 UserIdentityService.safeCreate() 行为一致）
+            autoGrantRoles(user.getUserId());
             LOGGER.info("CAS 原生账号注册成功: userId={}, username={}", user.getUserId(), user.getUsername());
             return AccountRegistrationResponse.success().putProperty("userId", user.getUserId());
         } catch (DuplicateKeyException e) {
@@ -53,6 +61,25 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
         } catch (IllegalArgumentException e) {
             LOGGER.warn("CAS 原生账号注册参数无效: {}", e.getMessage());
             return failure(e.getMessage());
+        }
+    }
+
+    /**
+     * 为新注册用户自动赋予 auto-grant 角色。
+     * <p>
+     * 遍历 autoGrantRoles 配置，当 Service ID 在 autoGrantServiceIds 中时，
+     * 为用户赋予对应角色。角色名与 Service JSON 的
+     * {@code accessStrategy.requiredAttributes.memberOf} 对应。
+     *
+     * @param userId 用户 ID
+     */
+    private void autoGrantRoles(String userId) {
+        for (var entry : autoGrantProperties.getAutoGrantRoles().entrySet()) {
+            if (autoGrantProperties.getAutoGrantServiceIds().contains(entry.getKey())) {
+                userMapper.addRole(userId, entry.getValue());
+                LOGGER.info("原生注册自动赋权: userId={}, serviceId={}, role={}",
+                        userId, entry.getKey(), entry.getValue());
+            }
         }
     }
 

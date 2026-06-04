@@ -181,27 +181,6 @@ public class AppLoginController {
     }
 
     /**
-     * 获取业务系统 serviceId。
-     *
-     * @param request 当前请求
-     * @return serviceId，未配置则返回 null
-     */
-    private Long resolveBusinessServiceId(HttpServletRequest request) {
-        String header = request.getHeader(CasConstant.BUSINESS_SERVICE_ID_HEADER);
-        if (StringUtils.isBlank(header)) {
-            header = request.getHeader(CasConstant.SERVICE_ID_HEADER);
-        }
-        if (StringUtils.isBlank(header)) {
-            return null;
-        }
-        try {
-            return Long.parseLong(header.trim());
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    /**
      * 获取客户端真实 IP。
      *
      * @param request 当前请求

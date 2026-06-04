@@ -1,7 +1,5 @@
 package org.apereo.cas.beenest.service;
 
-import org.apereo.cas.beenest.authn.exception.AccountDisabledException;
-import org.apereo.cas.beenest.authn.exception.AccountLockedException;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.util.UserTypeUtils;
