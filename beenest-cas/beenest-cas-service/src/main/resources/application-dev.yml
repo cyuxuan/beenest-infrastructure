@@ -7,11 +7,6 @@ cas:
     name: http://localhost:8081
     prefix: ${cas.server.name}/cas
 
-  view:
-    authorized-services-on-successful-login: true
-    successful-login:
-      display-attributes: true
-
   tgc:
     secure: false
     crypto:

@@ -431,4 +431,30 @@ public interface WalletMapper {
                          @Param("balance") Long balance,
                          @Param("balanceHash") String balanceHash,
                          @Param("version") Integer version);
+
+    /**
+     * 批量冻结用户所有钱包。
+     * <p>
+     * CAS 访问控制撤销时使用，将该用户的所有钱包状态设为指定状态（通常为 FROZEN）。
+     *
+     * @param customerNo 用户编号（CAS userId）
+     * @param status     目标状态（FROZEN / CLOSED）
+     * @return 影响的行数
+     */
+    int freezeAllByCustomerNo(@Param("customerNo") String customerNo,
+                              @Param("status") String status);
+
+    /**
+     * 更新用户钱包的客户姓名和手机号。
+     * <p>
+     * CAS 访问控制同步时使用，将 CAS 属性中的 nickname/phone 同步到钱包。
+     *
+     * @param customerNo   用户编号（CAS userId）
+     * @param customerName 客户姓名
+     * @param customerPhone 客户手机号
+     * @return 影响的行数
+     */
+    int updateCustomerProfileByCustomerNo(@Param("customerNo") String customerNo,
+                                          @Param("customerName") String customerName,
+                                          @Param("customerPhone") String customerPhone);
 }

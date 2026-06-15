@@ -33,6 +33,8 @@ spring:
       min-idle: 5
       max-active: 20
       max-wait: 60000
+  cache:
+    type: redis
   data:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
@@ -72,14 +74,25 @@ cas:
     mode: resource-server
     server-url: ${CAS_SERVER_URL:https://localhost:8443/cas}
     client-host-url: ${PAYMENT_CLIENT_HOST_URL:http://localhost:8082}
-    service-id: ${CAS_CLIENT_SERVICE_ID:10001}
+    service-id: ${CAS_CLIENT_SERVICE_ID:10003}
     sign-key: ${CAS_SIGN_KEY:}
     redirect-login: false
     use-session: false
     ignore-pattern: /internal/**,/api/wallet/payment/callback/**,/api/wallet/payment/refund/callback/**,/v3/api-docs/**,/v3/api-docs/swagger-config,/swagger-ui/**,/swagger-ui.html,/webjars/**
     token-auth:
       enabled: true
+      auto-refresh-enabled: true
+      validate-cache-ttl-seconds: 300
+      validate-cache-max-size: 10000
+      access-token-revocation-ttl-seconds: 604800
+      refresh-token-revocation-ttl-seconds: 31536000
       authority-version-attribute: permissionVersion
+    access-control:
+      enabled: true
+      required-role: ROLE_PAYMENT
+      auto-create-on-grant: true
+      auto-disable-on-revoke: true
+      force-logout-on-disable: true
     business-login-proxy:
       enabled: false
     slo:

@@ -12,6 +12,8 @@
       ["userId", "username", "userType", "phone", "email", "nickname", "loginType"]
     ]
   },
+  "logoutType": "BACK_CHANNEL",
+  "logoutUrl": "http://localhost:3000/cas/callback",
   "accessStrategy": {
     "@class": "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
     "enabled": true,

@@ -131,6 +131,77 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- 复制 fat JAR 为 app.jar，供 Jib 打包使用 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-jar-for-jib</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                                      tofile="${project.build.directory}/jib/app/app.jar"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Jib: 无需 Docker daemon，跨平台构建并推送 OCI 镜像 -->
+            <!-- mvn jib:build             → 构建并推送到阿里云 -->
+            <!-- mvn jib:build -DskipTests → 跳过测试构建推送 -->
+            <!-- mvn jib:dockerBuild       → 构建到本地 Docker daemon（需 Docker 运行） -->
+            <plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-maven-plugin</artifactId>
+                <version>3.4.5</version>
+                <configuration>
+                    <to>
+                        <image>registry.cn-hangzhou.aliyuncs.com/beenest/beenest-payment:${project.version}</image>
+                        <tags>
+                            <tag>${project.version}</tag>
+                            <tag>latest</tag>
+                        </tags>
+                    </to>
+                    <from>
+                        <image>eclipse-temurin:21-jre-jammy</image>
+                        <platforms>
+                            <platform>
+                                <architecture>amd64</architecture>
+                                <os>linux</os>
+                            </platform>
+                        </platforms>
+                    </from>
+                    <container>
+                        <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                        <ports>
+                            <port>8082</port>
+                        </ports>
+                        <environment>
+                            <JAVA_OPTS>-Xms256m -Xmx512m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError</JAVA_OPTS>
+                        </environment>
+                        <entrypoint>
+                            <arg>sh</arg>
+                            <arg>-c</arg>
+                            <arg>java $JAVA_OPTS -jar /app/app.jar</arg>
+                        </entrypoint>
+                    </container>
+                    <!-- 从 target/jib 目录复制 app.jar 到镜像 /app/app.jar -->
+                    <extraDirectories>
+                        <paths>
+                            <path>
+                                <from>${project.build.directory}/jib</from>
+                            </path>
+                        </paths>
+                    </extraDirectories>
+                    <allowInsecureRegistries>false</allowInsecureRegistries>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

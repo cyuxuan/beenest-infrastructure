@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS cas_user (
     last_login_ua       VARCHAR(512),
     last_login_device   VARCHAR(128),
     token_version       INT DEFAULT 1,
+    roles               VARCHAR(500),
     created_time        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_time        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

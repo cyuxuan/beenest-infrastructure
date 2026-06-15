@@ -313,11 +313,11 @@ jib {
         }
     }
     to {
-        image = "${project.'containerImageOrg'}/${project.'containerImageName'}:${project.version}"
+        image = "registry.cn-hangzhou.aliyuncs.com/beenest/beenest-cas:${project.version}"
         /**
-             ecr-login: Amazon Elastic Container Registry (ECR)
-             gcr: Google Container Registry (GCR)
-             osxkeychain: Docker Hub
+             阿里云镜像仓库认证方式:
+             方式1: docker login 后通过 credHelper 自动获取 (docker-credential-pass / osxkeychain)
+             方式2: 命令行传入 -DdockerUsername=xxx -DdockerPassword=xxx
          */
         credHelper = "osxkeychain"
         if (dockerUsername != null && dockerPassword != null) {
@@ -326,7 +326,7 @@ jib {
                 password = "${dockerPassword}"
             }
         }
-        tags = [project.version]
+        tags = [project.version, "latest"]
     }
     container {
         creationTime = "USE_CURRENT_TIMESTAMP"
