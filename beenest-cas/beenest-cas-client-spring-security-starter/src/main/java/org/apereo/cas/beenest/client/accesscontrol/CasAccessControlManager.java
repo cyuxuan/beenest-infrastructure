@@ -40,6 +40,10 @@ public class CasAccessControlManager {
      * <p>
      * 从 CAS 返回的 {@code casAttributes} 中提取 {@code memberOf} 角色列表，
      * 判断用户是否拥有本应用的访问角色，并据此同步本地用户状态。
+     * <p>
+     * <b>防御性设计</b>：当 CAS 属性中完全不存在 {@code memberOf} 时（区别于存在但不含本应用角色），
+     * 视为属性缺失而非权限撤销。这避免了 CAS Server 刷新端点因故未返回角色信息时
+     * 误禁本地用户的问题。
      *
      * @param userId        CAS 用户 ID
      * @param casAttributes CAS 返回的属性（包含 memberOf 等多值属性）
@@ -50,10 +54,13 @@ public class CasAccessControlManager {
         Set<String> memberOf = extractMemberOf(casAttributes);
         boolean hasAccess = memberOf.contains(requiredRole);
 
-        log.debug("访问控制检查: userId={}, requiredRole={}, memberOf={}, hasAccess={}",
-                userId, requiredRole, memberOf, hasAccess);
+        // 1. 判断 memberOf 属性是否完全缺失（key 不存在），区别于"存在但不含本应用角色"
+        boolean memberOfAttributeMissing = casAttributes == null || !casAttributes.containsKey("memberOf");
 
-        // 1. 检查本地用户状态（异常时降级为不存在，避免因 SPI 故障阻断认证）
+        log.debug("访问控制检查: userId={}, requiredRole={}, memberOf={}, hasAccess={}, memberOfMissing={}",
+                userId, requiredRole, memberOf, hasAccess, memberOfAttributeMissing);
+
+        // 2. 检查本地用户状态（异常时降级为不存在，避免因 SPI 故障阻断认证）
         boolean localExists;
         try {
             localExists = accessControlService.isLocalUserActive(userId);
@@ -62,7 +69,21 @@ public class CasAccessControlManager {
             localExists = false;
         }
 
-        // 2. 有 CAS 角色 + 无本地用户 → 自动创建
+        // 3. memberOf 属性缺失时的防御性处理：
+        //    CAS Server 的 refresh 端点可能因实现问题未返回 memberOf 属性，
+        //    此时如果本地用户已存在且活跃，应信任本地状态而非误判为权限撤销。
+        //    仅当 memberOf 明确存在且不含本应用角色时，才视为权限撤销。
+        if (memberOfAttributeMissing && localExists) {
+            log.info("访问控制: memberOf 属性缺失但本地用户活跃，信任本地状态 userId={}", userId);
+            try {
+                accessControlService.updateLocalUser(userId, memberOf, casAttributes);
+            } catch (Exception e) {
+                log.error("访问控制: 更新本地用户信息异常 userId={}", userId, e);
+            }
+            return AccessControlResult.granted(userId);
+        }
+
+        // 4. 有 CAS 角色 + 无本地用户 → 自动创建
         if (hasAccess && !localExists) {
             if (properties.isAutoCreateOnGrant()) {
                 try {
@@ -81,7 +102,7 @@ public class CasAccessControlManager {
             return AccessControlResult.denied("本地用户不存在");
         }
 
-        // 3. 无 CAS 角色 + 有本地用户 → 自动禁用
+        // 5. 无 CAS 角色 + 有本地用户 → 自动禁用
         if (!hasAccess && localExists) {
             if (properties.isAutoDisableOnRevoke()) {
                 try {
@@ -95,12 +116,12 @@ public class CasAccessControlManager {
             return AccessControlResult.denied("无访问权限");
         }
 
-        // 4. 无 CAS 角色 + 无本地用户 → 拒绝（防御性兜底）
+        // 6. 无 CAS 角色 + 无本地用户 → 拒绝（防御性兜底）
         if (!hasAccess) {
             return AccessControlResult.denied("无访问权限");
         }
 
-        // 5. 有 CAS 角色 + 有本地用户 → 更新信息
+        // 7. 有 CAS 角色 + 有本地用户 → 更新信息
         try {
             accessControlService.updateLocalUser(userId, memberOf, casAttributes);
         } catch (Exception e) {
@@ -140,32 +161,31 @@ public class CasAccessControlManager {
      * @param casAttributes CAS 属性
      * @return 角色集合
      */
-    @SuppressWarnings("unchecked")
     private Set<String> extractMemberOf(Map<String, Object> casAttributes) {
         if (casAttributes == null) {
             return Collections.emptySet();
         }
         Object value = casAttributes.get("memberOf");
-        if (value == null) {
-            return Collections.emptySet();
-        }
-
-        // List<String> — 多值属性标准形式
-        if (value instanceof List<?>) {
-            Set<String> roles = new HashSet<>();
-            for (Object item : (List<?>) value) {
-                if (item != null) {
-                    roles.add(item.toString().trim());
+        switch (value) {
+            // List<String> — 多值属性标准形式
+            case List<?> objects -> {
+                Set<String> roles = new HashSet<>();
+                for (Object item : objects) {
+                    if (item != null) {
+                        roles.add(item.toString().trim());
+                    }
                 }
+                return roles;
             }
-            return roles;
-        }
 
-        // String — 单值
-        if (value instanceof String str && !str.isBlank()) {
-            return Set.of(str.trim());
-        }
+            // String — 单值
+            case String str when !str.isBlank() -> {
+                return Set.of(str.trim());
+            }
 
-        return Collections.emptySet();
+            case null, default -> {
+                return Collections.emptySet();
+            }
+        }
     }
 }
