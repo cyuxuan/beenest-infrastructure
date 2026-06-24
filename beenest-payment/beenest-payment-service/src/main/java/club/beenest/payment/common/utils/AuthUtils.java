@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 认证工具类。
@@ -69,7 +68,7 @@ public final class AuthUtils {
         if (userDetails == null || attributeNames == null || attributeNames.length == 0) {
             return null;
         }
-        Map<String, String> attributes = userDetails.getAttributes();
+        Map<String, Object> attributes = userDetails.getAttributes();
         if (attributes == null || attributes.isEmpty()) {
             return null;
         }
@@ -77,7 +76,8 @@ public final class AuthUtils {
             if (!StringUtils.hasText(attributeName)) {
                 continue;
             }
-            String value = attributes.get(attributeName);
+            Object raw = attributes.get(attributeName);
+            String value = raw != null ? raw.toString() : null;
             if (StringUtils.hasText(value)) {
                 return value;
             }
@@ -158,7 +158,7 @@ public final class AuthUtils {
                 .filter(authority -> authority.startsWith("ROLE_"))
                 .map(authority -> authority.substring("ROLE_".length()))
                 .map(String::toLowerCase)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -169,7 +169,7 @@ public final class AuthUtils {
     public static List<String> getPermissions() {
         return getAuthorities().stream()
                 .filter(authority -> !authority.startsWith("ROLE_"))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -186,6 +186,6 @@ public final class AuthUtils {
                 .filter(Objects::nonNull)
                 .map(grantedAuthority -> grantedAuthority.getAuthority())
                 .filter(StringUtils::hasText)
-                .collect(Collectors.toList());
+                .toList();
     }
 }

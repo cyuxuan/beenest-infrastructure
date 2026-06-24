@@ -174,7 +174,7 @@ class CasAccessControlManagerTest {
     }
 
     @Test
-    void onAuthentication_noMemberOfAttribute_shouldDeny() {
+    void onAuthentication_noMemberOfAttribute_noLocalUser_shouldDeny() {
         when(accessControlService.isLocalUserActive("user1")).thenReturn(false);
 
         AccessControlResult result = manager.onAuthentication(
@@ -184,6 +184,37 @@ class CasAccessControlManagerTest {
 
         assertFalse(result.granted());
         assertEquals("无访问权限", result.reason());
+    }
+
+    // --- 防御性：memberOf 缺失 + 本地用户活跃 → 信任本地状态 ---
+
+    @Test
+    void onAuthentication_memberOfMissing_localUserActive_shouldTrustLocal() {
+        when(accessControlService.isLocalUserActive("user1")).thenReturn(true);
+
+        // 模拟 CAS refresh 端点未返回 memberOf 属性的场景
+        AccessControlResult result = manager.onAuthentication(
+            "user1",
+            Map.of("nickname", "张三", "userId", "user1")
+        );
+
+        assertTrue(result.granted());
+        assertEquals("user1", result.userId());
+        verify(accessControlService).updateLocalUser(eq("user1"), anySet(), anyMap());
+        verify(accessControlService, never()).disableLocalUser(any(), anySet());
+    }
+
+    @Test
+    void onAuthentication_memberOfMissing_localUserNotActive_shouldDeny() {
+        when(accessControlService.isLocalUserActive("user1")).thenReturn(false);
+
+        // memberOf 缺失 + 本地无用户 → 无法创建，拒绝
+        AccessControlResult result = manager.onAuthentication(
+            "user1",
+            Map.of("nickname", "张三")
+        );
+
+        assertFalse(result.granted());
     }
 
     // --- SPI 异常处理 ---
