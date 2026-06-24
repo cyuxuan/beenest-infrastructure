@@ -72,7 +72,15 @@ public class DefaultCasUserDetailsService implements CasUserDetailsService {
             maybeRegisterLocalUser(session, registrationService);
         }
 
-        Collection<GrantedAuthority> authorities = extractAuthorities(assertion.getAttributes());
+        // 合并 principal attributes 和 assertion attributes 提取权限
+        Map<String, Object> mergedAttrs = new java.util.HashMap<>();
+        if (assertion.getAttributes() != null) {
+            mergedAttrs.putAll(assertion.getAttributes());
+        }
+        if (assertion.getPrincipal().getAttributes() != null) {
+            mergedAttrs.putAll(assertion.getPrincipal().getAttributes());
+        }
+        Collection<GrantedAuthority> authorities = extractAuthorities(mergedAttrs);
         if (authorities.isEmpty()) {
             authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
         }

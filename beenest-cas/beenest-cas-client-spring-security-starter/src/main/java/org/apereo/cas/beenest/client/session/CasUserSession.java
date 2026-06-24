@@ -98,10 +98,17 @@ public class CasUserSession implements Serializable {
         AttributePrincipal principal = assertion.getPrincipal();
         session.setUserId(principal.getName());
 
-        // 从 CAS 属性中提取标准字段
-        Map<String, Object> attrs = assertion.getAttributes();
-        if (attrs == null) {
-            attrs = Map.of();
+        // 合并 principal attributes 和 assertion attributes
+        Map<String, Object> principalAttrs = principal.getAttributes();
+        Map<String, Object> assertionAttrs = assertion.getAttributes();
+
+        Map<String, Object> attrs = new HashMap<>();
+        if (assertionAttrs != null) {
+            attrs.putAll(assertionAttrs);
+        }
+        if (principalAttrs != null) {
+            // principal attributes 覆盖 assertion attributes（principal 为权威源）
+            attrs.putAll(principalAttrs);
         }
 
         session.setUsername(getStringAttr(attrs, "username"));
