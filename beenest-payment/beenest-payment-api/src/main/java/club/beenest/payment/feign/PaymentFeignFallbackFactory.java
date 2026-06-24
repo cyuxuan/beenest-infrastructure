@@ -14,6 +14,9 @@ import club.beenest.payment.wallet.entity.Wallet;
 import club.beenest.payment.wallet.entity.WalletTransaction;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
+import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
+import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
 import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
@@ -236,6 +239,38 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             @Override
             public Response<Void> createReconciliationTask(String date, String channel) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            // ==================== 支付分 - 信用免押 ====================
+
+            @Override
+            public Response<CreditCheckResultDTO> checkCreditEligibility(String customerNo, String platform, Long depositAmount) {
+                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<ServiceOrderResultDTO> createServiceOrder(String customerNo, ServiceOrderCreateDTO request) {
+                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<ServiceOrderResultDTO> completeServiceOrder(String orderNo, Long actualAmount) {
+                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Boolean> cancelServiceOrder(String orderNo) {
+                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<ServiceOrderResultDTO> queryServiceOrderStatus(String orderNo) {
+                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<ServiceOrderResultDTO> getLatestServiceOrderByBizNo(String bizNo) {
+                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
             }
         };
     }

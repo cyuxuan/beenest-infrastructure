@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.payscore.mapper.CreditAuthorizationMapper">
+
+    <resultMap id="BaseResultMap" type="club.beenest.payment.payscore.domain.entity.CreditAuthorization">
+        <id column="id" property="id"/>
+        <result column="auth_no" property="authNo"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="customer_no" property="customerNo"/>
+        <result column="platform" property="platform"/>
+        <result column="credit_score" property="creditScore"/>
+        <result column="deposit_amount" property="depositAmount"/>
+        <result column="exemption_result" property="exemptionResult"/>
+        <result column="frozen_amount" property="frozenAmount"/>
+        <result column="auth_status" property="authStatus"/>
+        <result column="auth_time" property="authTime"/>
+        <result column="expire_time" property="expireTime"/>
+        <result column="third_party_auth_no" property="thirdPartyAuthNo"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, auth_no, order_no, customer_no, platform, credit_score,
+        deposit_amount, exemption_result, frozen_amount, auth_status,
+        auth_time, expire_time, third_party_auth_no, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="club.beenest.payment.payscore.domain.entity.CreditAuthorization"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_credit_authorization (
+            auth_no, order_no, customer_no, platform, credit_score,
+            deposit_amount, exemption_result, frozen_amount, auth_status,
+            auth_time, expire_time, third_party_auth_no, create_time, update_time
+        ) VALUES (
+            #{authNo}, #{orderNo}, #{customerNo}, #{platform}, #{creditScore},
+            #{depositAmount}, #{exemptionResult}, #{frozenAmount}, #{authStatus},
+            #{authTime}, #{expireTime}, #{thirdPartyAuthNo}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <select id="selectByAuthNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_credit_authorization
+        WHERE auth_no = #{authNo}
+    </select>
+
+    <select id="selectByOrderNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_credit_authorization
+        WHERE order_no = #{orderNo}
+    </select>
+
+    <update id="updateByAuthNo" parameterType="club.beenest.payment.payscore.domain.entity.CreditAuthorization">
+        UPDATE ds_credit_authorization
+        <set>
+            <if test="creditScore != null">credit_score = #{creditScore},</if>
+            <if test="exemptionResult != null">exemption_result = #{exemptionResult},</if>
+            <if test="frozenAmount != null">frozen_amount = #{frozenAmount},</if>
+            <if test="authStatus != null">auth_status = #{authStatus},</if>
+            <if test="authTime != null">auth_time = #{authTime},</if>
+            <if test="thirdPartyAuthNo != null">third_party_auth_no = #{thirdPartyAuthNo},</if>
+            update_time = NOW()
+        </set>
+        WHERE auth_no = #{authNo}
+    </update>
+
+</mapper>

@@ -10,6 +10,9 @@ import club.beenest.payment.wallet.dto.WalletAdminQueryDTO;
 import club.beenest.payment.wallet.dto.TransactionQueryDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
+import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
+import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
 import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import club.beenest.payment.paymentorder.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.entity.Refund;
@@ -220,4 +223,71 @@ public interface PaymentFeignClient {
     @PostMapping("/admin/reconciliation/create")
     Response<Void> createReconciliationTask(@RequestParam("date") String date,
                                               @RequestParam("channel") String channel);
+
+    // ==================== 支付分 - 信用免押 ====================
+
+    /**
+     * 信用免押检查
+     *
+     * @param customerNo 用户/商户编号
+     * @param platform 支付分平台（WECHAT_PAYSCORE / ALIPAY_ZHIMA）
+     * @param depositAmount 保证金金额（分）
+     * @return 免押检查结果
+     */
+    @PostMapping("/payscore/check-credit")
+    Response<CreditCheckResultDTO> checkCreditEligibility(
+            @RequestParam("customerNo") String customerNo,
+            @RequestParam("platform") String platform,
+            @RequestParam("depositAmount") Long depositAmount);
+
+    /**
+     * 创建服务订单（发起信用免押授权）
+     *
+     * @param customerNo 用户/商户编号
+     * @param request 创建服务订单请求
+     * @return 服务订单结果（含授权跳转参数）
+     */
+    @PostMapping("/payscore/create")
+    Response<ServiceOrderResultDTO> createServiceOrder(
+            @RequestParam("customerNo") String customerNo,
+            @RequestBody ServiceOrderCreateDTO request);
+
+    /**
+     * 完结服务订单（扣取实际费用，解冻剩余额度）
+     *
+     * @param orderNo 服务订单号
+     * @param actualAmount 实际扣款金额（分，0表示全额解冻）
+     * @return 服务订单结果
+     */
+    @PostMapping("/payscore/complete/{orderNo}")
+    Response<ServiceOrderResultDTO> completeServiceOrder(
+            @PathVariable("orderNo") String orderNo,
+            @RequestParam("actualAmount") Long actualAmount);
+
+    /**
+     * 取消服务订单（取消授权，解冻额度）
+     *
+     * @param orderNo 服务订单号
+     * @return 是否取消成功
+     */
+    @PostMapping("/payscore/cancel/{orderNo}")
+    Response<Boolean> cancelServiceOrder(@PathVariable("orderNo") String orderNo);
+
+    /**
+     * 查询服务订单状态
+     *
+     * @param orderNo 服务订单号
+     * @return 服务订单结果
+     */
+    @GetMapping("/payscore/status/{orderNo}")
+    Response<ServiceOrderResultDTO> queryServiceOrderStatus(@PathVariable("orderNo") String orderNo);
+
+    /**
+     * 根据业务单号查询最新服务订单
+     *
+     * @param bizNo 业务单号
+     * @return 服务订单结果
+     */
+    @GetMapping("/payscore/latest-by-biz-no/{bizNo}")
+    Response<ServiceOrderResultDTO> getLatestServiceOrderByBizNo(@PathVariable("bizNo") String bizNo);
 }

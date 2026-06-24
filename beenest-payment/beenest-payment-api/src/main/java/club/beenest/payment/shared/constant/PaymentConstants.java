@@ -25,6 +25,28 @@ public final class PaymentConstants {
     public static final String PLATFORM_ALIPAY = "ALIPAY";
     public static final String PLATFORM_DOUYIN = "DOUYIN";
 
+    // ==================== 支付分平台常量 ====================
+    public static final String PLATFORM_WECHAT_PAYSCORE = "WECHAT_PAYSCORE";
+    public static final String PLATFORM_ALIPAY_ZHIMA = "ALIPAY_ZHIMA";
+
+    // ==================== 支付分服务订单状态 ====================
+    public static final String SERVICE_ORDER_PENDING_AUTH = "PENDING_AUTH";
+    public static final String SERVICE_ORDER_AUTHORIZED = "AUTHORIZED";
+    public static final String SERVICE_ORDER_SERVICE_ACTIVE = "SERVICE_ACTIVE";
+    public static final String SERVICE_ORDER_COMPLETING = "COMPLETING";
+    public static final String SERVICE_ORDER_COMPLETED = "COMPLETED";
+    public static final String SERVICE_ORDER_CANCELLED = "CANCELLED";
+    public static final String SERVICE_ORDER_EXPIRED = "EXPIRED";
+    public static final String SERVICE_ORDER_FAILED = "FAILED";
+
+    // ==================== 信用免押结果 ====================
+    public static final String CREDIT_EXEMPTION_FULL = "FULL_EXEMPT";
+    public static final String CREDIT_EXEMPTION_PARTIAL = "PARTIAL_EXEMPT";
+    public static final String CREDIT_EXEMPTION_NONE = "NOT_EXEMPT";
+
+    // ==================== 业务类型 ====================
+    public static final String BIZ_TYPE_MERCHANT_DEPOSIT = "MERCHANT_DEPOSIT";
+
     public static final String METHOD_WECHAT_APP = "WECHAT_APP";
     public static final String METHOD_WECHAT_JSAPI = "WECHAT_JSAPI";
     public static final String METHOD_ALIPAY_APP = "ALIPAY_APP";

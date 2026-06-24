@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.payment.payscore.mapper.ServiceOrderMapper">
+
+    <resultMap id="BaseResultMap" type="club.beenest.payment.payscore.domain.entity.ServiceOrder">
+        <id column="id" property="id"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="biz_no" property="bizNo"/>
+        <result column="biz_type" property="bizType"/>
+        <result column="customer_no" property="customerNo"/>
+        <result column="platform" property="platform"/>
+        <result column="service_id" property="serviceId"/>
+        <result column="deposit_amount" property="depositAmount"/>
+        <result column="frozen_amount" property="frozenAmount"/>
+        <result column="actual_amount" property="actualAmount"/>
+        <result column="status" property="status"/>
+        <result column="auth_time" property="authTime"/>
+        <result column="complete_time" property="completeTime"/>
+        <result column="expire_time" property="expireTime"/>
+        <result column="third_party_order_no" property="thirdPartyOrderNo"/>
+        <result column="callback_data" property="callbackData"/>
+        <result column="ext" property="ext"/>
+        <result column="remark" property="remark"/>
+        <result column="notify_url" property="notifyUrl"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, order_no, biz_no, biz_type, customer_no, platform, service_id,
+        deposit_amount, frozen_amount, actual_amount, status,
+        auth_time, complete_time, expire_time, third_party_order_no,
+        callback_data, ext, remark, notify_url, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="club.beenest.payment.payscore.domain.entity.ServiceOrder"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ds_service_order (
+            order_no, biz_no, biz_type, customer_no, platform, service_id,
+            deposit_amount, frozen_amount, actual_amount, status,
+            auth_time, complete_time, expire_time, third_party_order_no,
+            callback_data, ext, remark, notify_url, create_time, update_time
+        ) VALUES (
+            #{orderNo}, #{bizNo}, #{bizType}, #{customerNo}, #{platform}, #{serviceId},
+            #{depositAmount}, #{frozenAmount}, #{actualAmount}, #{status},
+            #{authTime}, #{completeTime}, #{expireTime}, #{thirdPartyOrderNo},
+            #{callbackData}, #{ext}, #{remark}, #{notifyUrl}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <select id="selectByOrderNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_service_order
+        WHERE order_no = #{orderNo}
+    </select>
+
+    <select id="selectByOrderNoForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_service_order
+        WHERE order_no = #{orderNo}
+        FOR UPDATE
+    </select>
+
+    <select id="selectLatestByBizNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_service_order
+        WHERE biz_no = #{bizNo}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateByOrderNo" parameterType="club.beenest.payment.payscore.domain.entity.ServiceOrder">
+        UPDATE ds_service_order
+        <set>
+            <if test="bizNo != null">biz_no = #{bizNo},</if>
+            <if test="frozenAmount != null">frozen_amount = #{frozenAmount},</if>
+            <if test="actualAmount != null">actual_amount = #{actualAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="authTime != null">auth_time = #{authTime},</if>
+            <if test="completeTime != null">complete_time = #{completeTime},</if>
+            <if test="expireTime != null">expire_time = #{expireTime},</if>
+            <if test="thirdPartyOrderNo != null">third_party_order_no = #{thirdPartyOrderNo},</if>
+            <if test="callbackData != null">callback_data = #{callbackData},</if>
+            <if test="ext != null">ext = #{ext},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = NOW()
+        </set>
+        WHERE order_no = #{orderNo}
+    </update>
+
+    <update id="updateStatusIfCurrentStatus">
+        UPDATE ds_service_order
+        SET status = #{newStatus}, update_time = NOW()
+        WHERE order_no = #{orderNo} AND status = #{expectedStatus}
+    </update>
+
+    <select id="selectByCustomerNoAndStatus" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_service_order
+        WHERE customer_no = #{customerNo}
+        <if test="status != null">AND status = #{status}</if>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectExpiredOrders" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_service_order
+        WHERE status = #{status}
+          AND expire_time IS NOT NULL
+          AND expire_time &lt; NOW()
+        ORDER BY expire_time ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

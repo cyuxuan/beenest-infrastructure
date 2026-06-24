@@ -17,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "club.beenest.payment.wallet.mapper",
         "club.beenest.payment.withdraw.mapper",
         "club.beenest.payment.reconciliation.mapper",
+        "club.beenest.payment.payscore.mapper",
         "club.beenest.payment.shared.mapper"
 })
 @EnableFeignClients(basePackages = "club.beenest.payment.feign")

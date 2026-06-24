@@ -1,6 +1,10 @@
 package club.beenest.payment.admin.controller.internal;
 
 import club.beenest.payment.common.Response;
+import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
+import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
+import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
+import club.beenest.payment.payscore.service.IServiceOrderService;
 import club.beenest.payment.paymentorder.dto.BatchSyncResultDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentResultDTO;
 import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
@@ -59,6 +63,7 @@ public class InternalPaymentController {
     private final IPaymentService paymentService;
     private final IWithdrawService withdrawService;
     private final IReconciliationService reconciliationService;
+    private final IServiceOrderService serviceOrderService;
 
     // ==================== 钱包操作 ====================
 
@@ -366,5 +371,51 @@ public class InternalPaymentController {
                                                      @RequestParam String channel) {
         reconciliationService.createTask(date, channel);
         return Response.success();
+    }
+
+    // ==================== 支付分 - 信用免押 ====================
+
+    @PostMapping("/payscore/check-credit")
+    public Response<CreditCheckResultDTO> checkCreditEligibility(
+            @RequestParam String customerNo,
+            @RequestParam String platform,
+            @RequestParam Long depositAmount) {
+        return Response.success(serviceOrderService.checkCreditEligibility(customerNo, platform, depositAmount));
+    }
+
+    @PostMapping("/payscore/create")
+    public Response<ServiceOrderResultDTO> createServiceOrder(
+            @RequestParam String customerNo,
+            @Valid @RequestBody ServiceOrderCreateDTO request) {
+        return Response.success(serviceOrderService.createServiceOrder(customerNo, request));
+    }
+
+    @PostMapping("/payscore/complete/{orderNo}")
+    public Response<ServiceOrderResultDTO> completeServiceOrder(
+            @PathVariable String orderNo,
+            @RequestParam Long actualAmount) {
+        return Response.success(serviceOrderService.completeServiceOrder(orderNo, actualAmount));
+    }
+
+    @PostMapping("/payscore/cancel/{orderNo}")
+    public Response<Boolean> cancelServiceOrder(@PathVariable String orderNo) {
+        return Response.success(serviceOrderService.cancelServiceOrder(orderNo, null));
+    }
+
+    @GetMapping("/payscore/status/{orderNo}")
+    public Response<ServiceOrderResultDTO> queryServiceOrderStatus(@PathVariable String orderNo) {
+        return Response.success(serviceOrderService.queryServiceOrderStatus(null, orderNo));
+    }
+
+    @PostMapping("/payscore/modify/{orderNo}")
+    public Response<ServiceOrderResultDTO> modifyServiceOrderAmount(
+            @PathVariable String orderNo,
+            @RequestParam Long newAmount) {
+        return Response.success(serviceOrderService.modifyServiceOrderAmount(orderNo, newAmount));
+    }
+
+    @GetMapping("/payscore/latest-by-biz-no/{bizNo}")
+    public Response<ServiceOrderResultDTO> getLatestServiceOrderByBizNo(@PathVariable String bizNo) {
+        return Response.success(serviceOrderService.getLatestServiceOrderByBizNo(bizNo));
     }
 }
