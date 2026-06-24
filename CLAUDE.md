@@ -163,9 +163,11 @@ Two-module Maven project: API contract module (`beenest-payment-api`) and servic
 
 **Schedulers**: `PaymentOrderExpireScheduler`, `RefundStatusSyncScheduler`, `OutboxMessageScheduler`, `WalletIntegrityScheduler`.
 
-**Database**: PostgreSQL schema `beenest_payment`. Tables prefixed `ds_`. Flyway migrations `V1_0_0` through `V1_0_5`. MyBatis mapper XMLs in `resources/mapper/payment/`.
+**Database**: PostgreSQL schema `beenest_payment`. Tables prefixed `ds_`. Flyway migrations `V1_0_0` through `V1_0_8`. MyBatis mapper XMLs in `resources/mapper/payment/` and `resources/mapper/payscore/`.
 
 **Key environment variables**: `PAYMENT_DB_URL`, `NACOS_ADDR`, `RABBITMQ_HOST`, `RABBITMQ_PORT`, `WALLET_HASH_SECRET`.
+
+**PayScore (信用免押)**: Credit exemption module for merchant deposit-free scenarios. Supports WeChat PayScore (`WECHAT_PAYSCORE`) and Alipay Zhima Credit (`ALIPAY_ZHIMA`). Strategy pattern: `PayScoreStrategy` interface → `AbstractPayScoreStrategy` (template method) → `WechatPayScoreStrategy` / `AlipayZhimaStrategy`. `PayScoreStrategyFactory` auto-discovers beans. Service order lifecycle: `PENDING_AUTH` → `AUTHORIZED` → `SERVICE_ACTIVE` → `COMPLETING` → `COMPLETED`. Key entities: `ServiceOrder`, `CreditAuthorization`. Flyway: `V1_0_8__payscore_credit_exemption.sql`. Config: `payment.payscore.*`.
 
 ## Code Comment Standards
 

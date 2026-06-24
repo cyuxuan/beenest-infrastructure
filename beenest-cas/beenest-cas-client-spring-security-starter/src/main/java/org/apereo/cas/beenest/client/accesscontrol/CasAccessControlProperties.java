@@ -5,6 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * CAS 用户访问控制配置属性。
+ * <p>
+ * requiredRole 统一从 SPI 实现 {@link CasUserAccessControlService#getRequiredRole()} 获取，
+ * 不再支持配置覆盖，确保角色名与 CAS 服务端 accessStrategy 一致。
  *
  * @see CasUserAccessControlService
  */
@@ -14,9 +17,6 @@ public class CasAccessControlProperties {
 
     /** 是否启用访问控制 SPI（默认 false，向后兼容） */
     private boolean enabled = false;
-
-    /** 本应用要求的 CAS 角色名（可覆盖 SPI 实现的 getRequiredRole()） */
-    private String requiredRole;
 
     /** 有权限但无本地用户时是否自动创建（默认 true） */
     private boolean autoCreateOnGrant = true;

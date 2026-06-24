@@ -29,10 +29,7 @@ public class CasAccessControlAutoConfiguration {
     public CasAccessControlManager casAccessControlManager(
             CasUserAccessControlService accessControlService,
             CasAccessControlProperties properties) {
-        log.info("CAS 访问控制 SPI 已激活, requiredRole={}",
-                 properties.getRequiredRole() != null
-                     ? properties.getRequiredRole()
-                     : accessControlService.getRequiredRole());
+        log.info("CAS 访问控制 SPI 已激活, requiredRole={}", accessControlService.getRequiredRole());
         return new CasAccessControlManager(accessControlService, properties);
     }
 

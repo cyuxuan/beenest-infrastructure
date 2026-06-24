@@ -14,7 +14,9 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -138,14 +140,19 @@ public class CasTokenRefresher {
             session.setUserId(userId);
             session.setAuthTime(System.currentTimeMillis());
 
-            // 解析 attributes
+            // 解析 attributes（多值属性保留为 List<String>，单值属性为 String）
             JsonNode attrs = data.path("attributes");
-            Map<String, String> allAttrs = new HashMap<>();
+            Map<String, Object> allAttrs = new HashMap<>();
             if (attrs.isObject()) {
                 attrs.properties().forEach(e -> {
                     JsonNode val = e.getValue();
                     if (val.isArray() && !val.isEmpty()) {
-                        allAttrs.put(e.getKey(), val.get(0).asText());
+                        // 数组属性 → List<String>
+                        List<String> list = new ArrayList<>();
+                        for (JsonNode item : val) {
+                            list.add(item.asText());
+                        }
+                        allAttrs.put(e.getKey(), list);
                     } else if (!val.isNull()) {
                         allAttrs.put(e.getKey(), val.asText());
                     }

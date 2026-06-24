@@ -24,7 +24,10 @@ import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -151,26 +154,41 @@ public class CasNativeTicketValidationService {
             return null;
         }
 
-        Map<String, String> attributes = new LinkedHashMap<>();
+        Map<String, Object> attributes = new LinkedHashMap<>();
         NodeList attributeNodes = (NodeList) xPath.evaluate("//*[local-name()='authenticationSuccess']/*[local-name()='attributes']/*", document, XPathConstants.NODESET);
         for (int i = 0; i < attributeNodes.getLength(); i++) {
             Node node = attributeNodes.item(i);
             String key = node.getLocalName();
             String value = node.getTextContent();
             if (StringUtils.hasText(key) && value != null) {
-                attributes.putIfAbsent(key, value);
+                // 多值属性（如 memberOf 有多个 XML 元素）合并为 List<String>，
+                // 单值属性保留为 String
+                Object existing = attributes.get(key);
+                if (existing == null) {
+                    // 首次出现 → 单值
+                    attributes.put(key, value);
+                } else if (existing instanceof String strVal) {
+                    // 第二次出现 → 升级为 List
+                    List<String> list = new ArrayList<>();
+                    list.add(strVal);
+                    list.add(value);
+                    attributes.put(key, list);
+                } else if (existing instanceof List<?> list) {
+                    // 已是 List → 追加
+                    ((List<String>) list).add(value);
+                }
             }
         }
 
         CasUserSession session = new CasUserSession();
         session.setUserId(userId);
-        session.setUsername(attributes.get("username"));
-        session.setNickname(attributes.get("nickname"));
-        session.setUserType(attributes.get("userType"));
-        session.setPhone(attributes.get("phone"));
-        session.setEmail(attributes.get("email"));
-        session.setAvatarUrl(attributes.get("avatarUrl"));
-        session.setIdentity(attributes.get("identity"));
+        session.setUsername(getStrAttr(attributes, "username"));
+        session.setNickname(getStrAttr(attributes, "nickname"));
+        session.setUserType(getStrAttr(attributes, "userType"));
+        session.setPhone(getStrAttr(attributes, "phone"));
+        session.setEmail(getStrAttr(attributes, "email"));
+        session.setAvatarUrl(getStrAttr(attributes, "avatarUrl"));
+        session.setIdentity(getStrAttr(attributes, "identity"));
         session.setAttributes(attributes);
         return session;
     }
@@ -229,6 +247,25 @@ public class CasNativeTicketValidationService {
             return "";
         }
         return prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
+    }
+
+    /**
+     * 从属性 Map 中提取字符串值（兼容单值 String 和多值 List）。
+     *
+     * @param attrs 属性 Map
+     * @param key   属性键
+     * @return 字符串值，多值时取第一个元素
+     */
+    private String getStrAttr(Map<String, Object> attrs, String key) {
+        Object value = attrs.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof List<?> list && !list.isEmpty()) {
+            Object first = list.get(0);
+            return first != null ? first.toString() : null;
+        }
+        return value.toString();
     }
 
 }

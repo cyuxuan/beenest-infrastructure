@@ -22,10 +22,8 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -282,15 +280,14 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             authorityVersionService.updateUserVersion(casUserDetails.getUserId(), currentVersion);
         }
 
-        // 5. 访问控制 SPI 检查（如果启用）
+        // 5. 访问控制 SPI 同步（如果启用）
+        //    CAS 服务端 accessStrategy 已完成权限校验，此处只做本地用户状态同步：
+        //    有 CAS 角色 → 创建/更新本地用户；无 CAS 角色 → 禁用本地用户。
         if (accessControlManager != null && accessControlManager.isEnabled() && casUserDetails != null) {
-            Set<String> casRoles = casUserDetails.getAuthorities().stream()
-                .map(auth -> auth.getAuthority())
-                .collect(Collectors.toSet());
-            Map<String, Object> casAttributes = new HashMap<>(casUserDetails.getCasUserSession().getAttributes());
+            Map<String, Object> casAttributes = casUserDetails.getCasUserSession().getAttributes();
 
             AccessControlResult acResult = accessControlManager.onAuthentication(
-                casUserDetails.getUsername(), casRoles, casAttributes);
+                casUserDetails.getUsername(), casAttributes);
             if (!acResult.granted()) {
                 throw new BadCredentialsException(acResult.reason());
             }
@@ -317,8 +314,16 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         if (!StringUtils.hasText(attributeKey)) {
             return null;
         }
-        String value = session.getAttributes().get(attributeKey);
-        return StringUtils.hasText(value) ? value.trim() : null;
+        Object value = session.getAttributes().get(attributeKey);
+        if (value == null) {
+            return null;
+        }
+        // 兼容 String 和 List 类型
+        if (value instanceof java.util.List<?> list && !list.isEmpty()) {
+            Object first = list.get(0);
+            return first != null && StringUtils.hasText(first.toString()) ? first.toString().trim() : null;
+        }
+        return StringUtils.hasText(value.toString()) ? value.toString().trim() : null;
     }
 
     @Override

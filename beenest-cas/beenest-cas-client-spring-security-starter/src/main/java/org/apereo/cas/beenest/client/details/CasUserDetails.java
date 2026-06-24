@@ -14,6 +14,8 @@ import java.util.Map;
  * 实现 Spring Security 的 {@link UserDetails}，包装 {@link CasUserSession}。
  * {@code getUsername()} 返回 userId（CAS 用户 ID 是系统中的唯一标识）。
  * CAS 认证不使用本地密码，{@code getPassword()} 始终返回 null。
+ * <p>
+ * {@code getAttributes()} 返回 CAS 原始属性，多值属性（如 memberOf）保留为 {@code List<String>}。
  */
 @Getter
 public class CasUserDetails implements UserDetails {
@@ -100,7 +102,7 @@ public class CasUserDetails implements UserDetails {
         return casUserSession.getIdentity();
     }
 
-    public Map<String, String> getAttributes() {
+    public Map<String, Object> getAttributes() {
         return casUserSession.getAttributes();
     }
 }

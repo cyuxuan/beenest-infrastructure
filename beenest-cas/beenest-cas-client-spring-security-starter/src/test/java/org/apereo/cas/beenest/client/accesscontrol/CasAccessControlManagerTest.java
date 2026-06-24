@@ -6,8 +6,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -17,6 +17,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 
 /**
  * CasAccessControlManager 单元测试。
+ * <p>
+ * 验证从 CAS 属性中提取 memberOf 角色后的本地用户同步逻辑。
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -49,16 +51,15 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT"),
-            Map.of("nickname", "张三")
+            Map.of("memberOf", List.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT"), "nickname", "张三")
         );
 
         assertTrue(result.granted());
         assertEquals("local-1", result.userId());
         verify(accessControlService).createLocalUser(
             eq("user1"),
-            eq(Set.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT")),
-            eq(Map.of("nickname", "张三"))
+            argThat(roles -> roles.contains("ROLE_DRONE_SYSTEM") && roles.contains("ROLE_PAYMENT")),
+            anyMap()
         );
     }
 
@@ -70,8 +71,7 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_DRONE_SYSTEM"),
-            Map.of()
+            Map.of("memberOf", List.of("ROLE_DRONE_SYSTEM"))
         );
 
         assertFalse(result.granted());
@@ -85,8 +85,7 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_DRONE_SYSTEM"),
-            Map.of()
+            Map.of("memberOf", List.of("ROLE_DRONE_SYSTEM"))
         );
 
         assertFalse(result.granted());
@@ -102,13 +101,12 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_PAYMENT"),
-            Map.of()
+            Map.of("memberOf", List.of("ROLE_PAYMENT"))
         );
 
         assertFalse(result.granted());
         assertEquals("访问权限已撤销", result.reason());
-        verify(accessControlService).disableLocalUser("user1", Set.of("ROLE_PAYMENT"));
+        verify(accessControlService).disableLocalUser(eq("user1"), anySet());
     }
 
     @Test
@@ -118,8 +116,7 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_PAYMENT"),
-            Map.of()
+            Map.of("memberOf", List.of("ROLE_PAYMENT"))
         );
 
         assertFalse(result.granted());
@@ -135,8 +132,7 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_PAYMENT"),
-            Map.of()
+            Map.of("memberOf", List.of("ROLE_PAYMENT"))
         );
 
         assertFalse(result.granted());
@@ -151,34 +147,43 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT"),
-            Map.of("nickname", "张三")
+            Map.of("memberOf", List.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT"), "nickname", "张三")
         );
 
         assertTrue(result.granted());
         assertEquals("user1", result.userId());
         verify(accessControlService).updateLocalUser(
             eq("user1"),
-            eq(Set.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT")),
-            eq(Map.of("nickname", "张三"))
+            argThat(roles -> roles.contains("ROLE_DRONE_SYSTEM") && roles.contains("ROLE_PAYMENT")),
+            anyMap()
         );
     }
 
-    // --- 配置属性优先级 ---
+    // --- memberOf 属性类型兼容性 ---
 
     @Test
-    void onAuthentication_configuredRoleOverridesSpi_shouldUseConfiguredRole() {
-        properties.setRequiredRole("ROLE_CUSTOM");
+    void onAuthentication_memberOfAsString_shouldParse() {
         when(accessControlService.isLocalUserActive("user1")).thenReturn(true);
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_DRONE_SYSTEM"),
-            Map.of()
+            Map.of("memberOf", "ROLE_DRONE_SYSTEM")
+        );
+
+        assertTrue(result.granted());
+    }
+
+    @Test
+    void onAuthentication_noMemberOfAttribute_shouldDeny() {
+        when(accessControlService.isLocalUserActive("user1")).thenReturn(false);
+
+        AccessControlResult result = manager.onAuthentication(
+            "user1",
+            Map.of("nickname", "张三")
         );
 
         assertFalse(result.granted());
-        verify(accessControlService).disableLocalUser("user1", Set.of("ROLE_DRONE_SYSTEM"));
+        assertEquals("无访问权限", result.reason());
     }
 
     // --- SPI 异常处理 ---
@@ -191,8 +196,7 @@ class CasAccessControlManagerTest {
 
         AccessControlResult result = manager.onAuthentication(
             "user1",
-            Set.of("ROLE_PAYMENT"),
-            Map.of()
+            Map.of("memberOf", List.of("ROLE_PAYMENT"))
         );
 
         assertFalse(result.granted());

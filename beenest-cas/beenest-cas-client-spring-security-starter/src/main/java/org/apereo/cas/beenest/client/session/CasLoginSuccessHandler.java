@@ -16,8 +16,6 @@ import org.springframework.security.web.authentication.SavedRequestAwareAuthenti
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * CAS 登录成功处理器。
@@ -83,13 +81,13 @@ public class CasLoginSuccessHandler implements AuthenticationSuccessHandler {
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
-        // 1. 访问控制 SPI 检查（如果启用）
+        // 1. 访问控制 SPI 同步（如果启用）
+        //    CAS 服务端 accessStrategy 已完成权限校验，此处只做本地用户状态同步
         if (accessControlManager != null && accessControlManager.isEnabled()) {
-            Set<String> casRoles = extractCasRoles(authentication);
             Map<String, Object> casAttributes = extractCasAttributes(authentication);
             String userId = authentication.getName();
 
-            AccessControlResult result = accessControlManager.onAuthentication(userId, casRoles, casAttributes);
+            AccessControlResult result = accessControlManager.onAuthentication(userId, casAttributes);
             if (!result.granted()) {
                 deniedHandler.onAuthenticationSuccess(request, response, authentication);
                 return;
@@ -114,16 +112,7 @@ public class CasLoginSuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /**
-     * 从认证信息中提取 CAS 角色（memberOf 属性）。
-     */
-    private Set<String> extractCasRoles(Authentication authentication) {
-        return authentication.getAuthorities().stream()
-            .map(auth -> auth.getAuthority())
-            .collect(Collectors.toSet());
-    }
-
-    /**
-     * 从认证信息中提取 CAS 其他属性。
+     * 从认证信息中提取 CAS 属性（包含 memberOf 等多值属性）。
      */
     private Map<String, Object> extractCasAttributes(Authentication authentication) {
         if (authentication.getPrincipal() instanceof CasUserDetails userDetails) {
