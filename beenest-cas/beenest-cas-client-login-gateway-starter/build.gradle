@@ -39,14 +39,10 @@ publishing {
     }
     repositories {
         maven {
-            name = "beenestNexus"
-            url = version.endsWith('SNAPSHOT')
-                    ? "http://gra954b0-8081-kl5a4qys.10.88.8.11.nip.io/repository/maven-snapshots/"
-                    : "http://gra954b0-8081-kl5a4qys.10.88.8.11.nip.io/repository/maven-releases/"
-            allowInsecureProtocol = true
+            url = 'https://packages.aliyun.com/64f360cf67559243daa2beea/maven/bee-repo'
             credentials {
-                username = project.findProperty("nexusUsername") ?: "admin"
-                password = project.findProperty("nexusPassword") ?: "admin123"
+                username = '64f360b3db86f7a0a6e07c2d'
+                password = '密码'
             }
         }
     }

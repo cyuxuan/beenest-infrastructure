@@ -37,6 +37,24 @@ buildscript {
     }
 }
 
+group 'club.beenest.cas'
+version '1.0.0-SNAPSHOT'
+
+allprojects {
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+        }
+        maven {
+            credentials {
+                username '64f360b3db86f7a0a6e07c2d'
+                password '密码'
+            }
+            url 'https://packages.aliyun.com/64f360cf67559243daa2beea/maven/bee-repo'
+        }
+    }
+}
+
 // 公共仓库配置，供所有子项目继承
 subprojects {
     repositories {
