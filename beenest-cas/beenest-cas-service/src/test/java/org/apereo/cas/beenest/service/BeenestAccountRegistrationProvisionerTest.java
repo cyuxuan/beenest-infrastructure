@@ -13,10 +13,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,10 +35,15 @@ class BeenestAccountRegistrationProvisionerTest {
     @BeforeEach
     void setUp() {
         autoGrantProperties = new AutoGrantProperties();
-        autoGrantProperties.setAutoGrantServiceIds(Set.of(10001L));
-        autoGrantProperties.setAutoGrantRoles(Map.of(
-                10001L, "ROLE_DRONE_SYSTEM",
-                10003L, "ROLE_PAYMENT"
+        autoGrantProperties.setAutoGrant(List.of(
+                new AutoGrantProperties.AutoGrantRule() {{
+                    setServiceIds(List.of(10001L, 10002L, 10004L));
+                    setRoles(List.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT"));
+                }},
+                new AutoGrantProperties.AutoGrantRule() {{
+                    setServiceIds(List.of(10003L));
+                    setRoles(List.of("ROLE_PAYMENT"));
+                }}
         ));
     }
 
@@ -73,7 +78,7 @@ class BeenestAccountRegistrationProvisionerTest {
     }
 
     @Test
-    void autoGrantsRolesAfterSuccessfulRegistration() throws Throwable {
+    void autoGrantsAllRolesFromAllRulesAfterSuccessfulRegistration() throws Throwable {
         AccountRegistrationRequest request = new AccountRegistrationRequest();
         request.putProperty("username", "pilot01");
         request.putProperty("password", "Pilot123!");
@@ -84,11 +89,11 @@ class BeenestAccountRegistrationProvisionerTest {
         AccountRegistrationResponse response = provisioner.provision(request);
 
         assertThat(response.isSuccess()).isTrue();
-        // autoGrantServiceIds 包含 10001，autoGrantRoles 中 10001 → ROLE_DRONE_SYSTEM
-        // 10003 不在 autoGrantServiceIds 中，不会被赋权
-        verify(userMapper).addRole(org.mockito.ArgumentMatchers.anyString(),
+        // 规则1 授予 ROLE_DRONE_SYSTEM + ROLE_PAYMENT
+        // 规则2 也授予 ROLE_PAYMENT（addRole SQL 有去重，不会重复插入）
+        verify(userMapper, atLeastOnce()).addRole(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.eq("ROLE_DRONE_SYSTEM"));
-        verify(userMapper, never()).addRole(org.mockito.ArgumentMatchers.anyString(),
+        verify(userMapper, atLeastOnce()).addRole(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.eq("ROLE_PAYMENT"));
     }
 

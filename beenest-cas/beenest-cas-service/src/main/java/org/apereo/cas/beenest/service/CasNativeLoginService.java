@@ -88,7 +88,7 @@ public class CasNativeLoginService {
             return R.ok(response);
         } catch (BizException e) {
             return R.fail(e.getCode(), e.getMessage());
-        } catch (Throwable e) {
+        } catch (Exception e) {
             LOGGER.error("Token 刷新失败: userId={}", userId, e);
             return R.fail(500, "Token 刷新失败");
         }

@@ -1,3 +1,16 @@
+# ============================================================
+# Payment 主配置（Nacos）
+# 敏感值已使用 jasypt (PBEWITHHMACSHA512ANDAES_256) 加密
+# 解密密钥通过环境变量 JASYPT_ENCRYPTOR_PASSWORD 注入
+# ============================================================
+
+# Jasypt 配置
+jasypt:
+  encryptor:
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:}
+
 server:
   port: ${SERVER_PORT:8082}
 
@@ -9,6 +22,8 @@ spring:
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         enabled: ${NACOS_ENABLED:true}
+        # 指定网卡，避免多网卡环境下注册错误的 IP
+        network-interface: ${NETWORK_INTERFACE:}
     sentinel:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:localhost:8080}
@@ -20,7 +35,7 @@ spring:
   datasource:
     url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/beenest?currentSchema=beenest_payment}
     username: ${PAYMENT_DB_USER:postgres}
-    password: ${PAYMENT_DB_PASSWORD:}
+    password: ENC(6hWkQT9F38bJ3+1F9Wf+hF/ll6Vgz+E9bQgGYvQQxsdqjHOfSz/cBdOTzCXJ3AD8)
     driver-class-name: org.postgresql.Driver
     type: com.alibaba.druid.pool.DruidDataSource
     druid:
@@ -34,12 +49,12 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
-      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      password: ENC(OcZCGQWaqFnH4Geb90Fsaz7Sp/7CvNhL7x396Q+DAYAmXhctQymT+BDvoou41qwVU0qZnwOHD3ERRN9xnu6iKw==)
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    password: ENC(S8SBrfbfI+IOmF1mNDogY0njndh2dTNXqyj8X3W4X1GnANK6frSYe4T8bjycKx/qEbmBYJa7B349UjrhFkK0OQ==)
     publisher-confirm-type: correlated
     publisher-returns: true
     listener:
@@ -70,7 +85,7 @@ cas:
     server-url: ${CAS_SERVER_URL:https://localhost:8443/cas}
     client-host-url: ${PAYMENT_CLIENT_HOST_URL:http://localhost:8082}
     service-id: ${CAS_CLIENT_SERVICE_ID:10003}
-    sign-key: ${CAS_SIGN_KEY:}
+    sign-key: ENC(gNwU0mF0yWJCcF1c/s6TPMaJwPHogIIP6DN6iuhKapBhdilycQ88WtR0NzrjKWzI27qYBKXqR9tpnNqdehKhYVZpgIjiz3vluFJ50IPwVgB6EB6GrZgy3Xlf2vSCrmtCYG06Vc8Tsiyn5tiL2UEwRQ==)
     redirect-login: false
     use-session: false
     ignore-pattern: /internal/**,/api/wallet/payment/callback/**,/api/wallet/payment/refund/callback/**,/api/payscore/callback/**,/v3/api-docs/**,/v3/api-docs/swagger-config,/swagger-ui/**,/swagger-ui.html,/webjars/**
@@ -95,25 +110,24 @@ cas:
     sync:
       enabled: false
 
-# 支付配置（敏感信息通过环境变量或 application-secret.yml 注入）
+# 支付配置
 payment:
   wallet:
-    hash-secret: ${WALLET_HASH_SECRET:}
+    hash-secret: ENC(JIsDD2wieYBFYbWV636XGk9tgYU4IOMwd+udGr9Vhb9Pgyl4BqkeUfSU9ub+JR+8lVYHkX/xP8Yr2KND0juVjrBNbovf3lMUzl3SB8jG3oD1FYDDk0kyA7Y9w7kS6jbszYSc8/IVeRCrlLmVspi965Jw6VHq9kphIbN85KR6ilBrzaW/1+t9GRo0ffc8BwMf)
   internal:
-    token: ${INTERNAL_TOKEN:}
-    sign-secret: ${INTERNAL_SIGN_SECRET:}
+    token: ENC(frBEbN1xXiHyJjzfIcTGnP7ETrT+howyH0pzQFSqg3Exkn3Bs4fLlfI/vtAD8TADNEJzDtYUFktUhVaKP2HkqM89TF36yGRvZgSIEpX4E3lUO5liSHR4SDgKo5J7XmxCpsWZTgs4dPDE+vvW8nERX8OKLIDORXpOKN7EB5G/rTI0YrXEWl5f+kohnxeNprQx)
+    sign-secret: ENC(ONtAsOLmH1cJbiptxMWFtYoU1O/aKC0lGP1bZ19GBZtY8x6oq2Hf2aGsAHysEbRmZzUmFCQ3my4qIhPadWiF1edqBQcpZKLpH2KUH9W7P7FKheQ5zozGxXe4TiQJyEVjiUKuUywgKKO+yTZmKN84BRUvlj3vI7peNNbr+hY3u4KNebfilB0EPtuGFqz9ewel)
     allowed-networks: 127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
   mq:
-    sign-secret: ${MQ_SIGN_SECRET:}
+    sign-secret: ENC(Ecw5MQbkUSMUpOHZcQYfpLfMagACkmIg17uqQnacjaAVjkitI4nXfR5gAOsaLnJe2Gakit/nGpwianDd6qFLFJYKN+Xqo1uB3BypNDmN8ay+0LnxYMOywrSUzCgUvXX9slQeq9Sbvng4nOG+6F2KWlfgrvspjTG+kMKasu50q/cD/BP+bzGLJrzfYWAxeS1K)
   callback:
     allowed-ips: ${CALLBACK_ALLOWED_IPS:}
     trust-proxy: ${PAYMENT_CALLBACK_TRUST_PROXY:false}
-  # 第三方支付 SDK 配置由 application-secret.yml 或环境变量提供
   wechat:
     enabled: ${WECHAT_ENABLED:true}
     app-id: ${WECHAT_APP_ID:}
     mch-id: ${WECHAT_MCH_ID:}
-    api-v3-key: ${WECHAT_API_V3_KEY:}
+    api-v3-key: ENC(C+Pp9c6JZYVWL4eBYsQM/N2LBNGzCvf3cQuqF8LWOm6Cf0JErw0zg3bETd4mu1odVA50F6Sp9/sVs01+iV8iDW8lS5XfIAKVWRve/5Co3wo=)
     serial-no: ${WECHAT_SERIAL_NO:}
     private-key-path: ${WECHAT_PRIVATE_KEY_PATH:classpath:cert/apiclient_key.pem}
     public-key-path: ${WECHAT_PUBLIC_KEY_PATH:classpath:cert/pub_key.pem}
@@ -164,13 +178,13 @@ payment:
     refund-sync-initial-delay-ms: 15000
     refund-sync-batch-size: 20
 
-# 提现配置（敏感信息通过环境变量或 application-secret.yml 注入）
+# 提现配置
 withdraw:
   wechat:
     enabled: ${WITHDRAW_WECHAT_ENABLED:false}
     app-id: ${WECHAT_APP_ID:}
     mch-id: ${WECHAT_MCH_ID:}
-    api-v3-key: ${WECHAT_API_V3_KEY:}
+    api-v3-key: ENC(C+Pp9c6JZYVWL4eBYsQM/N2LBNGzCvf3cQuqF8LWOm6Cf0JErw0zg3bETd4mu1odVA50F6Sp9/sVs01+iV8iDW8lS5XfIAKVWRve/5Co3wo=)
     serial-no: ${WECHAT_SERIAL_NO:}
     private-key-path: ${WECHAT_PRIVATE_KEY_PATH:classpath:cert/apiclient_key.pem}
     fee-amount: 200
@@ -216,4 +230,3 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
-

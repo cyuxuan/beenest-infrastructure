@@ -24,7 +24,7 @@ import java.util.UUID;
  * 在激活完成后把用户名密码账号写入统一的 cas_user 表。
  * <p>
  * 注册成功后会自动赋予 {@link AutoGrantProperties} 中配置的角色，
- * 确保与 {@link UserIdentityService#safeCreate} 的行为一致。
+ * 确保与 {@link UserIdentityService#safeCreate(UnifiedUserDO)} 的行为一致。
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -67,18 +67,20 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
     /**
      * 为新注册用户自动赋予 auto-grant 角色。
      * <p>
-     * 遍历 autoGrantRoles 配置，当 Service ID 在 autoGrantServiceIds 中时，
-     * 为用户赋予对应角色。角色名与 Service JSON 的
-     * {@code accessStrategy.requiredAttributes.memberOf} 对应。
+     * 遍历 auto-grant 规则列表，为用户授予每条规则定义的所有角色。
+     * 角色可以跨应用，例如注册时可同时授予 ROLE_DRONE_SYSTEM + ROLE_PAYMENT。
+     * <p>
+     * CAS 的 accessStrategy 会在 ST 验证时按 service 过滤 memberOf 属性，
+     * 因此注册时授予所有角色是安全的。
      *
      * @param userId 用户 ID
      */
     private void autoGrantRoles(String userId) {
-        for (var entry : autoGrantProperties.getAutoGrantRoles().entrySet()) {
-            if (autoGrantProperties.getAutoGrantServiceIds().contains(entry.getKey())) {
-                userMapper.addRole(userId, entry.getValue());
-                LOGGER.info("原生注册自动赋权: userId={}, serviceId={}, role={}",
-                        userId, entry.getKey(), entry.getValue());
+        for (var rule : autoGrantProperties.getAutoGrant()) {
+            for (String role : rule.getRoles()) {
+                userMapper.addRole(userId, role);
+                LOGGER.info("原生注册自动赋权: userId={}, serviceIds={}, role={}",
+                        userId, rule.getServiceIds(), role);
             }
         }
     }

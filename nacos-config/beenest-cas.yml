@@ -1,25 +1,31 @@
 # ============================================================
-# Apereo CAS 7.3.x 主配置
+# Apereo CAS 7.3.x 主配置（Nacos）
+# 敏感值已使用 jasypt (PBEWITHHMACSHA512ANDAES_256) 加密
+# 解密密钥通过环境变量 JASYPT_ENCRYPTOR_PASSWORD 注入
 # ============================================================
+
+# Jasypt 配置
+jasypt:
+  encryptor:
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:}
 
 cas:
   server:
     name: ${CAS_SERVER_NAME:https://sso.beenest.club}
     prefix: ${CAS_SERVER_PREFIX:${cas.server.name}/cas}
 
-  # 默认语言：中文。若浏览器未显式传 locale，则统一使用 zh_CN。
   locale:
     default-value: ${CAS_LOCALE_DEFAULT_VALUE:zh_CN}
     param-name: ${CAS_LOCALE_PARAM_NAME:locale}
 
-  # TGC Cookie 配置
-  # encryption key 需要 512 bit (64 字节) 以满足 A256CBC-HS512 JWT 加密要求
   tgc:
     crypto:
       encryption:
-        key: ${TGC_ENCRYPTION_KEY}
+        key: ENC(VmW92WhCphEQYoCp1MbyzE9bEPzOWIRC8RBvQU5A+oUAVouaVt5wMO5keMzA2dSW4Xz8OquljbYwUUFa95pqg1SZSgBhrYI2zU701/VBYr7WDtFXq8HUdzz1cwyKZbiDyYMRDqXReyicU8iRm2zdfmDaiApa6X+jG0UzpVsiBJI=)
       signing:
-        key: ${TGC_SIGNING_KEY}
+        key: ENC(t//2ewVXnTAqwAomavQgWVVagslsBk1xKw1pxUYmXmKerbZyOs1hB0mqJLgaGAK+XWFAAZuxSOK4kjFB0NPZW49JFFUUqLLCnI2zHWwZkvYwCWFAT3DIninvG3da9AmRWPQIZFLaqgcSdUFZEWdoA/pqoKorpAhiLVFWH4O0SgE=)
     path: /cas
     http-only: true
     secure: true
@@ -28,69 +34,61 @@ cas:
     crypto:
       enabled: true
       encryption:
-        key: ${CAS_WEBFLOW_ENCRYPTION_KEY}
+        key: ENC(l6Wu4RmE3ZUW7ISVqgRvhNydSOuQUv8FhQYr7Ng4dyKT+Qy3tIGCXVtb7wUUnAvlq7wCeohRFbJqlACYa2+B5g==)
       signing:
-        key: ${CAS_WEBFLOW_SIGNING_KEY}
+        key: ENC(PYaTMyx9Eisj77JUoTxBLfFqiCdN7WXibbSS8Qj5J5XC95JaKSGdyXfC2akhxglaPoky7HZVow4wj9eKNeDJuLMrcTmYRMHfxJ3EL82q7rbUtGf9zsJSF6AORn1BSGV9OwjbflR/VqnAmUv7zfhTxzQWs4ON6xePIYq0SJYyUDc=)
 
-  # 票据注册表: Redis
   ticket:
     registry:
       redis:
         host: ${REDIS_HOST:localhost}
         port: ${REDIS_PORT:6379}
-        password: ${REDIS_PASSWORD:}
+        password: ENC(8IAcT5fIImfvOZrG4EgbPLhkSlxt2bajcnWtvb21DwA0jXZy2fyqmtBdf458bfVT)
         database: 1
         enable-redis-search: false
         pool:
           enabled: true
           max-active: 20
           max-idle: 10
-        # 票据加密密钥（必须固定，否则重启后无法解密已有 TGT）
         crypto:
           enabled: ${CAS_TICKET_REGISTRY_REDIS_CRYPTO_ENABLED:true}
           encryption:
-            key: ${TICKET_ENCRYPTION_KEY}
+            key: ENC(w2uwZQzXQd4U+Itk5O2faV8UPsryEqKEXjIhd8bpuiVAoxhP4+nnd/XlShwm+e50Ieer0QpUzmpD/76VrSNk1A==)
           signing:
-            key: ${TICKET_SIGNING_KEY}
-    # 追踪子票据，确保登出时能一并清理 descendant tickets
+            key: ENC(XovuSSFAOlAI2nT2tLMJhTVkC2lHJB1E+NLIHcT7aHbpbpr7KDTGf9Pb5IGKEesFS8D499DwhU09i7Uv4+ei01e6giF6DzVz5mQa7940gsmW71js0vfUpi/5YzUNnn7Rh20afAGuCIj5/5fjD64uBxtn2O0ykm2j7h7ApIqM/4k=)
     track-descendant-tickets: true
-    # TGT 配置
     tgt:
       primary:
         time-to-kill-in-seconds: 7200
       remember-me:
         enabled: true
         time-to-kill-in-seconds: 2592000
-    # ST 配置
     st:
       time-to-kill-in-seconds: 10
       number-of-uses: 1
 
-  # 服务注册: JPA (PostgreSQL)
   service-registry:
     jpa:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD}
+      password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
       dialect: org.hibernate.dialect.PostgreSQLDialect
       ddl-auto: ${CAS_SERVICE_REGISTRY_JPA_DDL_AUTO:validate}
       pool:
         maximum-lifetime: PT30M
 
-  # SLO 配置
   logout:
     follow-service-redirects: true
 
-  # 官方原生账号开户注册
   account-registration:
     core:
       crypto:
         enabled: true
         encryption:
-          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY}
+          key: ENC(AIrTW8KiC/nE9qicrLfmQGGOiY/lVTdi73oYfDl5NqLU573op9+vY4rNyFJloZ7eGTniUuQog/LaP2ag3pDeriwOKL2g95LSpLlHmvRQgkM=)
         signing:
-          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY}
+          key: ENC(Kpv84K1NvYkJAogYWqlD+f4sgFtU5TdIFJyHEQzXmN7Td/6NQWUE9hvQgKpgCjRWYfz3+mIykdzhYkqPHpGjzAXOLQs23fSIzwMlM92Bnq9AjGnWP/gLs5BE9bMZoq5gf8mj3WywgNbyhRUqC1JKfgwmGwP39SrNIL7AIB8VcZ0=)
       registration-properties:
         location: classpath:/account-registration-properties/registration-properties.json
     mail:
@@ -98,49 +96,42 @@ cas:
       from: ${ACCOUNT_REGISTRATION_FROM:no-reply@beenest.club}
       subject: ${ACCOUNT_REGISTRATION_SUBJECT:Beenest 账号注册激活}
 
-  # 官方原生 Interrupt Webflow
   interrupt:
     core:
       force-execution: ${CAS_INTERRUPT_FORCE_EXECUTION:false}
       trigger-mode: ${CAS_INTERRUPT_TRIGGER_MODE:AFTER_AUTHENTICATION}
 
-  # Inspektr 审计（替代自定义 AuthAuditService）
   audit:
     jdbc:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD}
+      password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
       dialect: org.hibernate.dialect.PostgreSQLDialect
       ddl-auto: ${CAS_AUDIT_JDBC_DDL_AUTO:validate}
       pool:
         maximum-lifetime: PT30M
       max-age-days: 180
 
-  # CAS 事件持久化
   events:
     jpa:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD}
+      password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
       dialect: org.hibernate.dialect.PostgreSQLDialect
       ddl-auto: ${CAS_EVENTS_JPA_DDL_AUTO:validate}
       pool:
         maximum-lifetime: PT30M
 
-  # ===== 认证配置（合并为单段，避免 YAML 重复键） =====
   authn:
-    # 密码管理
     pm:
       core:
         enabled: true
         auto-login: false
-        # 生产默认强制大小写、数字和特殊字符，开发环境可在 application-dev.yml 中放宽。
         password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{12,128}$}"
       webflow:
         enabled: true
-      # 密码历史记录功能
       history:
         core:
           enabled: true
@@ -148,7 +139,7 @@ cas:
         driver-class: org.postgresql.Driver
         url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
         user: ${DB_USER:postgres}
-        password: ${DB_PASSWORD}
+        password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
         dialect: org.hibernate.dialect.PostgreSQLDialect
         password-encoder:
           type: BCRYPT
@@ -163,14 +154,12 @@ cas:
     accept:
       enabled: ${CAS_AUTHN_ACCEPT_ENABLED:false}
       users: ${CAS_AUTHN_ACCEPT_USERS:}
-    # SAML2 IdP
     saml-idp:
       core:
         entity-id: ${CAS_SAML_IDP_ENTITY_ID:${cas.server.name}/cas/idp}
       metadata:
         file-system:
           location: file:/etc/cas/saml
-    # OAuth2 / OIDC
     oauth:
       access-token:
         time-to-kill-in-seconds: 7200
@@ -182,13 +171,12 @@ cas:
       jwks:
         file-system:
           jwks-file: file:/etc/cas/oidc/jwks.json
-    # JDBC 用户名密码认证
     jdbc:
       query[0]:
         driver-class: org.postgresql.Driver
         url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
         user: ${DB_USER:postgres}
-        password: ${DB_PASSWORD}
+        password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
         dialect: org.hibernate.dialect.PostgreSQLDialect
         sql: SELECT password_hash FROM cas_user WHERE username=? AND status=1
         field-password: password_hash
@@ -197,7 +185,6 @@ cas:
           strength: 12
         pool:
           maximum-lifetime: PT30M
-    # 登录限流：使用审计表按用户/IP 统计失败次数，避免暴力破解。
     throttle:
       core:
         username-parameter: ${CAS_AUTHN_THROTTLE_USERNAME_PARAMETER:username}
@@ -210,11 +197,10 @@ cas:
         driver-class: org.postgresql.Driver
         url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
         user: ${DB_USER:postgres}
-        password: ${DB_PASSWORD}
+        password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
         dialect: org.hibernate.dialect.PostgreSQLDialect
         pool:
           maximum-lifetime: PT30M
-    # 可选 LDAP 认证源，默认关闭；启用后需要补齐 LDAP 连接信息。
     ldap:
       - ldap-url: ${CAS_LDAP_URL:}
         type: ${CAS_LDAP_TYPE:AUTHENTICATED}
@@ -227,75 +213,72 @@ cas:
         allow-missing-principal-attribute-value: false
         allow-multiple-principal-attribute-values: false
         order: ${CAS_LDAP_ORDER:0}
-    # ===== MFA JPA 数据源配置（共用 PostgreSQL beenest_cas schema） =====
     mfa:
       gauth:
         jpa:
           driver-class: org.postgresql.Driver
           url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
           user: ${DB_USER:postgres}
-          password: ${DB_PASSWORD}
+          password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
           dialect: org.hibernate.dialect.PostgreSQLDialect
           ddl-auto: ${CAS_AUTHN_MFA_GAUTH_JPA_DDL_AUTO:validate}
           pool:
             maximum-lifetime: PT30M
         crypto:
           encryption:
-            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY}
+            key: ENC(Gi5zcmn72ILU66i7vy1Lcnb3x5/94K9l7jpHCFk7tgP1i0bwieLgj/pscOt6CBHTvcGMmdYAP0+VTJx4SWPwN67vsg+ERM65cYteFOgmuujUfIM0g3CZY2mgr9yS+bFGwa0AC/nf3Z6ZDFX+X59soPQrdRp5t155qoBuaSybXNU=)
           signing:
-            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY}
+            key: ENC(2kVIJ3toFFzLgTybbi5DvA4nhwGA7zek3mVT1V8EGCkdVVJt5LDngqbe6okCionEop0xB+uuHLvI9YK5n19MniXL8z2Ej1FfvokQffQr8zc1WlFe4/KZnROgM+90t/0RG4VO0rZfPHvRJiY73qY3aYFq9n4TFyzrUAEYPcv4dTM=)
         core:
           scratch-codes:
             encryption:
-              key: ${CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY}
+              key: ENC(MMAybQV0eZ366a44o22sefW+YxNHaLgofXgfkTdCkTSuyIcKzVvxM1cLNIaPN3LOHUmMcOnQdep0Gs4XYF3OQA==)
       web-authn:
         jpa:
           driver-class: org.postgresql.Driver
           url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
           user: ${DB_USER:postgres}
-          password: ${DB_PASSWORD}
+          password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
           dialect: org.hibernate.dialect.PostgreSQLDialect
           ddl-auto: ${CAS_AUTHN_MFA_WEBAUTHN_JPA_DDL_AUTO:validate}
           pool:
             maximum-lifetime: PT30M
         crypto:
           encryption:
-            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY}
+            key: ENC(UhIsonv1LOaNk25fkRnSK0zmYc0hRqxhDiHlBBQM/uN3TekIIKkZ5n8EgZ8R+Y+DzuOy2Pcj4EzPPNPZx7NKcmFmu5BcpfDJRI6cMWg992bGjOqEVEC5CohIdG0SKJ5A2TxsdDaPlVSdulxvHIDTJ2vPW9ywvuW2Volhxz4i8+c=)
           signing:
-            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY}
+            key: ENC(uHPQjKmPnxyfuZ0zpz57Vp6SnGuqntD1nfYYrtQ0icZAhXMNA1P4rzhXRHT+oZyE0RnbZjA8JMHyGrDBmsW6o1Z4j0hVuSaYm/RdVQkgcqA/UcLfw6d+TZMNiH4/O24y2a1QIdIY4VUzVYfI9ScJYr/Uf8Ml3bb7qBUR0UdZ7X8=)
       trusted:
         jpa:
           driver-class: org.postgresql.Driver
           url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
           user: ${DB_USER:postgres}
-          password: ${DB_PASSWORD}
+          password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
           dialect: org.hibernate.dialect.PostgreSQLDialect
           ddl-auto: ${CAS_AUTHN_MFA_TRUSTED_JPA_DDL_AUTO:validate}
           pool:
             maximum-lifetime: PT30M
         crypto:
           encryption:
-            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY}
+            key: ENC(KOBh4ID2U+Rer+0AGXcs0oxJoic0LJJNBDvCikigKeuTh065qzY+B/I3l2yviPIV2mtVIRLqemKm5QfOYtQzk0vYP551ojmCJGk5pELSBQaXj4+iSqJDgTQIJehlnC6IlgI8C/4rsew5hD2wfCX2U0FwZLtAbUaebgzbuWXAxFI=)
           signing:
-            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY}
-  # 属性授权决策：通过 JPA 复用 beenest_cas schema，配合 /actuator/attributeConsent 管理。
+            key: ENC(pbv4FBb6vamlGIimnwWlNSG5YG554IZhHGz7tAP3H0OrDlmwCyvTgGGDYV9mwttUvyN4SZUZNtl+vZdOqyYSG2EQI5trpHryZ2lhY/+LfITXH0GiQbGTBBaJ1/sh2MgNe/DO3qW4ATOrITjlk+alpqOKbeFY63lcX+jz4NocSqI=)
   consent:
     jpa:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD}
+      password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
       dialect: org.hibernate.dialect.PostgreSQLDialect
       ddl-auto: ${CAS_CONSENT_JPA_DDL_AUTO:validate}
       pool:
         maximum-lifetime: PT30M
-  # AUP 使用条款：落表到 beenest_cas schema，principal 字段与现有用户体系保持一致。
   acceptable-usage-policy:
     jdbc:
       driver-class: org.postgresql.Driver
       url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
       user: ${DB_USER:postgres}
-      password: ${DB_PASSWORD}
+      password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
       dialect: org.hibernate.dialect.PostgreSQLDialect
       table-name: aup_usage_terms
       aup-column: accepted
@@ -303,7 +286,6 @@ cas:
       pool:
         maximum-lifetime: PT30M
 
-  # CAS 原生端点访问控制：Palantir 通过 /adminlogin 登录后访问，默认要求 ADMIN 角色。
   monitor:
     endpoints:
       form-login-enabled: true
@@ -322,9 +304,6 @@ cas:
           access: ROLE
           required-roles: ADMIN
 
-# ============================================================
-# CAS 模块开关
-# ============================================================
 CasFeatureModule:
   AccountRegistration:
     enabled: ${CAS_FEATURE_ACCOUNT_REGISTRATION_ENABLED:true}
@@ -338,13 +317,9 @@ CasFeatureModule:
     authentication:
       enabled: ${CAS_FEATURE_LDAP_AUTH_ENABLED:false}
 
-# ============================================================
-# Spring Boot Actuator 配置
-# ============================================================
 management:
   endpoints:
     access:
-      # 仅表示端点可被 Spring Boot 创建；实际访问控制由 cas.monitor.endpoints 统一收口。
       default: read-only
     web:
       exposure:
@@ -353,9 +328,6 @@ management:
     health:
       show-details: when-authorized
 
-# ============================================================
-# Server 配置
-# ============================================================
 server:
   port: ${SERVER_PORT:8081}
   ssl:
@@ -365,32 +337,27 @@ server:
     session:
       timeout: ${SERVER_SERVLET_SESSION_TIMEOUT:PT30M}
 
-# ============================================================
-# Spring Boot 配置
-# ============================================================
 spring:
   security:
     user:
       name: ${CAS_ADMIN_USERNAME}
-      password: ${CAS_ADMIN_PASSWORD_BCRYPT}
+      password: ENC(gPGPpq1bewrOkrPg9VTX40s3SlggKTfyDvHldysRnN0FGpO6or8nW/Fh+SH6F6S01A+p5gMUX3x4hqH4XenEFaRR3+GdJhaMZ1AfT4mRbMXLbQH1lbJn+W3nw9wq0CnuwRx6FUeLMuIARpQ2hE1UMw==)
       roles: ADMIN
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ENC(8IAcT5fIImfvOZrG4EgbPLhkSlxt2bajcnWtvb21DwA0jXZy2fyqmtBdf458bfVT)
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:beenest}?currentSchema=beenest_cas
     username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD}
+    password: ENC(57lDt6VMKxg541ABg9p19nQ3FG+BfI5XcI3FT1QFG3UZj1Mz29AW0uYjd2GaUuGD)
     hikari:
       idle-timeout: PT10M
       maximum-lifetime: PT30M
   jpa:
     hibernate:
       ddl-auto: none
-
-  # 邮件通知（CAS 密码重置、通知等功能依赖）
   mail:
     host: ${MAIL_HOST:smtp.beenest.club}
     port: ${MAIL_PORT:587}
@@ -399,8 +366,12 @@ spring:
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
+  cloud:
+    nacos:
+      discovery:
+        # 指定网卡，避免多网卡环境下注册错误的 IP
+        network-interface: ${NETWORK_INTERFACE:}
 
-# Actuator 日志配置
 logging:
   level:
     org.apereo.cas: ${LOG_LEVEL_CAS:INFO}
@@ -408,25 +379,21 @@ logging:
     org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:INFO}
     org.springframework.web: ${LOG_LEVEL_SPRING_WEB:INFO}
 
-# MyBatis
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
 
-# ============================================================
-# 业务自定义配置
-# ============================================================
 beenest:
   token:
-    access-token-ttl-seconds: ${ACCESS_TOKEN_TTL:604800}       # 7 天
-    refresh-token-ttl-seconds: ${REFRESH_TOKEN_TTL:31536000}   # 365 天（1 年）
+    access-token-ttl-seconds: ${ACCESS_TOKEN_TTL:604800}
+    refresh-token-ttl-seconds: ${REFRESH_TOKEN_TTL:31536000}
     refresh-token-rotation: true
-    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET}
+    validation-secret: ENC(R6WmkZSypUhAn3RIVPngUfBwySPfVnLBypbyihtn5ttrHPMwy1AgtsmVD6JYU9/DesXjBIgP69J7i/mvTScT+3fGYKBgsinrOxjMUvwSwm8=)
   miniapp:
     wechat:
       appid: ${WECHAT_APPID:}
-      secret: ${WECHAT_SECRET:}
+      secret: ENC(4xOkzzShs6OKG4Nho4I4B7KZeufs+kxQm3rEWFRviYbPCwpfg0Ik1d0C+4zyPwXDXwg7vu/wWib2g71MpemG/tArpRiJxXOqfxkuOx8Zi1Y=)
     douyin:
       appid: ${DOUYIN_APPID:}
       secret: ${DOUYIN_SECRET:}
@@ -434,7 +401,6 @@ beenest:
       appid: ${ALIPAY_APPID:}
       private-key: ${ALIPAY_PRIVATE_KEY:}
       public-key: ${ALIPAY_PUBLIC_KEY:}
-      # AES 内容加密密钥（用于手机号解密，在支付宝开放平台配置）
       aes-key: ${ALIPAY_AES_KEY:}
   sms:
     provider: ${SMS_PROVIDER:aliyun}
@@ -448,8 +414,6 @@ beenest:
       10001: ROLE_DRONE_SYSTEM
       10003: ROLE_PAYMENT
   mfa:
-    encryption-key: ${MFA_ENCRYPTION_KEY}
-  # Admin API 认证 Token（生产环境必须配置，否则管理接口无法访问）
+    encryption-key: ENC(MSZnEVb1MeJiV2ldOlnwAel1qljAuzzzqT0FRGU3KNuoPrYbSWTkXdasfN0Hc4s1BFyiKf/f75ifEBAlN2tooMh7oMU/bI0uLPBo7nnc2Ac=)
   admin:
-    token: ${CAS_ADMIN_TOKEN:}
-
+    token: ENC(GeKVRumfKt/7jycFQ0Pvh3JHusTrXiKDLoSUkIUyJAEIslx7UOn6Kltjbtt85YrxtXyPTG/U/u1YD1408U2z/jxv5T7iaNHj70o9PYoefTrDx4prV2t7NQtEAF7oJEYg9aMDxSMGMAZWrsYkhk6bTJBaTRI9QNSWvhbuci21CEI/Fz/YIIOo4K5yDFgTJ7/v)

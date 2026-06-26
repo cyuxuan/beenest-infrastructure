@@ -21,6 +21,7 @@ import org.apereo.cas.ticket.factory.DefaultTicketFactory;
 import org.apereo.cas.ticket.registry.TicketRegistry;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -223,6 +224,10 @@ public class CasTokenLifecycleService {
 
     /**
      * 从用户实体构建 CAS Principal。
+     * <p>
+     * 包含 memberOf 属性（从 cas_user.roles 字段解析），
+     * 确保刷新签发的 TGT 与首次登录签发的 TGT 携带相同的角色信息。
+     * 如果缺少 memberOf，下游 Client Starter 的访问控制会误判用户无权限。
      *
      * @param user 统一用户
      * @return CAS Principal
@@ -254,10 +259,42 @@ public class CasTokenLifecycleService {
         putAttribute(attributes, "lastLoginUa", user.getLastLoginUa());
         putAttribute(attributes, "lastLoginDevice", user.getLastLoginDevice());
 
+        // 1. 解析 roles 字段为 memberOf 属性（逗号分隔 → 多值 List）
+        //    与 CAS 认证引擎首次登录时的 Principal 属性保持一致，
+        //    确保 Client Starter 的访问控制在刷新场景不会误判用户无权限。
+        putMemberOfAttribute(attributes, user.getRoles());
+
         try {
             return principalFactory.createPrincipal(user.getUserId(), attributes);
         } catch (Throwable e) {
             throw new IllegalStateException("构建用户主体失败", e);
+        }
+    }
+
+    /**
+     * 将逗号分隔的 roles 字符串解析为 memberOf 多值属性。
+     * <p>
+     * CAS 认证引擎在首次登录时，会从 cas_user_role 表聚合角色并以
+     * {@code memberOf=[ROLE_USER, ROLE_DRONE_SYSTEM, ...]} 的形式写入 Principal attributes。
+     * 刷新场景绕过了认证引擎，因此需要手动从 cas_user.roles 字段恢复角色信息。
+     *
+     * @param attributes 属性容器
+     * @param roles      逗号分隔的角色字符串，如 "ROLE_USER,ROLE_DRONE_SYSTEM,ROLE_PAYMENT"
+     */
+    private void putMemberOfAttribute(Map<String, List<Object>> attributes, String roles) {
+        if (roles == null || roles.isBlank()) {
+            return;
+        }
+        // 1. 按逗号拆分并清洗空白
+        List<Object> memberOf = new ArrayList<>();
+        for (String role : roles.split(",")) {
+            String trimmed = role.trim();
+            if (!trimmed.isEmpty()) {
+                memberOf.add(trimmed);
+            }
+        }
+        if (!memberOf.isEmpty()) {
+            attributes.put("memberOf", memberOf);
         }
     }
 

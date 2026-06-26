@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -38,7 +39,7 @@ import java.util.UUID;
 @Transactional(transactionManager = "beenestTransactionManager")
 public class UserIdentityService {
 
-    private static final java.util.Set<String> INVALID_NICKNAMES = java.util.Set.of(
+    private static final Set<String> INVALID_NICKNAMES = Set.of(
             "未登录", "null", "undefined", "nil", "游客", "微信用户", "抖音用户", "支付宝用户"
     );
 
@@ -465,11 +466,19 @@ public class UserIdentityService {
 
     /**
      * 为新注册用户自动赋予 auto-grant 角色。
+     * <p>
+     * 遍历 auto-grant 规则列表，当规则包含当前 serviceId 时，
+     * 为用户授予该规则定义的所有角色。角色可以跨应用，
+     * 例如 drone-system 注册时可同时授予 ROLE_PAYMENT。
+     *
+     * @param userId 用户 ID
      */
     private void autoGrantRoles(String userId) {
-        for (var entry : autoGrantProperties.getAutoGrantRoles().entrySet()) {
-            if (autoGrantProperties.getAutoGrantServiceIds().contains(entry.getKey())) {
-                userMapper.addRole(userId, entry.getValue());
+        for (var rule : autoGrantProperties.getAutoGrant()) {
+            for (String role : rule.getRoles()) {
+                userMapper.addRole(userId, role);
+                LOGGER.info("自动赋权: userId={}, serviceIds={}, role={}",
+                        userId, rule.getServiceIds(), role);
             }
         }
     }

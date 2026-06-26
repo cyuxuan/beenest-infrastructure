@@ -12,8 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,10 +29,15 @@ class UserIdentityServiceTest {
     @BeforeEach
     void setUp() {
         autoGrantProperties = new AutoGrantProperties();
-        autoGrantProperties.setAutoGrantServiceIds(Set.of(10001L));
-        autoGrantProperties.setAutoGrantRoles(Map.of(
-                10001L, "ROLE_DRONE_SYSTEM",
-                10003L, "ROLE_PAYMENT"
+        autoGrantProperties.setAutoGrant(List.of(
+                new AutoGrantProperties.AutoGrantRule() {{
+                    setServiceIds(List.of(10001L, 10002L, 10004L));
+                    setRoles(List.of("ROLE_DRONE_SYSTEM", "ROLE_PAYMENT"));
+                }},
+                new AutoGrantProperties.AutoGrantRule() {{
+                    setServiceIds(List.of(10003L));
+                    setRoles(List.of("ROLE_PAYMENT"));
+                }}
         ));
     }
 
