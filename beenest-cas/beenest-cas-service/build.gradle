@@ -402,6 +402,14 @@ dependencies {
     * Do NOT modify the lines below or else you will risk breaking dependency management.
     **/
     implementation enforcedPlatform("org.apereo.cas:cas-server-support-bom:${project.'cas.version'}")
+    // ===== Nacos 配置中心 =====
+    implementation platform("com.alibaba.cloud:spring-cloud-alibaba-dependencies:2025.0.0.0")
+    implementation("com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config") {
+        // CAS 不做服务注册，排除 nacos-discovery 避免自动注册
+        exclude group: "com.alibaba.cloud", module: "spring-cloud-starter-alibaba-nacos-discovery"
+    }
+    // Spring Cloud Bootstrap（Spring Cloud 2021+ 必须显式引入，否则 bootstrap.yml 不加载）
+    implementation "org.springframework.cloud:spring-cloud-starter-bootstrap"
     implementation platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
 
     if (nativeImage) {
@@ -464,6 +472,9 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     implementation "com.github.binarywang:weixin-java-miniapp:4.8.2-20260420.104332"
     implementation "com.alipay.sdk:alipay-sdk-java:4.40.763.ALL"
+    // PalantirSecurityConfig 需要 Spring Security Web/Config（已通过 cas-server-support-palantir 传递引入，显式声明确保编译可用）
+    implementation "org.springframework.security:spring-security-web"
+    implementation "org.springframework.security:spring-security-config"
 
     // ===== Phase 1: 企业级基础设施 =====
     implementation "org.apereo.cas:cas-server-support-account-mgmt-api"

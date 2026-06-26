@@ -1,12 +1,12 @@
 # ============================================================
-# CAS 开发环境本地兜底配置
-# 开发环境差异化配置已迁移到 Nacos（data-id: beenest-cas-dev.yml）
+# CAS 测试环境本地兜底配置
+# 测试环境差异化配置已迁移到 Nacos（data-id: beenest-cas-test.yml）
 # 此文件仅在 Nacos 不可用时作为兜底。
 # ============================================================
 
 cas:
   server:
-    name: http://localhost:8081
+    name: ${CAS_SERVER_NAME:http://localhost:8081}
     prefix: ${cas.server.name}/cas
   tgc:
     secure: false

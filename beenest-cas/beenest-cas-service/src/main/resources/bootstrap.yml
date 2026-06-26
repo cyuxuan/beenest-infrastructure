@@ -1,0 +1,25 @@
+# ============================================================
+# CAS Bootstrap 配置 — Nacos 配置中心连接信息
+# 此文件在 Spring Boot 启动的 bootstrap 阶段加载，
+# 早于 application.yml，用于建立与 Nacos 的连接并拉取远程配置。
+# ============================================================
+
+spring:
+  application:
+    name: beenest-cas
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        # Nacos 不可用时不阻止启动（本地开发兜底）
+        fail-fast: false
+        # 刷新配置（仅支持 @RefreshScope 标注的 Bean，CAS 不使用 RefreshScope）
+        refresh-enabled: false
+      discovery:
+        # CAS 不做服务注册
+        enabled: false
