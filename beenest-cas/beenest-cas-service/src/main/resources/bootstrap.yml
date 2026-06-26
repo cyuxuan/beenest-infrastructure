@@ -18,8 +18,9 @@ spring:
         file-extension: yml
         # Nacos 不可用时不阻止启动（本地开发兜底）
         fail-fast: false
-        # 刷新配置（仅支持 @RefreshScope 标注的 Bean，CAS 不使用 RefreshScope）
-        refresh-enabled: false
+        # 开启配置自动刷新：@ConfigurationProperties Bean 通过 ConfigurationPropertiesRebinder 自动重新绑定；
+        # @Value 注入的 Bean 需标注 @RefreshScope 才会刷新。CAS 框架内部 Bean（cas.*）不支持刷新。
+        refresh-enabled: true
       discovery:
         # CAS 不做服务注册
         enabled: false
