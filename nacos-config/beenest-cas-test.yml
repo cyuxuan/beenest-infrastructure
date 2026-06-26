@@ -1,0 +1,210 @@
+# ============================================================
+# 测试环境配置
+# ============================================================
+
+cas:
+  server:
+    name: http://localhost:8081
+    prefix: ${cas.server.name}/cas
+
+  tgc:
+    secure: false
+    crypto:
+      encryption:
+        # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${TGC_ENCRYPTION_KEY:CHANGE_ME}
+      signing:
+        # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${TGC_SIGNING_KEY:CHANGE_ME}
+
+  webflow:
+    crypto:
+      encryption:
+        # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${CAS_WEBFLOW_ENCRYPTION_KEY:CHANGE_ME}
+      signing:
+        # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+        key: ${CAS_WEBFLOW_SIGNING_KEY:CHANGE_ME}
+
+  ticket:
+    registry:
+      redis:
+        host: ${REDIS_HOST:localhost}
+        port: ${REDIS_PORT:6379}
+        database: 1
+        enable-redis-search: false
+        crypto:
+          encryption:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${TICKET_ENCRYPTION_KEY:CHANGE_ME}
+          signing:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${TICKET_SIGNING_KEY:CHANGE_ME}
+
+  account-registration:
+    core:
+      crypto:
+        encryption:
+          # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+          key: ${CAS_ACCOUNT_REGISTRATION_ENCRYPTION_KEY:CHANGE_ME}
+        signing:
+          # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+          key: ${CAS_ACCOUNT_REGISTRATION_SIGNING_KEY:CHANGE_ME}
+
+  # 测试环境允许 Hibernate 自动补齐 CAS 原生表；生产环境在 application.yml 中默认 validate。
+  service-registry:
+    jpa:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_SERVICE_REGISTRY_JPA_DDL_AUTO:update}
+
+  audit:
+    jdbc:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_AUDIT_JDBC_DDL_AUTO:update}
+
+  events:
+    jpa:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_EVENTS_JPA_DDL_AUTO:update}
+
+  consent:
+    jpa:
+      password: ${DB_PASSWORD:postgres}
+      ddl-auto: ${CAS_CONSENT_JPA_DDL_AUTO:update}
+
+  acceptable-usage-policy:
+    jdbc:
+      password: ${DB_PASSWORD:postgres}
+
+  authn:
+    pm:
+      core:
+        # 测试环境允许常见字母数字密码，避免弱密码策略中断登录测试
+        password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[A-Za-z])(?=.*\\d).{8,64}$}"
+    accept:
+      enabled: ${CAS_AUTHN_ACCEPT_ENABLED:false}
+      users: ${CAS_AUTHN_ACCEPT_USERS:}
+    jdbc:
+      query[0]:
+        password: ${DB_PASSWORD:postgres}
+    throttle:
+      jdbc:
+        # 限流 JDBC 数据源在本地也使用开发密码兜底，避免未注入 DB_PASSWORD 时启动失败。
+        password: ${DB_PASSWORD:postgres}
+    mfa:
+      gauth:
+        crypto:
+          encryption:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_ENCRYPTION_KEY:CHANGE_ME}
+          signing:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_GAUTH_CRYPTO_SIGNING_KEY:CHANGE_ME}
+        core:
+          scratch-codes:
+            encryption:
+              # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+              key: ${CAS_AUTHN_MFA_GAUTH_CORE_SCRATCH_CODES_ENCRYPTION_KEY:CHANGE_ME}
+        jpa:
+          password: ${DB_PASSWORD:postgres}
+          ddl-auto: ${CAS_AUTHN_MFA_GAUTH_JPA_DDL_AUTO:update}
+      web-authn:
+        crypto:
+          encryption:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_ENCRYPTION_KEY:CHANGE_ME}
+          signing:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_WEBAUTHN_CRYPTO_SIGNING_KEY:CHANGE_ME}
+        jpa:
+          password: ${DB_PASSWORD:postgres}
+          ddl-auto: ${CAS_AUTHN_MFA_WEBAUTHN_JPA_DDL_AUTO:update}
+      trusted:
+        crypto:
+          encryption:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_ENCRYPTION_KEY:CHANGE_ME}
+          signing:
+            # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+            key: ${CAS_AUTHN_MFA_TRUSTED_CRYPTO_SIGNING_KEY:CHANGE_ME}
+        jpa:
+          password: ${DB_PASSWORD:postgres}
+          ddl-auto: ${CAS_AUTHN_MFA_TRUSTED_JPA_DDL_AUTO:update}
+
+  monitor:
+    endpoints:
+      form-login-enabled: true
+      endpoint:
+        defaults: &adminEndpointAccess
+          access: ROLE
+          required-roles: ADMIN
+        health:
+          access: ANONYMOUS
+        status:
+          access: ANONYMOUS
+        casFeatures:
+          <<: *adminEndpointAccess
+        registeredServices:
+          <<: *adminEndpointAccess
+
+# 本地 Palantir 控制台需要更完整的 actuator 暴露，
+# 生产环境继续使用 application.yml 的收口策略。
+management:
+  endpoints:
+    access:
+      default: unrestricted
+    web:
+      exposure:
+        include: info,health,status,metrics,threaddump,scheduledtasks,httpexchanges,loggers,heapdump,env,configprops,statistics,ticketExpirationPolicies,casFeatures,springWebflow,casModules,authenticationHandlers,authenticationPolicies,attributeDefinitions,resolveAttributes,releaseAttributes,auditevents,configurationMetadata,events,loggingConfig,gauthCredentialRepository,multifactorTrustedDevices,oidcJwks,passwordManagement,personDirectory,redisTicketsCache,multitenancy,mfaDevices,ticketRegistry,auditLog,registeredServices,serviceAccess,casConfig,ssoSessions,sso,casValidate,samlIdPRegisteredServiceMetadataCache,samlPostProfileResponse,samlValidate,throttles,webAuthnDevices,attributeConsent
+  endpoint:
+    health:
+      access: unrestricted
+    info:
+      access: unrestricted
+    metrics:
+      access: unrestricted
+    threaddump:
+      access: unrestricted
+    casFeatures:
+      access: unrestricted
+    registeredServices:
+      access: unrestricted
+
+spring:
+  # datasource 配置继承自 application.yml，无需重复
+  # Docker 环境通过环境变量 SPRING_DATASOURCE_* 覆盖
+  datasource:
+    password: ${DB_PASSWORD:postgres}
+  security:
+    user:
+      name: ${CAS_ADMIN_USERNAME:casuser}
+      # 测试环境也要求显式注入，避免管理口沿用仓库内固定密码。
+      password: ${CAS_ADMIN_PASSWORD_BCRYPT}
+      roles: ADMIN
+  data:
+    redis:
+      database: 1
+  thymeleaf:
+    cache: false
+server:
+  port: 8081
+  ssl:
+    enabled: false
+
+logging:
+  level:
+    org.apereo.cas: ${LOG_LEVEL_CAS:-INFO}
+    org.apereo.cas.beenest: ${LOG_LEVEL_BEENEST:-INFO}
+    org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:-INFO}
+    org.springframework.web: ${LOG_LEVEL_SPRING_WEB:-INFO}
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: ${LOG_LEVEL_SPRING_WEB:-INFO}
+
+beenest:
+  token:
+    # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+    validation-secret: ${CAS_TOKEN_VALIDATION_SECRET:CHANGE_ME}
+  mfa:
+    # 测试环境密钥通过 .env 注入，不提供默认值以防止生产环境漏配时静默降级。
+    encryption-key: ${MFA_ENCRYPTION_KEY:CHANGE_ME}
+
+
