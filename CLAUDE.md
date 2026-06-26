@@ -134,6 +134,8 @@ Apereo CAS 7.3.6 overlay with ~49 CAS native modules and custom Chinese platform
 - `login/casLoginView.html` — Standalone dual-panel login page (password + SMS modes)
 - 15 override templates: logout, MFA (gauth/webauthn), AUP, consent, surrogate, passwordless, password-reset, interrupt, error, adaptive-authn, login-error, mfa-trusted-devices
 
+**Nacos 配置中心**: CAS 和 Payment 的全量配置已迁移到 Nacos。本地 `bootstrap.yml` 仅保留 Nacos 连接信息（`spring.cloud.nacos.config.*`），`application.yml` 仅保留极简兜底默认值。Nacos 中的配置通过 namespace 隔离环境（dev/test/prod），通过 data-id 的 profile 后缀实现环境差异化（如 `beenest-cas-dev.yml`）。CAS 不做服务注册（`spring.cloud.nacos.discovery.enabled=false`），仅从 Nacos 拉取配置。配置文件存放于 `nacos-config/` 目录，可通过 `nacos-config/import.sh` 脚本一键导入 Nacos。
+
 **Configuration properties**:
 - `beenest.miniapp.*` — WeChat/Douyin/Alipay app credentials
 - `beenest.sms.*` — Aliyun SMS accessKey/secretKey/template
