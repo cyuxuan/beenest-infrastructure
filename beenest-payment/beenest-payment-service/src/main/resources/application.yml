@@ -1,7 +1,7 @@
 # ============================================================
-# Payment 本地兜底配置
-# 全量配置已迁移到 Nacos 配置中心（data-id: beenest-payment.yml）
-# 此文件仅在 Nacos 不可用时作为兜底，生产环境不应依赖此文件。
+# Payment 主配置 — 框架级基础设施（跨环境不变）
+# 业务配置（cas client / payment / withdraw）→ application-secret.yml
+# 环境差异化配置 → application-{profile}.yml
 # ============================================================
 
 server:
@@ -16,9 +16,77 @@ spring:
       - secret
   main:
     allow-bean-definition-overriding: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  config:
+    import:
+      - optional:nacos:beenest-payment.yml?refreshEnabled=true&group=DEFAULT_GROUP
+      - optional:nacos:beenest-payment-${spring.profiles.active}.yml?refreshEnabled=true&group=DEFAULT_GROUP
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        fail-fast: false
+        refresh-enabled: true
+      discovery:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        enabled: ${NACOS_ENABLED:true}
+        network-interface: ${NETWORK_INTERFACE:}
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:localhost:8080}
+        port: ${SENTINEL_PORT:8720}
+      eager: true
+    openfeign:
+      sentinel:
+        enabled: true
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+  cache:
+    type: redis
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: auto
+        prefetch: 10
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 2000
+          multiplier: 2
+          max-interval: 10000
 
-# 本地开发兜底日志级别
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+pagehelper:
+  helper-dialect: postgresql
+  reasonable: true
+
 logging:
   level:
     club.beenest.payment: INFO
-    club.beenest.payment.mapper: DEBUG
+    club.beenest.payment.mapper: INFO
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html

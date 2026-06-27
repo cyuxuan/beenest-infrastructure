@@ -61,6 +61,11 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
         </dependency>
+        <!-- Spring Cloud Bootstrap — 使 bootstrap.yml 在启动早期加载，Nacos 配置在 application.yml 之前生效 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+        </dependency>
         <!-- Jasypt 配置加密 -->
         <dependency>
             <groupId>com.github.ulisesbocchio</groupId>

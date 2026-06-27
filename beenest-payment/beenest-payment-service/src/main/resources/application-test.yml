@@ -1,0 +1,31 @@
+# ============================================================
+# Payment 测试环境配置
+# 仅覆盖测试环境差异化项（基础设施地址、环境开关）。
+# 业务配置 → application-secret.yml
+# 框架配置 → application.yml
+# ============================================================
+
+spring:
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/beenest?currentSchema=beenest_payment}
+    username: ${PAYMENT_DB_USER:postgres}
+    password: ${PAYMENT_DB_PASSWORD:postgres}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+cas:
+  client:
+    server-url: ${CAS_SERVER_URL:https://localhost:8443/cas}
+    client-host-url: ${PAYMENT_CLIENT_HOST_URL:http://localhost:8082}
+
+payment:
+  common:
+    sandbox: true

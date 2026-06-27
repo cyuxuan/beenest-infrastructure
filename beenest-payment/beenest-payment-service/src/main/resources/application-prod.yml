@@ -1,0 +1,45 @@
+# ============================================================
+# Payment 生产环境配置
+# 仅覆盖生产环境差异化项（基础设施地址、环境开关）。
+# 敏感值全部通过环境变量注入，不提供默认值。
+# 业务配置 → application-secret.yml
+# 框架配置 → application.yml
+# ============================================================
+
+spring:
+  datasource:
+    url: ${PAYMENT_DB_URL}
+    username: ${PAYMENT_DB_USER}
+    password: ${PAYMENT_DB_PASSWORD}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
+      password: ${SPRING_DATA_REDIS_PASSWORD}
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+cas:
+  client:
+    server-url: ${CAS_SERVER_URL}
+    client-host-url: ${PAYMENT_CLIENT_HOST_URL}
+
+payment:
+  common:
+    sandbox: false
+  callback:
+    trust-proxy: ${PAYMENT_CALLBACK_TRUST_PROXY:true}
+
+logging:
+  level:
+    club.beenest.payment: INFO
+    club.beenest.payment.mapper: INFO
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

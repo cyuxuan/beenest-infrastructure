@@ -565,7 +565,7 @@ The Dockerfile performs a multi-stage build: it copies the project into the cont
 Replace the entire overlay stage in `beenest-cas/Dockerfile` (lines 1-25):
 
 ```dockerfile
-ARG BASE_IMAGE="azul/zulu-openjdk:21"
+ARG BASE_IMAGE="eclipse-temurin:21-jre-jammy"
 
 FROM $BASE_IMAGE AS overlay
 

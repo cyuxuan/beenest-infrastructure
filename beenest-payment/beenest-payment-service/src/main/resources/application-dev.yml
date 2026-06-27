@@ -1,0 +1,25 @@
+# ============================================================
+# Payment 开发环境配置
+# 仅覆盖开发环境差异化项（基础设施地址、环境开关）。
+# 业务配置 → application-secret.yml
+# 框架配置 → application.yml
+# ============================================================
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/beenest?currentSchema=beenest_payment
+    username: postgres
+    password: postgres
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+payment:
+  common:
+    sandbox: true
