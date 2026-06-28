@@ -35,7 +35,7 @@ public interface CasUserAccessControlService {
     String getRequiredRole();
 
     /**
-     * 检查本地用户是否存在且可用。
+     * 检查本地用户是否存在且可用（状态正常）。
      *
      * @param userId CAS 用户 ID
      * @return true 表示本地用户存在且状态正常
@@ -43,9 +43,27 @@ public interface CasUserAccessControlService {
     boolean isLocalUserActive(String userId);
 
     /**
+     * 检查本地用户是否存在（不论状态）。
+     * <p>
+     * 与 {@link #isLocalUserActive(String)} 的区别：此方法在用户被禁用、
+     * 锁定等非正常状态时也返回 true，只有用户记录不存在时才返回 false。
+     * <p>
+     * 默认实现回退到 {@link #isLocalUserActive(String)}，保持向后兼容。
+     * 建议下游应用显式实现此方法，以区分"不存在"和"存在但禁用"两种语义。
+     *
+     * @param userId CAS 用户 ID
+     * @return true 表示本地用户记录存在（不论状态）
+     */
+    default boolean isLocalUserExists(String userId) {
+        return isLocalUserActive(userId);
+    }
+
+    /**
      * 创建本地用户（首次授权时）。
      * <p>
      * 当 CAS {@code memberOf} 包含本应用角色，但本地用户不存在时调用。
+     * <p>
+     * 如果本地用户已存在但处于禁用状态，实现应恢复用户为正常状态而非重新创建。
      *
      * @param userId        CAS 用户 ID
      * @param memberOf      CAS 返回的角色集合

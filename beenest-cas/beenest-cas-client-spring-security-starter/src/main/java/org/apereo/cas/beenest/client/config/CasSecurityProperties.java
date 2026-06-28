@@ -23,11 +23,11 @@ public class CasSecurityProperties {
     /** CAS 服务器地址（如 https://sso.beenest.club/cas） */
     private String serverUrl;
 
-    /** 当前后端服务的访问地址（如 https://drone.beenest.club 或 http://10.88.9.9:8080）
+    /** 当前后端服务的访问地址（如 https://drone.beenest.club）
      *  用于：CAS service URL 回调、ST 验证 service 参数 */
     private String clientHostUrl;
 
-    /** 前端应用地址（如 https://drone.beenest.club 或 http://10.88.9.9:3000）
+    /** 前端应用地址（如 https://drone.beenest.club）
      *  用于：SSO 登录成功后重定向到前端页面。
      *  未配置时回退到 clientHostUrl（兼容非前后端分离场景） */
     private String frontendUrl;
@@ -129,15 +129,23 @@ public class CasSecurityProperties {
     /**
      * 解析用于 CAS 原生票据校验的目标服务地址。
      * <p>
-     * 优先使用后端服务自身地址；如果未配置，则回退到 CAS 服务器地址。
+     * 拼接 clientHostUrl + loginPath（如 {@code http://10.88.9.9:8083/login/cas}），
+     * 与 {@code ServiceProperties.service} 保持一致，确保 CAS 注册表的 serviceId 正则能匹配。
+     * <p>
+     * CAS 注册表的 serviceId 通常为 {@code ^http://host/.*}，要求 URL 至少包含一个 {@code /} 路径；
+     * 如果只传裸域名 {@code http://10.88.9.9}（无路径），正则无法匹配，导致
+     * {@code service.not.authorized.sso}。
      *
-     * @return 验证服务地址
+     * @return 验证服务地址（含 loginPath 后缀）
      */
     public String resolveValidationServiceUrl() {
+        String baseUrl;
         if (StringUtils.hasText(clientHostUrl)) {
-            return trimTrailingSlash(clientHostUrl);
+            baseUrl = trimTrailingSlash(clientHostUrl);
+        } else {
+            baseUrl = trimTrailingSlash(serverUrl);
         }
-        return trimTrailingSlash(serverUrl);
+        return baseUrl + loginPath;
     }
 
     /**

@@ -1,6 +1,6 @@
 {
   "@class": "org.apereo.cas.services.CasRegisteredService",
-  "serviceId": "^https://drone\\.beenest\\.club/.*",
+  "serviceId": "^https?://drone\\.beenest\\.club(/.*)?$",
   "name": "drone-system",
   "id": 10001,
   "description": "飞鸽无人机管理系统",
@@ -9,7 +9,7 @@
     "@class": "org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy",
     "allowedAttributes": [
       "java.util.ArrayList",
-      ["userId", "username", "userType", "phone", "email", "nickname", "loginType"]
+      ["userId", "username", "userType", "phone", "email", "nickname", "loginType", "memberOf", "tokenVersion"]
     ]
   },
   "logoutType": "BACK_CHANNEL",

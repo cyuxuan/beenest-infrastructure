@@ -1,26 +1,20 @@
 {
   "@class": "org.apereo.cas.services.CasRegisteredService",
-  "serviceId": "^https?://(localhost(:3000)?|drone\\.beenest\\.club)/login/cas$",
+  "serviceId": "^https?://(localhost(:[0-9]+)?|10\\.88\\.9\\.9(:[0-9]+)?|host\\.docker\\.internal(:[0-9]+)?|drone\\.beenest\\.club)(/.*)?$",
   "name": "drone-system-local",
   "id": 10004,
-  "description": "飞鸽无人机管理系统本地回调",
+  "description": "飞鸽无人机管理系统本地开发（无角色限制）",
   "evaluationOrder": 30,
   "attributeReleasePolicy": {
     "@class": "org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy",
     "allowedAttributes": [
       "java.util.ArrayList",
-      ["userId", "username", "userType", "phone", "email", "nickname", "loginType"]
+      ["userId", "username", "userType", "phone", "email", "nickname", "loginType", "memberOf", "tokenVersion"]
     ]
   },
-  "logoutType": "BACK_CHANNEL",
-  "logoutUrl": "http://localhost:3000/cas/callback",
   "accessStrategy": {
     "@class": "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
     "enabled": true,
-    "ssoEnabled": true,
-    "requiredAttributes": {
-      "@class": "java.util.TreeMap",
-      "memberOf": ["java.util.HashSet", ["ROLE_DRONE_SYSTEM"]]
-    }
+    "ssoEnabled": true
   }
 }

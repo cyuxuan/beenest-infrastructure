@@ -67,6 +67,17 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
      */
     private final ConcurrentHashMap<String, CompletableFuture<Authentication>> inflightRefreshes = new ConcurrentHashMap<>();
 
+    /**
+     * 正在执行中的 TGT 验证去重映射。
+     * <p>
+     * Key: accessToken（TGT），Value: 代表验证结果的 CompletableFuture。
+     * 通过 {@link ConcurrentHashMap#putIfAbsent} 保证同一个 TGT
+     * 同时只有一个线程执行远程验证（TGT→ST→serviceValidate），
+     * 其余并发线程等待并复用结果，避免多个线程同时用同一 TGT 向 CAS 兑换 ST
+     * 导致 ST 被提前消费而出现 INVALID_TICKET 错误。
+     */
+    private final ConcurrentHashMap<String, CompletableFuture<CasUserSession>> inflightValidations = new ConcurrentHashMap<>();
+
     public CasBearerTokenAuthenticationProvider(CasNativeTicketValidator nativeTicketValidator,
                                                 CasSecurityProperties properties,
                                                 BearerTokenCache tokenCache,
@@ -111,6 +122,10 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         String accessToken = token.getAccessToken();
         String refreshToken = token.getRefreshToken();
 
+        log.debug("[Bearer认证] 开始: accessToken={}..., hasRefreshToken={}",
+            accessToken != null ? accessToken.substring(0, Math.min(20, accessToken.length())) : "null",
+            refreshToken != null && !refreshToken.isBlank());
+
         // 0. 先检查撤销态，避免已注销 token 命中本地缓存或触发远程刷新
         if (revocationService != null && revocationService.isAccessTokenRevoked(accessToken)) {
             throw new BadCredentialsException("CAS accessToken 已注销，请重新登录");
@@ -128,11 +143,10 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
                 String cachedVersion = resolveAuthorityVersion(cached);
                 if (authorityVersionService != null
                     && authorityVersionService.isVersionStale(cached.getUserId(), cachedVersion)) {
-                    log.debug("Bearer Token 权限版本已过期，准备重新校验: userId={}, token={}",
-                        cached.getUserId(), accessToken);
+                    log.debug("[Bearer认证] 缓存命中但权限版本过期: userId={}", cached.getUserId());
                     tokenCache.remove(accessToken);
                 } else {
-                    log.debug("Bearer Token 缓存命中");
+                    log.debug("[Bearer认证] 缓存命中: userId={}", cached.getUserId());
                     CasUserDetails cachedUserDetails = tokenCache.getUserDetails(accessToken);
                     if (cachedUserDetails != null) {
                         return buildAuthenticatedToken(accessToken, null, cached, cachedUserDetails);
@@ -140,19 +154,21 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
                     return buildAuthenticatedToken(accessToken, null, cached, null);
                 }
             }
+            log.debug("[Bearer认证] 缓存未命中");
         }
 
-        // 2. 远程验证 TGT
-        CasUserSession session = nativeTicketValidator.validate(accessToken);
+        // 2. 远程验证 TGT（Singleflight 去重，避免并发请求同时兑换 ST 导致 INVALID_TICKET）
+        CasUserSession session = singleflightValidate(accessToken);
         if (session != null) {
             // TGT 有效，构建认证结果并缓存
+            log.info("[Bearer认证] TGT 验证成功: userId={}", session.getUserId());
             session.setAuthTime(System.currentTimeMillis());
             return buildAuthenticatedToken(accessToken, null, session, null);
         }
 
         // 3. TGT 过期 — 通过 Singleflight 机制尝试无感刷新
         if (properties.getTokenAuth().isAutoRefreshEnabled() && refreshToken != null && !refreshToken.isBlank()) {
-            log.debug("accessToken 过期，尝试使用 refreshToken 自动刷新");
+            log.info("[Bearer认证] TGT 验证失败，尝试 refreshToken 自动刷新");
             Authentication refreshed = singleflightRefresh(accessToken, refreshToken);
             if (refreshed != null) {
                 return refreshed;
@@ -161,6 +177,52 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
 
         // 4. 刷新失败或无 refreshToken，返回认证失败
         throw new BadCredentialsException("CAS TGT 验证失败: token 无效或已过期");
+    }
+
+    /**
+     * Singleflight TGT 验证：保证同一个 accessToken 同时只有一个线程执行远程验证。
+     * <p>
+     * 问题背景：前端登录成功后可能并发发出多个 API 请求，这些请求携带同一个 TGT，
+     * 如果多个线程同时调用 {@link CasNativeTicketValidator#validate}，
+     * 会导致多个线程同时向 CAS 的 {@code POST /v1/tickets/{TGT}} 端点兑换 ST，
+     * CAS 在处理并发请求时会更新 TGT 关联的 ST 列表，导致先创建的 ST 被删除，
+     * 后续用该 ST 调 {@code /p3/serviceValidate} 时返回 {@code INVALID_TICKET}。
+     * <p>
+     * 解决方案：通过 {@link ConcurrentHashMap#putIfAbsent} 注册验证 Future，
+     * 第一个线程负责执行实际的远程验证（TGT→ST→serviceValidate），
+     * 后续并发线程等待第一个线程的结果并直接复用。
+     *
+     * @param accessToken TGT
+     * @return 用户会话，验证失败返回 null
+     */
+    private CasUserSession singleflightValidate(String accessToken) {
+        CompletableFuture<CasUserSession> future = new CompletableFuture<>();
+        CompletableFuture<CasUserSession> existing = inflightValidations.putIfAbsent(accessToken, future);
+
+        if (existing != null) {
+            // 已有线程在验证同一个 TGT，等待其结果
+            log.debug("[TGT验证] 已有并发验证正在进行，等待结果: accessToken={}...",
+                accessToken.substring(0, Math.min(20, accessToken.length())));
+            try {
+                return existing.get(REFRESH_AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.warn("[TGT验证] 等待并发验证结果超时或异常: {}", e.getMessage());
+                return null;
+            }
+        }
+
+        // 当前线程负责执行实际验证
+        try {
+            CasUserSession result = nativeTicketValidator.validate(accessToken);
+            future.complete(result);
+            return result;
+        } catch (Exception e) {
+            future.complete(null);
+            log.warn("[TGT验证] 远程验证执行失败: {}", e.getMessage());
+            return null;
+        } finally {
+            inflightValidations.remove(accessToken);
+        }
     }
 
     /**

@@ -61,18 +61,32 @@ public class CasNativeTicketValidationService {
      */
     public CasUserSession validate(String accessToken) {
         String serviceUrl = properties.resolveValidationServiceUrl();
+        log.debug("[TGT验证] 开始: accessToken={}..., serviceUrl={}, serverUrl={}",
+            accessToken != null ? accessToken.substring(0, Math.min(20, accessToken.length())) : "null",
+            serviceUrl, properties.getServerUrl());
         if (!StringUtils.hasText(accessToken) || !StringUtils.hasText(serviceUrl) || !StringUtils.hasText(properties.getServerUrl())) {
+            log.warn("[TGT验证] 前置参数缺失: hasAccessToken={}, hasServiceUrl={}, hasServerUrl={}",
+                StringUtils.hasText(accessToken), StringUtils.hasText(serviceUrl), StringUtils.hasText(properties.getServerUrl()));
             return null;
         }
 
         try {
             String serviceTicket = requestServiceTicket(accessToken, serviceUrl);
             if (!StringUtils.hasText(serviceTicket)) {
+                log.warn("[TGT验证] ST 兑换失败: accessToken={}..., serviceUrl={}",
+                    accessToken.substring(0, Math.min(20, accessToken.length())), serviceUrl);
                 return null;
             }
-            return validateServiceTicket(serviceUrl, serviceTicket);
+            log.debug("[TGT验证] ST 兑换成功: ST={}...", serviceTicket.substring(0, Math.min(12, serviceTicket.length())));
+            CasUserSession session = validateServiceTicket(serviceUrl, serviceTicket);
+            if (session != null) {
+                log.debug("[TGT验证] ST 验证成功: userId={}", session.getUserId());
+            } else {
+                log.warn("[TGT验证] ST 验证返回 null: serviceUrl={}, ST={}...", serviceUrl, serviceTicket.substring(0, Math.min(12, serviceTicket.length())));
+            }
+            return session;
         } catch (Exception e) {
-            log.error("CAS 原生票据验证失败: error={}", e.getMessage());
+            log.error("[TGT验证] 异常: error={}", e.getMessage(), e);
             return null;
         }
     }
@@ -97,7 +111,12 @@ public class CasNativeTicketValidationService {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("service", serviceUrl);
 
+        log.debug("[ST兑换] 请求: url={}, service={}", ticketUrl, serviceUrl);
         ResponseEntity<String> response = restTemplate.postForEntity(ticketUrl, new HttpEntity<>(body, headers), String.class);
+        log.debug("[ST兑换] 响应: status={}, Location={}, body={}",
+            response.getStatusCode(), response.getHeaders().getFirst(HttpHeaders.LOCATION),
+            response.getBody() != null ? response.getBody().substring(0, Math.min(100, response.getBody().length())) : "null");
+
         String location = response.getHeaders().getFirst(HttpHeaders.LOCATION);
         if (StringUtils.hasText(location)) {
             return extractTicketFromLocation(location);
@@ -121,8 +140,14 @@ public class CasNativeTicketValidationService {
             .queryParam("ticket", serviceTicket)
             .toUriString();
 
+        log.debug("[ST验证] 请求: url={}", validateUrl);
         ResponseEntity<String> response = restTemplate.getForEntity(validateUrl, String.class);
-        return parseServiceValidateResponse(response.getBody());
+        String responseBody = response.getBody();
+        log.debug("[ST验证] 响应: status={}, bodyLength={}, body={}",
+            response.getStatusCode(),
+            responseBody != null ? responseBody.length() : 0,
+            responseBody != null ? responseBody.substring(0, Math.min(500, responseBody.length())) : "null");
+        return parseServiceValidateResponse(responseBody);
     }
 
     /**
@@ -134,6 +159,7 @@ public class CasNativeTicketValidationService {
      */
     private CasUserSession parseServiceValidateResponse(String responseBody) throws Exception {
         if (!StringUtils.hasText(responseBody)) {
+            log.warn("[ST验证] 响应体为空");
             return null;
         }
 
@@ -146,11 +172,16 @@ public class CasNativeTicketValidationService {
         XPath xPath = XPathFactory.newInstance().newXPath();
         Boolean success = (Boolean) xPath.evaluate("boolean(//*[local-name()='authenticationSuccess'])", document, XPathConstants.BOOLEAN);
         if (success == null || !success) {
+            // 提取错误码用于诊断
+            String errorCode = xPath.evaluate("//*[local-name()='authenticationFailure']/@code", document);
+            String errorText = xPath.evaluate("//*[local-name()='authenticationFailure']/text()", document);
+            log.warn("[ST验证] 验证失败: errorCode={}, errorText={}", errorCode, errorText != null ? errorText.trim() : "null");
             return null;
         }
 
         String userId = xPath.evaluate("//*[local-name()='authenticationSuccess']/*[local-name()='user']/text()", document);
         if (!StringUtils.hasText(userId)) {
+            log.warn("[ST验证] 认证成功但 userId 为空");
             return null;
         }
 
