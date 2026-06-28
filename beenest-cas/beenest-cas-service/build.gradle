@@ -407,8 +407,8 @@ dependencies {
     implementation("com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config") {
         // CAS 不做服务注册，排除 nacos-discovery 避免自动注册
         exclude group: "com.alibaba.cloud", module: "spring-cloud-starter-alibaba-nacos-discovery"
+        exclude group: "com.alibaba.nacos", module: "nacos-log4j2-adapter"
     }
-    // Spring Cloud Bootstrap（Spring Cloud 2021+ 必须显式引入，否则 bootstrap.yml 不加载）
     implementation "org.springframework.cloud:spring-cloud-starter-bootstrap"
     // ===== Jasypt 配置加密 =====
     implementation "com.github.ulisesbocchio:jasypt-spring-boot-starter:3.0.5"
@@ -431,7 +431,7 @@ dependencies {
         developmentOnly "org.springframework.boot:spring-boot-devtools:${project.springBootVersion}"
     }
     // developmentOnly "org.springframework.boot:spring-boot-docker-compose:${project.springBootVersion}"
-        
+
     /**
      * CAS dependencies and modules may be listed here.
      *

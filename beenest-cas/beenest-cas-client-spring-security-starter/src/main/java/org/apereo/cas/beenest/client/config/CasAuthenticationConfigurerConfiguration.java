@@ -65,13 +65,13 @@ public class CasAuthenticationConfigurerConfiguration {
             ActiveSessionRegistry activeSessionRegistry = activeSessionRegistryProvider.getIfAvailable();
             if (activeSessionRegistry != null) {
                 // 前后端分离场景：CAS 回调后端 /login/cas 验证 ST，
-                // 认证成功后应重定向到 clientHostUrl（前端地址），而非后端自身地址
+                // 认证成功后应重定向到前端地址（frontendUrl），而非后端自身地址
                 SavedRequestAwareAuthenticationSuccessHandler successHandler =
                     new SavedRequestAwareAuthenticationSuccessHandler();
-                String clientHostUrl = properties.getClientHostUrl();
-                if (StringUtils.hasText(clientHostUrl)) {
-                    successHandler.setDefaultTargetUrl(clientHostUrl);
-                    log.info("CAS 登录成功后默认重定向到前端地址: {}", clientHostUrl);
+                String frontendUrl = properties.resolveFrontendUrl();
+                if (StringUtils.hasText(frontendUrl)) {
+                    successHandler.setDefaultTargetUrl(frontendUrl);
+                    log.info("CAS 登录成功后默认重定向到前端地址: {}", frontendUrl);
                 }
                 casFilter.setAuthenticationSuccessHandler(new CasLoginSuccessHandler(
                     activeSessionRegistry,

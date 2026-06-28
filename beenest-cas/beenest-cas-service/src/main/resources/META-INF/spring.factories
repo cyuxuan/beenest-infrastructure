@@ -1,0 +1,6 @@
+# CAS overlay 初始化器注册
+# NacosConfigBridgeAutoConfiguration 作为 ApplicationContextInitializer 注册，
+# 在主 application context 刷新最早阶段执行，将 Nacos ConfigData PropertySource
+# 插入到 CAS 的 casCompositePropertySource 之前，确保 Nacos 远程配置覆盖本地兜底值。
+org.springframework.context.ApplicationContextInitializer=\
+org.apereo.cas.beenest.config.NacosConfigBridgeAutoConfiguration

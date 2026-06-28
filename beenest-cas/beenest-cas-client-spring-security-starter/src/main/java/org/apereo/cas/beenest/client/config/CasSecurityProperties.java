@@ -23,8 +23,14 @@ public class CasSecurityProperties {
     /** CAS 服务器地址（如 https://sso.beenest.club/cas） */
     private String serverUrl;
 
-    /** 当前服务的访问地址（如 https://drone.beenest.club） */
+    /** 当前后端服务的访问地址（如 https://drone.beenest.club 或 http://10.88.9.9:8080）
+     *  用于：CAS service URL 回调、ST 验证 service 参数 */
     private String clientHostUrl;
+
+    /** 前端应用地址（如 https://drone.beenest.club 或 http://10.88.9.9:3000）
+     *  用于：SSO 登录成功后重定向到前端页面。
+     *  未配置时回退到 clientHostUrl（兼容非前后端分离场景） */
+    private String frontendUrl;
 
     /** 注册的服务 ID（对应 CAS Server 中的 serviceId） */
     private String serviceId;
@@ -123,7 +129,7 @@ public class CasSecurityProperties {
     /**
      * 解析用于 CAS 原生票据校验的目标服务地址。
      * <p>
-     * 优先使用业务系统自身地址；如果未配置，则回退到 CAS 服务器地址。
+     * 优先使用后端服务自身地址；如果未配置，则回退到 CAS 服务器地址。
      *
      * @return 验证服务地址
      */
@@ -132,6 +138,24 @@ public class CasSecurityProperties {
             return trimTrailingSlash(clientHostUrl);
         }
         return trimTrailingSlash(serverUrl);
+    }
+
+    /**
+     * 解析 SSO 登录成功后的前端重定向地址。
+     * <p>
+     * 优先使用 frontendUrl（前后端分离场景的前端地址），
+     * 未配置时回退到 clientHostUrl（兼容非前后端分离场景）。
+     *
+     * @return 前端重定向地址，两个均未配置时返回 null
+     */
+    public String resolveFrontendUrl() {
+        if (StringUtils.hasText(frontendUrl)) {
+            return trimTrailingSlash(frontendUrl);
+        }
+        if (StringUtils.hasText(clientHostUrl)) {
+            return trimTrailingSlash(clientHostUrl);
+        }
+        return null;
     }
 
     /**

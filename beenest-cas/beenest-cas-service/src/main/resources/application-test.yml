@@ -1,26 +1,106 @@
 # ============================================================
-# CAS 测试环境本地兜底配置
-# 测试环境差异化配置已迁移到 Nacos（data-id: beenest-cas-test.yml）
-# 此文件仅在 Nacos 不可用时作为兜底。
+# CAS 测试环境配置
+# Nacos 可用时，远程 beenest-cas-test.yml 会覆盖同名项。
 # ============================================================
 
 cas:
   server:
     name: ${CAS_SERVER_NAME:http://localhost:8081}
     prefix: ${cas.server.name}/cas
+
   tgc:
     secure: false
+
+  # 测试环境允许 Hibernate 自动补齐 CAS 原生表；生产环境默认 validate。
+  service-registry:
+    jpa:
+      ddl-auto: ${CAS_SERVICE_REGISTRY_JPA_DDL_AUTO:update}
+
+  audit:
+    jdbc:
+      ddl-auto: ${CAS_AUDIT_JDBC_DDL_AUTO:update}
+
+  events:
+    jpa:
+      ddl-auto: ${CAS_EVENTS_JPA_DDL_AUTO:update}
+
+  consent:
+    jpa:
+      ddl-auto: ${CAS_CONSENT_JPA_DDL_AUTO:update}
+
+  authn:
+    pm:
+      core:
+        # 测试环境允许常见字母数字密码，避免弱密码策略中断登录测试
+        password-policy-pattern: "${CAS_PM_PASSWORD_POLICY_PATTERN:^(?=.*[A-Za-z])(?=.*\\d).{8,64}$}"
+    mfa:
+      gauth:
+        jpa:
+          ddl-auto: ${CAS_AUTHN_MFA_GAUTH_JPA_DDL_AUTO:update}
+      web-authn:
+        jpa:
+          ddl-auto: ${CAS_AUTHN_MFA_WEBAUTHN_JPA_DDL_AUTO:update}
+      trusted:
+        jpa:
+          ddl-auto: ${CAS_AUTHN_MFA_TRUSTED_JPA_DDL_AUTO:update}
+
+  monitor:
+    endpoints:
+      form-login-enabled: true
+      endpoint:
+        defaults: &adminEndpointAccess
+          access: ROLE
+          required-roles: ADMIN
+        health:
+          access: ANONYMOUS
+        status:
+          access: ANONYMOUS
+        casFeatures:
+          <<: *adminEndpointAccess
+        registeredServices:
+          <<: *adminEndpointAccess
+
+# 测试环境 Palantir 控制台需要更完整的 actuator 暴露，
+# 生产环境继续使用 application.yml 的收口策略。
+management:
+  endpoints:
+    access:
+      default: unrestricted
+    web:
+      exposure:
+        include: info,health,status,metrics,threaddump,scheduledtasks,httpexchanges,loggers,heapdump,env,configprops,statistics,ticketExpirationPolicies,casFeatures,springWebflow,casModules,authenticationHandlers,authenticationPolicies,attributeDefinitions,resolveAttributes,releaseAttributes,auditevents,configurationMetadata,events,loggingConfig,gauthCredentialRepository,multifactorTrustedDevices,oidcJwks,passwordManagement,personDirectory,redisTicketsCache,multitenancy,mfaDevices,ticketRegistry,auditLog,registeredServices,serviceAccess,casConfig,ssoSessions,sso,casValidate,samlIdPRegisteredServiceMetadataCache,samlPostProfileResponse,samlValidate,throttles,webAuthnDevices,attributeConsent
+  endpoint:
+    health:
+      access: unrestricted
+    info:
+      access: unrestricted
+    metrics:
+      access: unrestricted
+    threaddump:
+      access: unrestricted
+    casFeatures:
+      access: unrestricted
+    registeredServices:
+      access: unrestricted
+
+spring:
+  security:
+    user:
+      name: ${CAS_ADMIN_USERNAME:casuser}
+      password: ${CAS_ADMIN_PASSWORD_BCRYPT:'{bcrypt}$2y$12$HHOheB.2EnvfEGkV8ytpwOKUXdjYE4dsnQS35CC7Qb7Rkl8eenJx.'}
+      roles: ADMIN
+  thymeleaf:
+    cache: false
 
 server:
   port: 8081
   ssl:
     enabled: false
 
-spring:
-  thymeleaf:
-    cache: false
-
 logging:
   level:
-    org.apereo.cas: INFO
-    org.apereo.cas.beenest: INFO
+    org.apereo.cas: ${LOG_LEVEL_CAS:INFO}
+    org.apereo.cas.beenest: ${LOG_LEVEL_BEENEST:INFO}
+    org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:INFO}
+    org.springframework.web: ${LOG_LEVEL_SPRING_WEB:INFO}
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: ${LOG_LEVEL_SPRING_WEB:INFO}

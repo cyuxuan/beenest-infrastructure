@@ -84,7 +84,7 @@ publishing {
             url = 'https://packages.aliyun.com/64f360cf67559243daa2beea/maven/bee-repo'
             credentials {
                 username = '64f360b3db86f7a0a6e07c2d'
-                password = '密码'
+                password = '3FL-Sq11lZNf'
             }
         }
     }
