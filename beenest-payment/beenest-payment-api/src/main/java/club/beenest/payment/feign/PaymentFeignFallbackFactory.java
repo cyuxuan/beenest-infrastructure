@@ -1,23 +1,34 @@
 package club.beenest.payment.feign;
 
 import club.beenest.payment.common.Response;
+import club.beenest.payment.common.AdminPageResult;
 import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
+import club.beenest.payment.paymentorder.dto.PaymentEventQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundApplyDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
+import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
 import club.beenest.payment.paymentorder.entity.PaymentOrder;
+import club.beenest.payment.paymentorder.entity.PaymentEvent;
 import club.beenest.payment.paymentorder.entity.Refund;
 import club.beenest.payment.wallet.dto.WalletBalanceDTO;
 import club.beenest.payment.wallet.dto.WalletAdminQueryDTO;
 import club.beenest.payment.wallet.dto.TransactionQueryDTO;
+import club.beenest.payment.wallet.dto.TransactionHistoryDTO;
 import club.beenest.payment.wallet.entity.Wallet;
 import club.beenest.payment.wallet.entity.WalletTransaction;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawAuditDTO;
+import club.beenest.payment.withdraw.entity.WithdrawRequest;
 import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
 import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
+import club.beenest.payment.reconciliation.entity.ReconciliationTask;
+import club.beenest.payment.shared.entity.PaymentChannelConfig;
+import club.beenest.payment.shared.entity.RiskRule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -271,6 +282,103 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             @Override
             public Response<ServiceOrderResultDTO> getLatestServiceOrderByBizNo(String bizNo) {
                 return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+            }
+
+            // ==================== 管理端（BFF 代理使用，强类型返回） ====================
+
+            @Override
+            public Response<AdminPageResult<PaymentOrder>> adminQueryOrders(PaymentOrderQueryDTO query, int pageNum, int pageSize) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<PaymentStatusDTO> adminSyncOrder(String orderNo) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Refund> adminApplyRefund(RefundApplyDTO params) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AdminPageResult<Refund>> adminQueryRefunds(RefundQueryDTO query, int pageNum, int pageSize) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminAuditRefund(Long id, String status, String remark) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AdminPageResult<Wallet>> adminQueryWallets(WalletAdminQueryDTO query, Integer pageNum, Integer pageSize) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AdminPageResult<TransactionHistoryDTO>> adminQueryTransactions(TransactionQueryDTO query, Integer pageNum, Integer pageSize) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AdminPageResult<WithdrawRequest>> adminQueryWithdraws(WithdrawRequestQueryDTO query, int pageNum, int pageSize) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminAuditWithdraw(WithdrawAuditDTO audit) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AdminPageResult<ReconciliationTask>> adminQueryReconciliation(ReconciliationQueryDTO query, int pageNum, int pageSize) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminCreateReconciliationTask(String date, String channel) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AdminPageResult<PaymentEvent>> adminQueryEvents(PaymentEventQueryDTO query, int pageNum, int pageSize) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminReplayEvent(Long id) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<List<RiskRule>> adminGetRiskRules() {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminCreateRiskRule(RiskRule rule) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminUpdateRiskRule(RiskRule rule) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminDeleteRiskRule(Long id) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<List<PaymentChannelConfig>> adminGetConfigs() {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> adminUpdateConfig(PaymentChannelConfig config) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
         };
     }

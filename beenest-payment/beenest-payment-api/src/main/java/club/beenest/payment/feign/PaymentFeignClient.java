@@ -1,23 +1,34 @@
 package club.beenest.payment.feign;
 
+import club.beenest.payment.common.AdminPageResult;
 import club.beenest.payment.common.Response;
 import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
+import club.beenest.payment.paymentorder.dto.PaymentEventQueryDTO;
+import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
+import club.beenest.payment.paymentorder.dto.RefundApplyDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
 import club.beenest.payment.wallet.dto.WalletBalanceDTO;
 import club.beenest.payment.wallet.dto.WalletAdminQueryDTO;
 import club.beenest.payment.wallet.dto.TransactionQueryDTO;
+import club.beenest.payment.wallet.dto.TransactionHistoryDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawAuditDTO;
 import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
 import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import club.beenest.payment.paymentorder.entity.PaymentOrder;
+import club.beenest.payment.paymentorder.entity.PaymentEvent;
 import club.beenest.payment.paymentorder.entity.Refund;
+import club.beenest.payment.shared.entity.PaymentChannelConfig;
+import club.beenest.payment.shared.entity.RiskRule;
 import club.beenest.payment.wallet.entity.Wallet;
 import club.beenest.payment.wallet.entity.WalletTransaction;
+import club.beenest.payment.withdraw.entity.WithdrawRequest;
+import club.beenest.payment.reconciliation.entity.ReconciliationTask;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
@@ -290,4 +301,201 @@ public interface PaymentFeignClient {
      */
     @GetMapping("/payscore/latest-by-biz-no/{bizNo}")
     Response<ServiceOrderResultDTO> getLatestServiceOrderByBizNo(@PathVariable("bizNo") String bizNo);
+
+    // ==================== 管理端（BFF 代理使用，强类型返回） ====================
+
+    /**
+     * 管理端-分页查询支付订单
+     *
+     * @param query 查询条件（含 bizType）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @PostMapping("/admin/orders/page")
+    Response<AdminPageResult<PaymentOrder>> adminQueryOrders(@RequestBody PaymentOrderQueryDTO query,
+                                                              @RequestParam("pageNum") int pageNum,
+                                                              @RequestParam("pageSize") int pageSize);
+
+    /**
+     * 管理端-同步订单状态
+     *
+     * @param orderNo 订单号
+     * @return 同步后的支付状态
+     */
+    @PostMapping("/admin/orders/{orderNo}/sync")
+    Response<PaymentStatusDTO> adminSyncOrder(@PathVariable("orderNo") String orderNo);
+
+    /**
+     * 管理端-申请退款
+     *
+     * @param params 退款申请参数
+     * @return 退款记录
+     */
+    @PostMapping("/admin/refunds/apply")
+    Response<Refund> adminApplyRefund(@RequestBody RefundApplyDTO params);
+
+    /**
+     * 管理端-分页查询退款记录
+     *
+     * @param query 查询条件（含 bizType）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @PostMapping("/admin/refunds/page")
+    Response<AdminPageResult<Refund>> adminQueryRefunds(@RequestBody RefundQueryDTO query,
+                                                         @RequestParam("pageNum") int pageNum,
+                                                         @RequestParam("pageSize") int pageSize);
+
+    /**
+     * 管理端-审核退款
+     *
+     * @param id 退款ID
+     * @param status 审核状态
+     * @param remark 审核备注
+     */
+    @PostMapping("/admin/refunds/audit")
+    Response<Void> adminAuditRefund(@RequestParam("id") Long id,
+                                    @RequestParam("status") String status,
+                                    @RequestParam("remark") String remark);
+
+    /**
+     * 管理端-分页查询钱包
+     *
+     * @param query 查询条件（含 bizType）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @PostMapping("/admin/wallets/page")
+    Response<AdminPageResult<Wallet>> adminQueryWallets(@RequestBody WalletAdminQueryDTO query,
+                                                         @RequestParam("pageNum") Integer pageNum,
+                                                         @RequestParam("pageSize") Integer pageSize);
+
+    /**
+     * 管理端-分页查询交易流水
+     *
+     * @param query 查询条件（含 bizType）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @PostMapping("/admin/transactions/page")
+    Response<AdminPageResult<TransactionHistoryDTO>> adminQueryTransactions(@RequestBody TransactionQueryDTO query,
+                                                                            @RequestParam("pageNum") Integer pageNum,
+                                                                            @RequestParam("pageSize") Integer pageSize);
+
+    /**
+     * 管理端-分页查询提现申请
+     *
+     * @param query 查询条件（含 bizType）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @PostMapping("/admin/withdraws/page")
+    Response<AdminPageResult<WithdrawRequest>> adminQueryWithdraws(@RequestBody WithdrawRequestQueryDTO query,
+                                                                    @RequestParam("pageNum") int pageNum,
+                                                                    @RequestParam("pageSize") int pageSize);
+
+    /**
+     * 管理端-审核提现申请
+     *
+     * @param audit 审核参数
+     */
+    @PostMapping("/admin/withdraws/audit")
+    Response<Void> adminAuditWithdraw(@RequestBody WithdrawAuditDTO audit);
+
+    /**
+     * 管理端-分页查询对账任务
+     *
+     * @param query 查询条件
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @PostMapping("/admin/reconciliation/page")
+    Response<AdminPageResult<ReconciliationTask>> adminQueryReconciliation(@RequestBody ReconciliationQueryDTO query,
+                                                                            @RequestParam("pageNum") int pageNum,
+                                                                            @RequestParam("pageSize") int pageSize);
+
+    /**
+     * 管理端-创建对账任务
+     *
+     * @param date 对账日期
+     * @param channel 支付渠道
+     */
+    @PostMapping("/admin/reconciliation/create")
+    Response<Void> adminCreateReconciliationTask(@RequestParam("date") String date,
+                                                  @RequestParam("channel") String channel);
+
+    /**
+     * 管理端-分页查询支付事件
+     *
+     * @param query 查询条件（含 bizType）
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    @PostMapping("/admin/events/page")
+    Response<AdminPageResult<PaymentEvent>> adminQueryEvents(@RequestBody PaymentEventQueryDTO query,
+                                                              @RequestParam("pageNum") int pageNum,
+                                                              @RequestParam("pageSize") int pageSize);
+
+    /**
+     * 管理端-重试支付事件
+     *
+     * @param id 事件ID
+     */
+    @PostMapping("/admin/events/{id}/replay")
+    Response<Void> adminReplayEvent(@PathVariable("id") Long id);
+
+    /**
+     * 管理端-查询风控规则
+     *
+     * @return 风控规则列表
+     */
+    @GetMapping("/admin/risk/rules")
+    Response<List<RiskRule>> adminGetRiskRules();
+
+    /**
+     * 管理端-创建风控规则
+     *
+     * @param rule 风控规则
+     */
+    @PostMapping("/admin/risk/rules/create")
+    Response<Void> adminCreateRiskRule(@RequestBody RiskRule rule);
+
+    /**
+     * 管理端-更新风控规则
+     *
+     * @param rule 风控规则
+     */
+    @PostMapping("/admin/risk/rules/update")
+    Response<Void> adminUpdateRiskRule(@RequestBody RiskRule rule);
+
+    /**
+     * 管理端-删除风控规则
+     *
+     * @param id 规则ID
+     */
+    @PostMapping("/admin/risk/rules/delete/{id}")
+    Response<Void> adminDeleteRiskRule(@PathVariable("id") Long id);
+
+    /**
+     * 管理端-查询支付渠道配置
+     *
+     * @return 配置列表
+     */
+    @GetMapping("/admin/configs/list")
+    Response<List<PaymentChannelConfig>> adminGetConfigs();
+
+    /**
+     * 管理端-更新支付渠道配置
+     *
+     * @param config 配置信息
+     */
+    @PostMapping("/admin/configs/update")
+    Response<Void> adminUpdateConfig(@RequestBody PaymentChannelConfig config);
 }

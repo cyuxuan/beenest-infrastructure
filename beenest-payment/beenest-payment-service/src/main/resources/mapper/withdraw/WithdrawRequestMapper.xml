@@ -126,6 +126,9 @@
         SELECT <include refid="Base_Column_List"/>
         FROM ds_withdraw_request
         WHERE customer_no = #{customerNo}
+        <if test="bizType != null and bizType != ''">
+          AND biz_type = #{bizType}
+        </if>
         <if test="status != null and status != ''">
           AND status = #{status}
         </if>
@@ -159,6 +162,9 @@
         <if test="customerNo != null and customerNo != ''">
           AND customer_no = #{customerNo}
         </if>
+        <if test="bizType != null and bizType != ''">
+          AND biz_type = #{bizType}
+        </if>
         <if test="status != null and status != ''">
           AND status = #{status}
         </if>
@@ -186,6 +192,9 @@
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
                 </if>
+                <if test="bizType != null and bizType != ''">
+                  AND biz_type = #{bizType}
+                </if>
                 GROUP BY status
                 ORDER BY status
             </when>
@@ -204,6 +213,9 @@
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
                 </if>
+                <if test="bizType != null and bizType != ''">
+                  AND biz_type = #{bizType}
+                </if>
                 GROUP BY withdraw_type
                 ORDER BY withdraw_type
             </when>
@@ -221,6 +233,9 @@
                 </if>
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
+                </if>
+                <if test="bizType != null and bizType != ''">
+                  AND biz_type = #{bizType}
                 </if>
                 GROUP BY status
                 ORDER BY status
@@ -271,6 +286,9 @@
             </if>
             <if test="withdrawType != null and withdrawType != ''">
                 AND t.withdraw_type = #{withdrawType}
+            </if>
+            <if test="bizType != null and bizType != ''">
+                AND t.biz_type = #{bizType}
             </if>
             <if test="startTime != null">
                 AND t.create_time &gt;= #{startTime}

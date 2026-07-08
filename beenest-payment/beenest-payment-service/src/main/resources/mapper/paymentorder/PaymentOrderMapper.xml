@@ -177,6 +177,9 @@
         <if test="platform != null and platform != ''">
           AND platform = #{platform}
         </if>
+        <if test="bizType != null and bizType != ''">
+          AND biz_type = #{bizType}
+        </if>
         ORDER BY create_time DESC, id DESC
     </select>
 
@@ -197,6 +200,9 @@
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
                 </if>
+                <if test="bizType != null and bizType != ''">
+                  AND biz_type = #{bizType}
+                </if>
                 GROUP BY status
                 ORDER BY status
             </when>
@@ -214,6 +220,9 @@
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
                 </if>
+                <if test="bizType != null and bizType != ''">
+                  AND biz_type = #{bizType}
+                </if>
                 GROUP BY platform
                 ORDER BY platform
             </when>
@@ -230,6 +239,9 @@
                 </if>
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
+                </if>
+                <if test="bizType != null and bizType != ''">
+                  AND biz_type = #{bizType}
                 </if>
                 GROUP BY status
                 ORDER BY status
@@ -272,6 +284,9 @@
             </if>
             <if test="platform != null and platform != ''">
                 AND t.platform = #{platform}
+            </if>
+            <if test="bizType != null and bizType != ''">
+                AND t.biz_type = #{bizType}
             </if>
             <if test="startTime != null">
                 AND t.create_time &gt;= #{startTime}

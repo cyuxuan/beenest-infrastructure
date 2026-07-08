@@ -13,4 +13,7 @@ public class RefundQueryDTO {
     private String channelStatus;
     private String startTime;
     private String endTime;
+
+    /** 业务类型标识，用于多租户隔离 */
+    private String bizType;
 }
