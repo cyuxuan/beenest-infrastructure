@@ -1,5 +1,6 @@
 package club.beenest.payment.admin.controller.internal;
 
+import club.beenest.payment.common.AdminPageResult;
 import club.beenest.payment.common.Response;
 import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
@@ -43,9 +44,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 支付中台内部 API Controller
@@ -98,19 +97,14 @@ public class InternalPaymentController {
     }
 
     @GetMapping("/wallet/transactions/{customerNo}")
-    public Response<Map<String, Object>> getTransactionHistory(
+    public Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(
             @PathVariable String customerNo,
             @RequestParam(value = "bizType", required = false) String bizType,
             @RequestParam Integer pageNum,
             @RequestParam Integer pageSize,
             @RequestParam(required = false) String transactionType) {
         Page<TransactionHistoryDTO> page = walletService.getTransactionHistory(customerNo, bizType, pageNum, pageSize, transactionType);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/wallet/add-balance")
@@ -184,16 +178,11 @@ public class InternalPaymentController {
     }
 
     @PostMapping("/payment/orders")
-    public Response<Map<String, Object>> queryOrders(@Valid @RequestBody PaymentOrderQueryDTO query,
+    public Response<AdminPageResult<PaymentOrder>> queryOrders(@Valid @RequestBody PaymentOrderQueryDTO query,
                                                       @RequestParam int pageNum,
                                                       @RequestParam int pageSize) {
         Page<PaymentOrder> page = paymentService.queryOrders(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     // ==================== 退款 ====================
@@ -213,16 +202,11 @@ public class InternalPaymentController {
     }
 
     @PostMapping("/refund/list")
-    public Response<Map<String, Object>> queryRefunds(@Valid @RequestBody RefundQueryDTO query,
+    public Response<AdminPageResult<Refund>> queryRefunds(@Valid @RequestBody RefundQueryDTO query,
                                                        @RequestParam int pageNum,
                                                        @RequestParam int pageSize) {
         Page<Refund> page = paymentService.queryRefunds(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @GetMapping("/refund/sync/{refundNo}")
@@ -279,16 +263,11 @@ public class InternalPaymentController {
     }
 
     @PostMapping("/withdraw/list")
-    public Response<Map<String, Object>> queryWithdrawRequests(@Valid @RequestBody WithdrawRequestQueryDTO query,
+    public Response<AdminPageResult<WithdrawRequest>> queryWithdrawRequests(@Valid @RequestBody WithdrawRequestQueryDTO query,
                                                                  @RequestParam int pageNum,
                                                                  @RequestParam int pageSize) {
         Page<WithdrawRequest> page = withdrawService.queryRequests(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     // ==================== 内部查询（供 drone-system 直接查询支付数据） ====================
@@ -309,18 +288,13 @@ public class InternalPaymentController {
     }
 
     @GetMapping("/wallet/transactions/raw/{customerNo}")
-    public Response<Map<String, Object>> getTransactionsByCustomerNo(
+    public Response<AdminPageResult<WalletTransaction>> getTransactionsByCustomerNo(
             @PathVariable String customerNo,
             @RequestParam(required = false) String transactionType,
             @RequestParam Integer pageNum,
             @RequestParam Integer pageSize) {
         Page<WalletTransaction> page = walletService.getTransactionsByCustomerNo(customerNo, transactionType, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @GetMapping("/wallet/transactions/statistics/{customerNo}")
@@ -334,42 +308,27 @@ public class InternalPaymentController {
     // ==================== 管理端 ====================
 
     @PostMapping("/admin/wallets")
-    public Response<Map<String, Object>> queryWallets(@Valid @RequestBody WalletAdminQueryDTO query,
+    public Response<AdminPageResult<Wallet>> queryWallets(@Valid @RequestBody WalletAdminQueryDTO query,
                                                        @RequestParam Integer pageNum,
                                                        @RequestParam Integer pageSize) {
         Page<Wallet> page = walletService.queryWallets(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/transactions")
-    public Response<Map<String, Object>> queryTransactions(@Valid @RequestBody TransactionQueryDTO query,
+    public Response<AdminPageResult<TransactionHistoryDTO>> queryTransactions(@Valid @RequestBody TransactionQueryDTO query,
                                                              @RequestParam Integer pageNum,
                                                              @RequestParam Integer pageSize) {
         Page<TransactionHistoryDTO> page = walletService.queryTransactions(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/reconciliation/tasks")
-    public Response<Map<String, Object>> queryReconciliationTasks(@Valid @RequestBody ReconciliationQueryDTO query,
+    public Response<AdminPageResult<ReconciliationTask>> queryReconciliationTasks(@Valid @RequestBody ReconciliationQueryDTO query,
                                                                     @RequestParam int pageNum,
                                                                     @RequestParam int pageSize) {
         Page<ReconciliationTask> page = reconciliationService.queryTasks(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/reconciliation/create")
@@ -382,20 +341,15 @@ public class InternalPaymentController {
     // ==================== 管理端扩展（BFF 代理使用，支持 bizType 数据隔离） ====================
 
     @PostMapping("/admin/orders/page")
-    public Response<Map<String, Object>> adminQueryOrders(@Valid @RequestBody PaymentOrderQueryDTO query,
+    public Response<AdminPageResult<PaymentOrder>> adminQueryOrders(@Valid @RequestBody PaymentOrderQueryDTO query,
                                                             @RequestParam int pageNum,
                                                             @RequestParam int pageSize) {
         Page<PaymentOrder> page = paymentService.queryOrders(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/orders/{orderNo}/sync")
-    public Response<Map<String, Object>> adminSyncOrder(@PathVariable String orderNo) {
+    public Response<PaymentStatusDTO> adminSyncOrder(@PathVariable String orderNo) {
         return Response.success(paymentService.queryPaymentStatusForAdmin(orderNo));
     }
 
@@ -405,16 +359,11 @@ public class InternalPaymentController {
     }
 
     @PostMapping("/admin/refunds/page")
-    public Response<Map<String, Object>> adminQueryRefunds(@Valid @RequestBody RefundQueryDTO query,
+    public Response<AdminPageResult<Refund>> adminQueryRefunds(@Valid @RequestBody RefundQueryDTO query,
                                                              @RequestParam int pageNum,
                                                              @RequestParam int pageSize) {
         Page<Refund> page = paymentService.queryRefunds(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/refunds/audit")
@@ -426,42 +375,27 @@ public class InternalPaymentController {
     }
 
     @PostMapping("/admin/wallets/page")
-    public Response<Map<String, Object>> adminQueryWallets(@Valid @RequestBody WalletAdminQueryDTO query,
+    public Response<AdminPageResult<Wallet>> adminQueryWallets(@Valid @RequestBody WalletAdminQueryDTO query,
                                                              @RequestParam Integer pageNum,
                                                              @RequestParam Integer pageSize) {
         Page<Wallet> page = walletService.queryWallets(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/transactions/page")
-    public Response<Map<String, Object>> adminQueryTransactions(@Valid @RequestBody TransactionQueryDTO query,
+    public Response<AdminPageResult<TransactionHistoryDTO>> adminQueryTransactions(@Valid @RequestBody TransactionQueryDTO query,
                                                                   @RequestParam Integer pageNum,
                                                                   @RequestParam Integer pageSize) {
         Page<TransactionHistoryDTO> page = walletService.queryTransactions(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/withdraws/page")
-    public Response<Map<String, Object>> adminQueryWithdraws(@Valid @RequestBody WithdrawRequestQueryDTO query,
+    public Response<AdminPageResult<WithdrawRequest>> adminQueryWithdraws(@Valid @RequestBody WithdrawRequestQueryDTO query,
                                                                @RequestParam int pageNum,
                                                                @RequestParam int pageSize) {
         Page<WithdrawRequest> page = withdrawService.queryRequests(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/withdraws/audit")
@@ -471,29 +405,19 @@ public class InternalPaymentController {
     }
 
     @PostMapping("/admin/reconciliation/page")
-    public Response<Map<String, Object>> adminQueryReconciliation(@Valid @RequestBody ReconciliationQueryDTO query,
+    public Response<AdminPageResult<ReconciliationTask>> adminQueryReconciliation(@Valid @RequestBody ReconciliationQueryDTO query,
                                                                     @RequestParam int pageNum,
                                                                     @RequestParam int pageSize) {
         Page<ReconciliationTask> page = reconciliationService.queryTasks(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/events/page")
-    public Response<Map<String, Object>> adminQueryEvents(@Valid @RequestBody PaymentEventQueryDTO query,
+    public Response<AdminPageResult<PaymentEvent>> adminQueryEvents(@Valid @RequestBody PaymentEventQueryDTO query,
                                                             @RequestParam int pageNum,
                                                             @RequestParam int pageSize) {
         Page<PaymentEvent> page = paymentEventService.queryEvents(query, pageNum, pageSize);
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", page.getTotal());
-        result.put("list", page.getResult());
-        result.put("pageNum", page.getPageNum());
-        result.put("pageSize", page.getPageSize());
-        return Response.success(result);
+        return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/admin/events/{id}/replay")

@@ -2,6 +2,8 @@ package club.beenest.payment.feign;
 
 import club.beenest.payment.common.AdminPageResult;
 import club.beenest.payment.common.Response;
+import club.beenest.payment.paymentorder.dto.BatchSyncResultDTO;
+import club.beenest.payment.paymentorder.dto.OrderPaymentResultDTO;
 import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
@@ -9,12 +11,14 @@ import club.beenest.payment.paymentorder.dto.PaymentEventQueryDTO;
 import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
 import club.beenest.payment.paymentorder.dto.RefundApplyDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundSyncResultDTO;
 import club.beenest.payment.wallet.dto.WalletBalanceDTO;
 import club.beenest.payment.wallet.dto.WalletAdminQueryDTO;
 import club.beenest.payment.wallet.dto.TransactionQueryDTO;
 import club.beenest.payment.wallet.dto.TransactionHistoryDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawResultDTO;
 import club.beenest.payment.withdraw.dto.WithdrawAuditDTO;
 import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
@@ -34,7 +38,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 支付中台 Feign Client
@@ -70,7 +73,7 @@ public interface PaymentFeignClient {
                                   @RequestParam(value = "bizType", required = false) String bizType);
 
     @GetMapping("/wallet/transactions/{customerNo}")
-    Response<Map<String, Object>> getTransactionHistory(
+    Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(
             @PathVariable("customerNo") String customerNo,
             @RequestParam(value = "bizType", required = false) String bizType,
             @RequestParam("pageNum") Integer pageNum,
@@ -110,26 +113,26 @@ public interface PaymentFeignClient {
     // ==================== 充值 / 支付 ====================
 
     @PostMapping("/payment/recharge")
-    Response<Map<String, Object>> createRechargeOrder(@RequestParam("customerNo") String customerNo,
+    Response<OrderPaymentResultDTO> createRechargeOrder(@RequestParam("customerNo") String customerNo,
                                                        @RequestBody RechargeRequestDTO request);
 
     @PostMapping("/payment/order-payment")
-    Response<Map<String, Object>> createOrderPayment(@RequestParam("customerNo") String customerNo,
+    Response<OrderPaymentResultDTO> createOrderPayment(@RequestParam("customerNo") String customerNo,
                                                       @RequestBody OrderPaymentRequestDTO request);
 
     @GetMapping("/payment/status/{orderNo}")
-    Response<Map<String, Object>> queryPaymentStatus(@RequestParam("customerNo") String customerNo,
+    Response<PaymentStatusDTO> queryPaymentStatus(@RequestParam("customerNo") String customerNo,
                                                       @PathVariable("orderNo") String orderNo);
 
     @GetMapping("/payment/status-admin/{orderNo}")
-    Response<Map<String, Object>> queryPaymentStatusForAdmin(@PathVariable("orderNo") String orderNo);
+    Response<PaymentStatusDTO> queryPaymentStatusForAdmin(@PathVariable("orderNo") String orderNo);
 
     @PostMapping("/payment/cancel/{orderNo}")
     Response<Boolean> cancelRechargeOrder(@RequestParam("customerNo") String customerNo,
                                            @PathVariable("orderNo") String orderNo);
 
     @PostMapping("/payment/orders")
-    Response<Map<String, Object>> queryOrders(@RequestBody PaymentOrderQueryDTO query,
+    Response<AdminPageResult<PaymentOrder>> queryOrders(@RequestBody PaymentOrderQueryDTO query,
                                                @RequestParam("pageNum") int pageNum,
                                                @RequestParam("pageSize") int pageSize);
 
@@ -146,15 +149,15 @@ public interface PaymentFeignClient {
                                           @RequestParam("reason") String reason);
 
     @PostMapping("/refund/list")
-    Response<Map<String, Object>> queryRefunds(@RequestBody RefundQueryDTO query,
+    Response<AdminPageResult<Refund>> queryRefunds(@RequestBody RefundQueryDTO query,
                                                 @RequestParam("pageNum") int pageNum,
                                                 @RequestParam("pageSize") int pageSize);
 
     @GetMapping("/refund/sync/{refundNo}")
-    Response<Map<String, Object>> syncRefundStatus(@PathVariable("refundNo") String refundNo);
+    Response<RefundSyncResultDTO> syncRefundStatus(@PathVariable("refundNo") String refundNo);
 
     @PostMapping("/refund/sync-processing")
-    Response<Map<String, Object>> syncProcessingRefunds(@RequestParam("limit") int limit);
+    Response<BatchSyncResultDTO> syncProcessingRefunds(@RequestParam("limit") int limit);
 
     @PostMapping("/refund/audit")
     Response<Void> auditRefund(@RequestParam("id") Long id,
@@ -164,11 +167,11 @@ public interface PaymentFeignClient {
     // ==================== 提现 ====================
 
     @PostMapping("/withdraw/create")
-    Response<Map<String, Object>> createWithdrawRequest(@RequestParam("customerNo") String customerNo,
+    Response<WithdrawResultDTO> createWithdrawRequest(@RequestParam("customerNo") String customerNo,
                                                           @RequestBody WithdrawRequestDTO request);
 
     @GetMapping("/withdraw/status/{requestNo}")
-    Response<Map<String, Object>> getWithdrawRequestStatus(@RequestParam("customerNo") String customerNo,
+    Response<WithdrawResultDTO> getWithdrawRequestStatus(@RequestParam("customerNo") String customerNo,
                                                             @PathVariable("requestNo") String requestNo);
 
     @PostMapping("/withdraw/audit")
@@ -186,7 +189,7 @@ public interface PaymentFeignClient {
                                              @RequestParam(value = "cancelReason", required = false) String cancelReason);
 
     @PostMapping("/withdraw/list")
-    Response<Map<String, Object>> queryWithdrawRequests(@RequestBody WithdrawRequestQueryDTO query,
+    Response<AdminPageResult<WithdrawRequest>> queryWithdrawRequests(@RequestBody WithdrawRequestQueryDTO query,
                                                           @RequestParam("pageNum") int pageNum,
                                                           @RequestParam("pageSize") int pageSize);
 
@@ -202,7 +205,7 @@ public interface PaymentFeignClient {
     Response<Refund> getLatestPendingRefundByOrderNo(@PathVariable("orderNo") String orderNo);
 
     @GetMapping("/wallet/transactions/raw/{customerNo}")
-    Response<Map<String, Object>> getTransactionsByCustomerNo(
+    Response<AdminPageResult<WalletTransaction>> getTransactionsByCustomerNo(
             @PathVariable("customerNo") String customerNo,
             @RequestParam(value = "transactionType", required = false) String transactionType,
             @RequestParam("pageNum") Integer pageNum,
@@ -217,17 +220,17 @@ public interface PaymentFeignClient {
     // ==================== 管理端 ====================
 
     @PostMapping("/admin/wallets")
-    Response<Map<String, Object>> queryWallets(@RequestBody WalletAdminQueryDTO query,
+    Response<AdminPageResult<Wallet>> queryWallets(@RequestBody WalletAdminQueryDTO query,
                                                 @RequestParam("pageNum") Integer pageNum,
                                                 @RequestParam("pageSize") Integer pageSize);
 
     @PostMapping("/admin/transactions")
-    Response<Map<String, Object>> queryTransactions(@RequestBody TransactionQueryDTO query,
+    Response<AdminPageResult<TransactionHistoryDTO>> queryTransactions(@RequestBody TransactionQueryDTO query,
                                                       @RequestParam("pageNum") Integer pageNum,
                                                       @RequestParam("pageSize") Integer pageSize);
 
     @PostMapping("/admin/reconciliation/tasks")
-    Response<Map<String, Object>> queryReconciliationTasks(@RequestBody ReconciliationQueryDTO query,
+    Response<AdminPageResult<ReconciliationTask>> queryReconciliationTasks(@RequestBody ReconciliationQueryDTO query,
                                                              @RequestParam("pageNum") int pageNum,
                                                              @RequestParam("pageSize") int pageSize);
 

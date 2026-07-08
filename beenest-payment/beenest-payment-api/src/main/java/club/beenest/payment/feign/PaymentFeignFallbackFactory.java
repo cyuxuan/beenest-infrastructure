@@ -2,6 +2,8 @@ package club.beenest.payment.feign;
 
 import club.beenest.payment.common.Response;
 import club.beenest.payment.common.AdminPageResult;
+import club.beenest.payment.paymentorder.dto.BatchSyncResultDTO;
+import club.beenest.payment.paymentorder.dto.OrderPaymentResultDTO;
 import club.beenest.payment.paymentorder.dto.RechargeRequestDTO;
 import club.beenest.payment.paymentorder.dto.OrderPaymentRequestDTO;
 import club.beenest.payment.paymentorder.dto.PaymentEventQueryDTO;
@@ -9,6 +11,7 @@ import club.beenest.payment.paymentorder.dto.RefundApplyDTO;
 import club.beenest.payment.paymentorder.dto.PaymentOrderQueryDTO;
 import club.beenest.payment.paymentorder.dto.PaymentStatusDTO;
 import club.beenest.payment.paymentorder.dto.RefundQueryDTO;
+import club.beenest.payment.paymentorder.dto.RefundSyncResultDTO;
 import club.beenest.payment.paymentorder.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.entity.PaymentEvent;
 import club.beenest.payment.paymentorder.entity.Refund;
@@ -20,6 +23,7 @@ import club.beenest.payment.wallet.entity.Wallet;
 import club.beenest.payment.wallet.entity.WalletTransaction;
 import club.beenest.payment.withdraw.dto.WithdrawRequestDTO;
 import club.beenest.payment.withdraw.dto.WithdrawRequestQueryDTO;
+import club.beenest.payment.withdraw.dto.WithdrawResultDTO;
 import club.beenest.payment.withdraw.dto.WithdrawAuditDTO;
 import club.beenest.payment.withdraw.entity.WithdrawRequest;
 import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
@@ -35,7 +39,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 /**
  * PaymentFeignClient 降级工厂
@@ -76,7 +79,7 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             }
 
             @Override
-            public Response<Map<String, Object>> getTransactionHistory(String customerNo, String bizType,
+            public Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(String customerNo, String bizType,
                                                                         Integer pageNum, Integer pageSize,
                                                                         String transactionType) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
@@ -109,22 +112,22 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             // ==================== 充值 / 支付 ====================
 
             @Override
-            public Response<Map<String, Object>> createRechargeOrder(String customerNo, RechargeRequestDTO request) {
+            public Response<OrderPaymentResultDTO> createRechargeOrder(String customerNo, RechargeRequestDTO request) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> createOrderPayment(String customerNo, OrderPaymentRequestDTO request) {
+            public Response<OrderPaymentResultDTO> createOrderPayment(String customerNo, OrderPaymentRequestDTO request) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> queryPaymentStatus(String customerNo, String orderNo) {
+            public Response<PaymentStatusDTO> queryPaymentStatus(String customerNo, String orderNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> queryPaymentStatusForAdmin(String orderNo) {
+            public Response<PaymentStatusDTO> queryPaymentStatusForAdmin(String orderNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
@@ -134,7 +137,7 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             }
 
             @Override
-            public Response<Map<String, Object>> queryOrders(PaymentOrderQueryDTO query, int pageNum, int pageSize) {
+            public Response<AdminPageResult<PaymentOrder>> queryOrders(PaymentOrderQueryDTO query, int pageNum, int pageSize) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
@@ -151,17 +154,17 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             }
 
             @Override
-            public Response<Map<String, Object>> queryRefunds(RefundQueryDTO query, int pageNum, int pageSize) {
+            public Response<AdminPageResult<Refund>> queryRefunds(RefundQueryDTO query, int pageNum, int pageSize) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> syncRefundStatus(String refundNo) {
+            public Response<RefundSyncResultDTO> syncRefundStatus(String refundNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> syncProcessingRefunds(int limit) {
+            public Response<BatchSyncResultDTO> syncProcessingRefunds(int limit) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
@@ -173,12 +176,12 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             // ==================== 提现 ====================
 
             @Override
-            public Response<Map<String, Object>> createWithdrawRequest(String customerNo, WithdrawRequestDTO request) {
+            public Response<WithdrawResultDTO> createWithdrawRequest(String customerNo, WithdrawRequestDTO request) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> getWithdrawRequestStatus(String customerNo, String requestNo) {
+            public Response<WithdrawResultDTO> getWithdrawRequestStatus(String customerNo, String requestNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
@@ -198,7 +201,7 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             }
 
             @Override
-            public Response<Map<String, Object>> queryWithdrawRequests(WithdrawRequestQueryDTO query, int pageNum, int pageSize) {
+            public Response<AdminPageResult<WithdrawRequest>> queryWithdrawRequests(WithdrawRequestQueryDTO query, int pageNum, int pageSize) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
@@ -220,7 +223,7 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             }
 
             @Override
-            public Response<Map<String, Object>> getTransactionsByCustomerNo(String customerNo, String transactionType,
+            public Response<AdminPageResult<WalletTransaction>> getTransactionsByCustomerNo(String customerNo, String transactionType,
                                                                               Integer pageNum, Integer pageSize) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
@@ -233,17 +236,17 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             // ==================== 管理端 ====================
 
             @Override
-            public Response<Map<String, Object>> queryWallets(WalletAdminQueryDTO query, Integer pageNum, Integer pageSize) {
+            public Response<AdminPageResult<Wallet>> queryWallets(WalletAdminQueryDTO query, Integer pageNum, Integer pageSize) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> queryTransactions(TransactionQueryDTO query, Integer pageNum, Integer pageSize) {
+            public Response<AdminPageResult<TransactionHistoryDTO>> queryTransactions(TransactionQueryDTO query, Integer pageNum, Integer pageSize) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Map<String, Object>> queryReconciliationTasks(ReconciliationQueryDTO query, int pageNum, int pageSize) {
+            public Response<AdminPageResult<ReconciliationTask>> queryReconciliationTasks(ReconciliationQueryDTO query, int pageNum, int pageSize) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
