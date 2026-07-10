@@ -37,6 +37,15 @@ spring:
         group: DEFAULT_GROUP
         enabled: ${NACOS_ENABLED:true}
         network-interface: ${NETWORK_INTERFACE:}
+        # 直接指定注册 IP（优先级最高，解决 IPv6 地址注册问题）
+        ip: ${NACOS_DISCOVERY_IP:}
+        # 强制使用 IPv4 注册，避免注册 IPv6 地址导致服务间调用失败
+        ip-type: IPv4
+    inetutils:
+      # 优先使用 IPv4 网段（匹配 10.88.x.x 等 WireGuard/内网地址）
+      preferred-networks: 10.,172.,192.168.,127.
+      # 忽略 macOS 虚拟网卡和 VPN 隧道（wt0 是 WireGuard 业务网卡，不能忽略）
+      ignored-interfaces: utun.,awdl.,bridge.,llw.,anpi.,lo0
     sentinel:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:localhost:8080}
