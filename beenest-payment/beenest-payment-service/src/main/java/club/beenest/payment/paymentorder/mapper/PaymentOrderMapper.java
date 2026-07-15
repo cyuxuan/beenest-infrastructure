@@ -469,4 +469,26 @@ public interface PaymentOrderMapper {
      * @return 支付订单实体，带行锁
      */
     PaymentOrder selectByOrderNoForUpdate(@Param("orderNo") String orderNo);
+
+    /**
+     * 根据业务单号加行锁查询最近一条待支付订单（防并发重复下单）
+     *
+     * <p>配合 SELECT ... FOR UPDATE，防止同一 bizNo 并发创建多笔支付订单。</p>
+     *
+     * @param bizNo 业务单号
+     * @return 最近待支付订单，不存在则返回null
+     */
+    PaymentOrder selectLatestPendingByBizNoForUpdate(@Param("bizNo") String bizNo);
+
+    /**
+     * 查询已支付但可能未被业务确认的订单
+     *
+     * <p>查询条件：status = 'PAID' 且 update_time 早于指定时间（说明支付已超时但业务可能未确认）</p>
+     *
+     * @param threshold 阈值时间，仅返回此时间之前已支付的订单
+     * @param limit 批量大小
+     * @return 已支付订单列表
+     */
+    List<PaymentOrder> selectPaidBeforeTime(@Param("threshold") LocalDateTime threshold,
+                                            @Param("limit") Integer limit);
 }

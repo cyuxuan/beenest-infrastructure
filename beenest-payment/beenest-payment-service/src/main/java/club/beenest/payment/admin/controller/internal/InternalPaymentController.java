@@ -39,12 +39,14 @@ import club.beenest.payment.withdraw.service.IWithdrawService;
 import club.beenest.payment.reconciliation.service.IReconciliationService;
 import com.github.pagehelper.Page;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 支付中台内部 API Controller
@@ -61,6 +63,7 @@ import java.util.List;
 @RequestMapping("/internal/payment")
 @RequiredArgsConstructor
 @Validated
+@Slf4j
 public class InternalPaymentController {
 
     private final IWalletService walletService;
@@ -470,5 +473,32 @@ public class InternalPaymentController {
     @GetMapping("/payscore/latest-by-biz-no/{bizNo}")
     public Response<ServiceOrderResultDTO> getLatestServiceOrderByBizNo(@PathVariable String bizNo) {
         return Response.success(serviceOrderService.getLatestServiceOrderByBizNo(bizNo));
+    }
+
+    // ==================== 数据修复（紧急运维） ====================
+
+    /**
+     * 修复 EXPIRED 状态但实际已支付的订单
+     *
+     * <p>适用场景：用户已扣款，但回调处理失败导致订单状态仍为 PENDING，
+     * 随后被过期定时器标记为 EXPIRED。此接口将状态恢复为 PAID，
+     * 并补写 Outbox 消息通知业务系统。</p>
+     *
+     * <p><b>前置条件</b>：调用前必须先通过微信/支付宝商户后台确认该订单确实已扣款。</p>
+     *
+     * @param orderNo 支付订单号
+     * @return 修复结果
+     */
+    @PostMapping("/fix/expired-paid-order/{orderNo}")
+    public Response<Map<String, Object>> fixExpiredPaidOrder(@PathVariable String orderNo) {
+        log.warn("【数据修复】开始修复 EXPIRED→PAID 订单 - orderNo: {}", orderNo);
+
+        try {
+            Map<String, Object> result = paymentService.fixExpiredPaidOrder(orderNo);
+            return Response.success(result);
+        } catch (Exception e) {
+            log.error("【数据修复】修复失败 - orderNo: {}, error: {}", orderNo, e.getMessage(), e);
+            return Response.fail(500, "修复失败：" + e.getMessage());
+        }
     }
 }

@@ -35,8 +35,9 @@ LABEL description="Beenest Payment Service - 支付微服务"
 
 WORKDIR /app
 
-# 创建非 root 用户运行应用
-RUN groupadd -r appgroup && useradd -r -g appgroup -s /bin/bash appuser
+# 创建非 root 用户运行应用，同时创建 home 目录（Nacos 客户端快照需要）
+RUN groupadd -r appgroup && useradd -r -g appgroup -s /bin/bash -m appuser \
+    && mkdir -p /home/appuser/nacos/config && chown -R appuser:appgroup /home/appuser/nacos
 
 # 从构建阶段拷贝 jar 包
 COPY --from=builder /build/beenest-payment-service/target/*.jar app.jar
@@ -50,7 +51,7 @@ USER appuser
 EXPOSE 8082
 
 # JVM 参数可通过 JAVA_OPTS 环境变量自定义
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -Djava.net.preferIPv4Stack=true"
 
 # Spring Profile 可通过 SPRING_PROFILES_ACTIVE 指定
 ENV SPRING_PROFILES_ACTIVE=""

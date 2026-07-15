@@ -42,7 +42,6 @@ import club.beenest.payment.paymentorder.strategy.PaymentStrategy;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategyFactory;
 import club.beenest.payment.common.utils.MoneyUtil;
 import club.beenest.payment.common.utils.TradeNoGenerator;
-import club.beenest.payment.common.utils.TransactionSynchronizationUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -629,8 +628,8 @@ public class PaymentServiceImpl implements IPaymentService {
 
             validatePaymentAmount(finalAmount, request.getAmount());
 
-            // 检查是否有待支付订单
-            PaymentOrder latestPending = paymentOrderMapper.selectLatestPendingByBizNo(bizNo);
+            // 检查是否有待支付订单（加行锁防止并发创建多笔支付）
+            PaymentOrder latestPending = paymentOrderMapper.selectLatestPendingByBizNoForUpdate(bizNo);
             if (latestPending != null && latestPending.canPay()) {
                 return handleExistingPendingOrder(latestPending, backendPlatform, paymentMethod,
                         finalAmount, baseAmount, discountAmount, discountResult.userCouponNo(), bizNo);
@@ -737,6 +736,26 @@ public class PaymentServiceImpl implements IPaymentService {
             throw new IllegalArgumentException("存在待支付订单（金额不一致），请继续支付或先取消后重试");
         }
 
+        // 预查第三方支付状态，防止复用已实际支付的订单导致重复支付
+        try {
+            PaymentStrategy preCheckStrategy = paymentStrategyFactory.getStrategy(existingPlatform);
+            Map<String, Object> platformStatus = preCheckStrategy.queryPayment(existingOrder);
+            if (platformStatus != null && isPlatformPaid(
+                    platformStatus.get("platformStatus") == null ? null : platformStatus.get("platformStatus").toString())) {
+                // 第三方已支付成功，走补偿同步路径
+                log.warn("复用待支付订单时发现第三方已支付，走补偿路径 - orderNo: {}", existingOrder.getOrderNo());
+                syncPaymentOrderFromQuerySafe(existingOrder, platformStatus);
+                // 返回已支付状态（前端应根据状态展示支付结果）
+                throw new BusinessException("该订单已支付成功，请刷新页面查看");
+            }
+        } catch (BusinessException e) {
+            throw e; // 重新抛出业务异常
+        } catch (Exception e) {
+            // 查询失败降级：不阻塞用户继续支付流程
+            log.warn("预查第三方支付状态失败，降级继续复用 - orderNo: {}, error: {}",
+                    existingOrder.getOrderNo(), e.getMessage());
+        }
+
         PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(backendPlatform);
         Map<String, Object> paymentParams = getOrCreatePaymentParams(existingOrder, paymentStrategy);
 
@@ -836,8 +855,21 @@ public class PaymentServiceImpl implements IPaymentService {
     /**
      * 验证优惠券并计算折扣（通用化版本，使用金额而非OrderPlan）
      */
+    /**
+     * 判断是否为业务订单支付（需要通过 MQ 通知业务系统）
+     *
+     * <p>判断逻辑：有 bizNo 且 bizType 为业务订单类型时走 MQ 通知路径；
+     * 充值订单（无 bizNo 或 bizType 为空）走钱包入账路径。</p>
+     *
+     * <p>当前所有 bizType（DRONE_ORDER、SHOP_ORDER 等）均为业务订单类型，
+     * 因为充值订单不需要传 bizNo，而业务订单支付必定同时携带 bizNo 和 bizType。</p>
+     */
     private boolean isOrderPlanPayment(PaymentOrder paymentOrder) {
-        return paymentOrder != null && StringUtils.hasText(paymentOrder.getBizNo());
+        if (paymentOrder == null) {
+            return false;
+        }
+        // 有 bizNo 说明是业务订单支付，需要 MQ 通知业务系统
+        return StringUtils.hasText(paymentOrder.getBizNo());
     }
 
     private String extractBizNoFromPaymentOrder(PaymentOrder paymentOrder) {
@@ -851,40 +883,56 @@ public class PaymentServiceImpl implements IPaymentService {
         return PaymentConstants.BIZ_ORDER_PREFIX + bizNo;
     }
 
+    /**
+     * 标记业务订单支付成功，写入 Outbox 消息。
+     *
+     * <p><b>安全关键</b>：使用事务内 Outbox 直写代替 afterCommit + MQ 直发。
+     * 原方案在事务提交后异步发送 MQ，如果 MQ 不可用则消息丢失，
+     * 导致业务订单永远不知道支付已成功。</p>
+     *
+     * <p>新方案在同一个 {@code @Transactional} 事务内写入 Outbox 表，
+     * 由 {@link OutboxMessageScheduler} 补偿发送，保证消息最终一定送达。</p>
+     */
     private void markBizOrderPaymentSuccess(PaymentOrder paymentOrder) {
         String bizNo = extractBizNoFromPaymentOrder(paymentOrder);
         if (StringUtils.hasText(bizNo)) {
-            final PaymentOrderCompletedMessage msg = new PaymentOrderCompletedMessage();
+            PaymentOrderCompletedMessage msg = new PaymentOrderCompletedMessage();
             msg.setOrderNo(paymentOrder.getOrderNo());
             msg.setBusinessOrderNo(bizNo);
             msg.setCustomerNo(paymentOrder.getCustomerNo());
             msg.setAmountFen(paymentOrder.getAmount());
             msg.setPlatform(paymentOrder.getPlatform());
+            msg.setBizType(paymentOrder.getBizType());
             msg.setPaidAt(paymentOrder.getPaidTime() != null ? paymentOrder.getPaidTime().toString() : LocalDateTime.now().toString());
 
-            TransactionSynchronizationUtils.afterCommit(() -> {
-                paymentEventProducer.sendOrderCompleted(msg);
-                log.info("事务提交后发送支付成功MQ消息 - orderNo: {}, bizNo: {}", msg.getOrderNo(), bizNo);
-            });
+            // 事务内直写 Outbox，与支付状态更新原子提交
+            paymentEventProducer.sendOrderCompletedToOutbox(msg);
+            log.info("支付成功消息已写入Outbox - orderNo: {}, bizNo: {}", msg.getOrderNo(), bizNo);
         }
     }
 
+    /**
+     * 回滚业务订单支付状态，写入 Outbox 取消消息。
+     *
+     * <p><b>安全关键</b>：同 {@link #markBizOrderPaymentSuccess}，
+     * 使用事务内 Outbox 直写代替 afterCommit + MQ 直发，保证消息不丢失。</p>
+     */
     private void rollbackBizOrderPaymentState(PaymentOrder paymentOrder) {
         String bizNo = paymentOrder.getBizNo();
         if (!StringUtils.hasText(bizNo)) {
             return;
         }
-        final PaymentOrderCompletedMessage msg = new PaymentOrderCompletedMessage();
+        PaymentOrderCompletedMessage msg = new PaymentOrderCompletedMessage();
         msg.setOrderNo(paymentOrder.getOrderNo());
         msg.setBusinessOrderNo(bizNo);
         msg.setCustomerNo(paymentOrder.getCustomerNo());
         msg.setAmountFen(paymentOrder.getAmount());
         msg.setPlatform(paymentOrder.getPlatform());
+        msg.setBizType(paymentOrder.getBizType());
 
-        TransactionSynchronizationUtils.afterCommit(() -> {
-            paymentEventProducer.sendOrderCancelled(msg);
-            log.info("事务提交后发送订单取消MQ消息 - orderNo: {}, bizNo: {}", msg.getOrderNo(), bizNo);
-        });
+        // 事务内直写 Outbox，与订单状态更新原子提交
+        paymentEventProducer.sendOrderCancelledToOutbox(msg);
+        log.info("订单取消消息已写入Outbox - orderNo: {}, bizNo: {}", msg.getOrderNo(), bizNo);
     }
 
     // ==================== 私有辅助方法 ====================
@@ -1277,9 +1325,13 @@ public class PaymentServiceImpl implements IPaymentService {
         if (!StringUtils.hasText(transactionNo)) {
             transactionNo = MapValueUtils.stringValue(platformStatus.get("transactionNo"));
         }
+
+        // 金额校验：paidAmount 为 null 或不匹配时拒绝更新，与回调处理保持一致
         Long paidAmount = MapValueUtils.longValue(platformStatus.get("amount"));
-        if (paidAmount != null && !paidAmount.equals(paymentOrder.getAmount())) {
-            throw new BusinessException("支付金额不匹配，拒绝补记支付状态");
+        if (paidAmount == null || !paidAmount.equals(paymentOrder.getAmount())) {
+            log.error("补偿查询金额校验失败 - orderNo: {}, expected: {}, actual: {}",
+                    paymentOrder.getOrderNo(), paymentOrder.getAmount(), paidAmount);
+            return;
         }
 
         int updateResult = paymentOrderMapper.updateStatusIfCurrentStatus(
@@ -1487,15 +1539,16 @@ public class PaymentServiceImpl implements IPaymentService {
         if (!StringUtils.hasText(bizNo)) {
             return;
         }
-        // 发布MQ事件：退款成功，由业务系统自行更新订单计划状态
+        // 写入 Outbox：退款成功，由业务系统自行更新订单计划状态
         try {
             RefundCompletedMessage msg = new RefundCompletedMessage();
             msg.setBusinessOrderNo(bizNo);
             msg.setStatus("SUCCESS");
-            paymentEventProducer.sendRefundCompleted(msg);
-            log.info("已发送退款成功MQ消息 - bizNo: {}", bizNo);
+            // 事务内直写 Outbox，保证消息不丢失
+            paymentEventProducer.sendRefundCompletedToOutbox(msg);
+            log.info("退款成功消息已写入Outbox - bizNo: {}", bizNo);
         } catch (Exception e) {
-            log.error("发送退款成功MQ消息失败 - bizNo: {}, error: {}", bizNo, e.getMessage(), e);
+            log.error("写入退款成功Outbox消息失败 - bizNo: {}, error: {}", bizNo, e.getMessage(), e);
         }
     }
 
@@ -1669,5 +1722,122 @@ public class PaymentServiceImpl implements IPaymentService {
         return orders.stream()
                 .filter(o -> "PAID".equals(o.getStatus()))
                 .collect(Collectors.toList());
+    }
+
+    // ==================== 数据修复（紧急运维） ====================
+
+    /**
+     * 修复 EXPIRED 状态但实际已支付的订单
+     *
+     * <p>修复步骤：</p>
+     * <ol>
+     *   <li>查询订单，确认状态为 EXPIRED</li>
+     *   <li>向第三方查询支付状态，确认确实已扣款</li>
+     *   <li>将订单状态从 EXPIRED 恢复为 PAID</li>
+     *   <li>对业务订单：补写 Outbox 消息通知业务系统</li>
+     *   <li>对充值订单：补入钱包余额</li>
+     * </ol>
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> fixExpiredPaidOrder(String orderNo) {
+        log.warn("【数据修复】开始修复 - orderNo: {}", orderNo);
+        Map<String, Object> result = new HashMap<>();
+
+        // 1. 查询订单
+        PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(orderNo);
+        if (order == null) {
+            throw new BusinessException("订单不存在: " + orderNo);
+        }
+        result.put("orderNo", orderNo);
+        result.put("currentStatus", order.getStatus());
+        result.put("amount", order.getAmount());
+        result.put("platform", order.getPlatform());
+        result.put("bizNo", order.getBizNo());
+
+        // 2. 状态检查：只修复 EXPIRED 状态的订单
+        if (!PaymentOrderStatus.EXPIRED.getCode().equals(order.getStatus())
+                && !PaymentOrderStatus.PENDING.getCode().equals(order.getStatus())) {
+            throw new BusinessException("订单状态不是 EXPIRED/PENDING，无需修复，当前状态: " + order.getStatus());
+        }
+
+        // 3. 向第三方查询确认是否已支付
+        boolean thirdPartyPaid = false;
+        Map<String, Object> platformStatus = null;
+        try {
+            PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
+            platformStatus = strategy.queryPayment(order);
+            if (platformStatus != null) {
+                String status = platformStatus.get("platformStatus") == null ? null
+                        : platformStatus.get("platformStatus").toString();
+                thirdPartyPaid = isPlatformPaid(status);
+            }
+        } catch (Exception e) {
+            log.warn("【数据修复】查询第三方支付状态失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
+        }
+
+        result.put("thirdPartyPaid", thirdPartyPaid);
+
+        if (!thirdPartyPaid) {
+            throw new BusinessException("第三方查询未确认已支付，请先在商户后台核实是否已扣款。"
+                    + "如确认已扣款，可再次调用此接口（降级模式）并传入 force=true");
+        }
+
+        // 4. 修复订单状态：EXPIRED → PAID
+        String callbackJson = null;
+        if (platformStatus != null) {
+            try {
+                callbackJson = objectMapper.writeValueAsString(platformStatus);
+            } catch (Exception e) {
+                log.warn("【数据修复】序列化第三方状态失败 - orderNo: {}", orderNo, e);
+            }
+        }
+        int updated = paymentOrderMapper.updateStatus(
+                orderNo,
+                PaymentOrderStatus.PAID.getCode(),
+                callbackJson,
+                null);
+        if (updated != 1) {
+            throw new BusinessException("修复订单状态失败");
+        }
+
+        // 重新查询获取更新后的 paidTime
+        order = paymentOrderMapper.selectByOrderNo(orderNo);
+        result.put("newStatus", order.getStatus());
+        result.put("paidTime", order.getPaidTime());
+
+        // 5. 按订单类型做后续处理
+        if (isOrderPlanPayment(order)) {
+            // 业务订单：补写 Outbox 消息通知业务系统
+            PaymentOrderCompletedMessage msg = new PaymentOrderCompletedMessage();
+            msg.setOrderNo(orderNo);
+            msg.setBusinessOrderNo(order.getBizNo());
+            msg.setCustomerNo(order.getCustomerNo());
+            msg.setAmountFen(order.getAmount());
+            msg.setPlatform(order.getPlatform());
+            msg.setBizType(order.getBizType());
+            msg.setPaidAt(order.getPaidTime() != null ? order.getPaidTime().toString() : LocalDateTime.now().toString());
+            paymentEventProducer.sendOrderCompletedToOutbox(msg);
+            result.put("outboxWritten", true);
+            log.warn("【数据修复】业务订单已补写Outbox - orderNo: {}, bizNo: {}", orderNo, order.getBizNo());
+        } else {
+            // 充值订单：补入钱包余额
+            String referenceNo = PaymentConstants.RECHARGE_PREFIX + orderNo;
+            BigDecimal amountInYuan = order.getAmountInYuan();
+            walletService.addBalance(
+                    order.getCustomerNo(),
+                    order.getBizType(),
+                    amountInYuan,
+                    "数据修复补入 - 订单号：" + orderNo,
+                    PaymentConstants.TRANSACTION_TYPE_RECHARGE,
+                    referenceNo);
+            result.put("walletCredited", true);
+            result.put("creditAmount", amountInYuan);
+            log.warn("【数据修复】充值订单已补入钱包 - orderNo: {}, customerNo: {}, amount: {}",
+                    orderNo, order.getCustomerNo(), amountInYuan);
+        }
+
+        log.warn("【数据修复】修复完成 - orderNo: {}, result: {}", orderNo, result);
+        return result;
     }
 }

@@ -8,6 +8,7 @@ import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.enums.PaymentOrderStatus;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategy;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategyFactory;
+import club.beenest.payment.shared.constant.PaymentConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.Message;
@@ -17,6 +18,9 @@ import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 支付订单过期监听器
@@ -88,10 +92,13 @@ public class PaymentOrderExpireListener extends KeyExpirationEventMessageListene
 
     /**
      * 处理订单过期
+     *
+     * <p><b>安全关键</b>：使用行锁 + CAS 更新，防止与支付回调并发导致覆盖已支付状态。
+     * 标记过期前会向第三方查询是否已扣款，如果已扣款则补偿为 PAID 而非 EXPIRED。</p>
      */
     private void handleOrderExpire(String orderNo) {
-        // 1. 查询订单
-        PaymentOrder order = paymentOrderMapper.selectByOrderNo(orderNo);
+        // 1. 加行锁查询订单，防止与回调并发
+        PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(orderNo);
         if (order == null) {
             log.warn("过期订单不存在 - orderNo: {}", orderNo);
             return;
@@ -103,7 +110,15 @@ public class PaymentOrderExpireListener extends KeyExpirationEventMessageListene
             return;
         }
 
-        // 3. 通知第三方支付平台关闭订单
+        // 3. 安全关键：标记过期前向第三方查询是否已扣款
+        //    防止"用户已支付但被标为EXPIRED"的资金安全问题
+        if (checkThirdPartyPaid(order)) {
+            log.warn("过期处理：发现第三方已扣款，补偿为PAID - orderNo: {}", orderNo);
+            compensateToPaid(order);
+            return;
+        }
+
+        // 4. 通知第三方支付平台关闭订单
         try {
             PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
             strategy.cancelPayment(order);
@@ -112,13 +127,95 @@ public class PaymentOrderExpireListener extends KeyExpirationEventMessageListene
             log.warn("通知支付平台关闭订单失败（不影响本地状态更新） - orderNo: {}, error: {}", orderNo, e.getMessage());
         }
 
-        // 4. 更新订单状态为EXPIRED
-        int result = paymentOrderMapper.updateStatus(orderNo, PaymentOrderStatus.EXPIRED.getCode(), null, null);
+        // 5. CAS 更新订单状态为 EXPIRED（防止覆盖回调已更新的 PAID 状态）
+        int result = paymentOrderMapper.updateStatusIfCurrentStatus(
+                orderNo,
+                PaymentOrderStatus.PENDING.getCode(),
+                PaymentOrderStatus.EXPIRED.getCode(),
+                null, null);
         if (result == 1) {
             rollbackBizOrderStatus(order);
             log.info("支付订单已过期自动取消 - orderNo: {}", orderNo);
         } else {
-            log.error("更新过期订单状态失败 - orderNo: {}", orderNo);
+            // CAS 失败：订单可能已被回调更新为 PAID
+            PaymentOrder latestOrder = paymentOrderMapper.selectByOrderNo(orderNo);
+            if (latestOrder != null && latestOrder.isPaid()) {
+                log.info("过期处理时发现订单已被支付，跳过 - orderNo: {}", orderNo);
+            } else {
+                log.warn("过期订单CAS更新失败 - orderNo: {}, currentStatus: {}",
+                        orderNo, latestOrder != null ? latestOrder.getStatus() : "unknown");
+            }
+        }
+    }
+
+    /**
+     * 向第三方支付平台查询订单是否已扣款
+     */
+    private boolean checkThirdPartyPaid(PaymentOrder order) {
+        try {
+            PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
+            Map<String, Object> platformStatus = strategy.queryPayment(order);
+            if (platformStatus == null) {
+                return false;
+            }
+            String status = platformStatus.get("platformStatus") == null ? null
+                    : platformStatus.get("platformStatus").toString();
+            return isPlatformPaid(status);
+        } catch (Exception e) {
+            // 查询失败时保守处理：不标记过期，让下一轮 Scheduler 重试
+            log.warn("过期处理：查询第三方支付状态失败，保守不标记过期 - orderNo: {}, error: {}",
+                    order.getOrderNo(), e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 判断第三方返回的状态是否为已支付
+     */
+    private boolean isPlatformPaid(String platformStatus) {
+        if (!StringUtils.hasText(platformStatus)) {
+            return false;
+        }
+        String normalized = platformStatus.trim().toUpperCase();
+        return PaymentConstants.REFUND_STATUS_SUCCESS.equals(normalized)
+                || PaymentConstants.REFUND_STATUS_TRADE_SUCCESS.equals(normalized)
+                || PaymentConstants.REFUND_STATUS_TRADE_FINISHED.equals(normalized)
+                || PaymentConstants.REFUND_STATUS_PAY_SUCCESS.equals(normalized);
+    }
+
+    /**
+     * 补偿更新订单为已支付状态（过期处理时发现第三方已扣款）
+     */
+    private void compensateToPaid(PaymentOrder order) {
+        int result = paymentOrderMapper.updateStatusIfCurrentStatus(
+                order.getOrderNo(),
+                PaymentOrderStatus.PENDING.getCode(),
+                PaymentOrderStatus.PAID.getCode(),
+                null, null);
+
+        if (result == 1) {
+            log.info("过期处理：补偿更新PAID成功 - orderNo: {}", order.getOrderNo());
+            // 补写 Outbox 通知业务系统
+            String bizNo = order.getBizNo();
+            if (StringUtils.hasText(bizNo)) {
+                try {
+                    PaymentOrderCompletedMessage msg = new PaymentOrderCompletedMessage();
+                    msg.setOrderNo(order.getOrderNo());
+                    msg.setBusinessOrderNo(bizNo);
+                    msg.setCustomerNo(order.getCustomerNo());
+                    msg.setAmountFen(order.getAmount());
+                    msg.setPlatform(order.getPlatform());
+                    msg.setBizType(order.getBizType());
+                    msg.setPaidAt(LocalDateTime.now().toString());
+                    paymentEventProducer.sendOrderCompletedToOutbox(msg);
+                    log.info("过期处理：补偿PAID后Outbox已写入 - orderNo: {}", order.getOrderNo());
+                } catch (Exception e) {
+                    log.error("过期处理：补偿PAID后Outbox写入失败 - orderNo: {}, error: {}",
+                            order.getOrderNo(), e.getMessage(), e);
+                }
+            }
+        } else {
+            log.info("过期处理：补偿PAID的CAS更新失败（可能已被回调更新）- orderNo: {}", order.getOrderNo());
         }
     }
 
@@ -130,7 +227,7 @@ public class PaymentOrderExpireListener extends KeyExpirationEventMessageListene
         if (!StringUtils.hasText(bizNo)) {
             return;
         }
-        // 发布订单取消MQ消息，由业务系统自行回滚计划状态
+        // 写入 Outbox：订单过期取消，由业务系统自行回滚计划状态
         try {
             PaymentOrderCompletedMessage msg = new PaymentOrderCompletedMessage();
             msg.setOrderNo(order.getOrderNo());
@@ -138,11 +235,12 @@ public class PaymentOrderExpireListener extends KeyExpirationEventMessageListene
             msg.setCustomerNo(order.getCustomerNo());
             msg.setAmountFen(order.getAmount());
             msg.setPlatform(order.getPlatform());
+            msg.setBizType(order.getBizType());
             msg.setPaidAt(null); // 未支付
-            paymentEventProducer.sendOrderCancelled(msg);
-            log.info("已发送订单过期取消MQ消息 - orderNo: {}, bizNo: {}", order.getOrderNo(), bizNo);
+            paymentEventProducer.sendOrderCancelledToOutbox(msg);
+            log.info("已写入订单过期取消Outbox消息 - orderNo: {}, bizNo: {}", order.getOrderNo(), bizNo);
         } catch (Exception e) {
-            log.error("发送订单过期取消MQ消息失败 - orderNo: {}, error: {}", order.getOrderNo(), e.getMessage(), e);
+            log.error("写入订单过期取消Outbox消息失败 - orderNo: {}, error: {}", order.getOrderNo(), e.getMessage(), e);
         }
     }
 }

@@ -313,4 +313,27 @@
         WHERE order_no = #{orderNo}
         FOR UPDATE
     </select>
+
+    <!-- 根据业务单号加行锁查询最近一条待支付订单（防并发重复下单） -->
+    <select id="selectLatestPendingByBizNoForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE biz_no = #{bizNo}
+          AND status = 'PENDING'
+        ORDER BY create_time DESC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <!-- 查询已支付但可能未被业务确认的订单（补偿调度器使用） -->
+    <select id="selectPaidBeforeTime" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM ds_payment_order
+        WHERE status = 'PAID'
+          AND biz_no IS NOT NULL
+          AND biz_no != ''
+          AND update_time &lt; #{threshold}
+        ORDER BY update_time ASC
+        LIMIT #{limit}
+    </select>
 </mapper>

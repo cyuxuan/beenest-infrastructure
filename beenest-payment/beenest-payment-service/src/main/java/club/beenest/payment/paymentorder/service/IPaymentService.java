@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 支付服务接口
@@ -311,4 +312,18 @@ public interface IPaymentService {
      * @return 已支付订单列表
      */
     List<PaymentOrder> getPaidOrdersByTimeRange(LocalDateTime start, LocalDateTime end, String platform);
+
+    /**
+     * 修复 EXPIRED 状态但实际已支付的订单
+     *
+     * <p>适用场景：用户已扣款，但回调处理失败导致订单状态仍为 PENDING/EXPIRED。
+     * 此方法将状态恢复为 PAID，补写 Outbox 消息通知业务系统，
+     * 并对充值订单补入钱包余额。</p>
+     *
+     * <p><b>前置条件</b>：调用前必须先通过微信/支付宝商户后台确认该订单确实已扣款。</p>
+     *
+     * @param orderNo 支付订单号
+     * @return 修复结果详情
+     */
+    Map<String, Object> fixExpiredPaidOrder(String orderNo);
 }

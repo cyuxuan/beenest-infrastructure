@@ -109,6 +109,61 @@ public class PaymentEventProducer {
         }
     }
 
+    // ==================== 事务内 Outbox 直写方法 ====================
+
+    /**
+     * 事务内直接写入 Outbox：支付订单完成消息
+     *
+     * <p>与 {@link #sendOrderCompleted} 不同，此方法不尝试 MQ 直发，
+     * 而是直接写入 Outbox 表，由 {@link OutboxMessageScheduler} 补偿发送。</p>
+     *
+     * <p><b>安全关键</b>：此方法必须在 {@code @Transactional} 事务内调用，
+     * 确保 Outbox 写入与业务数据更新在同一事务中原子提交。
+     * 事务提交 = 业务已更新 + Outbox 已写入 → 消息最终一定送达。
+     * 事务回滚 = 两者都回滚 → 不会发出脏消息。</p>
+     */
+    public void sendOrderCompletedToOutbox(PaymentOrderCompletedMessage message) {
+        message.setMessageId(generateMessageId("ORDER-COMPLETE"));
+        message.setSign(MessageSignUtil.signOrderMessage(
+                message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
+                message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
+                message.getBizType()));
+        saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_COMPLETED, message,
+                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+        log.info("支付订单完成消息已写入Outbox - orderNo: {}, bizNo: {}, messageId: {}",
+                message.getOrderNo(), message.getBusinessOrderNo(), message.getMessageId());
+    }
+
+    /**
+     * 事务内直接写入 Outbox：支付订单取消消息
+     *
+     * <p>同 {@link #sendOrderCompletedToOutbox}，事务内原子写入 Outbox。</p>
+     */
+    public void sendOrderCancelledToOutbox(PaymentOrderCompletedMessage message) {
+        message.setMessageId(generateMessageId("ORDER-CANCEL"));
+        message.setSign(MessageSignUtil.signOrderMessage(
+                message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
+                message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
+                message.getBizType()));
+        saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_CANCELLED, message,
+                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+        log.info("支付订单取消消息已写入Outbox - orderNo: {}, bizNo: {}, messageId: {}",
+                message.getOrderNo(), message.getBusinessOrderNo(), message.getMessageId());
+    }
+
+    /**
+     * 事务内直接写入 Outbox：退款完成消息
+     */
+    public void sendRefundCompletedToOutbox(RefundCompletedMessage message) {
+        message.setMessageId(generateMessageId("REFUND-COMPLETE"));
+        message.setSign(MessageSignUtil.signRefundMessage(
+                message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
+                message.getBusinessOrderNo(), message.getStatus(), message.getBizType()));
+        saveToOutbox(PaymentMqConstants.RK_REFUND_COMPLETED, message,
+                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+        log.info("退款完成消息已写入Outbox - refundNo: {}, messageId: {}", message.getRefundNo(), message.getMessageId());
+    }
+
     /**
      * 写入 outbox 表，由定时任务补偿发送
      */
