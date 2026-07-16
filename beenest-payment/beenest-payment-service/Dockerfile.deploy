@@ -4,7 +4,7 @@
 #   cd beenest-payment
 #   mvn clean package -pl beenest-payment-service -am -DskipTests -B
 #   docker build --platform linux/amd64 \
-#     -t registry.cn-hangzhou.aliyuncs.com/beenest/beenest-payment:1.0.1 \
+#     -t registry.cn-hangzhou.aliyuncs.com/beenest/beenest-payment:1.0.2 \
 #     -t registry.cn-hangzhou.aliyuncs.com/beenest/beenest-payment:latest \
 #     -f beenest-payment-service/Dockerfile.deploy beenest-payment-service/
 # ============================================================================
@@ -21,7 +21,7 @@ RUN groupadd -r appgroup && useradd -r -g appgroup -s /bin/bash -m appuser \
     && mkdir -p /home/appuser/nacos/config && chown -R appuser:appgroup /home/appuser/nacos
 
 # 从本地拷贝 JAR 包
-COPY target/beenest-payment-service-1.0.1.jar app.jar
+COPY target/beenest-payment-service-1.0.2.jar app.jar
 
 # 创建日志目录
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
