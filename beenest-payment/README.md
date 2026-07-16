@@ -90,8 +90,8 @@ payment:
 @Autowired
 private PaymentFeignClient paymentFeignClient;
 
-// 查询用户钱包详情
-Response<WalletBalanceDTO> balance = paymentFeignClient.getWalletBalance("C20260101001", "DRONE_ORDER");
+// 查询用户钱包详情（appId 由 Feign 拦截器自动注入，无需手动传入）
+Response<WalletBalanceDTO> balance = paymentFeignClient.getWalletBalance("C20260101001");
 ```
 
 ---
@@ -108,7 +108,7 @@ Response<WalletBalanceDTO> balance = paymentFeignClient.getWalletBalance("C20260
 | 格式 | 以 `C` 开头的字符串，例如 `C202601261234567890123` |
 | 与 userId 关系 | 在当前系统中 `customerNo` 即为 CAS 用户 ID |
 | 获取方式 | 业务服务从 CAS 认证上下文中获取，通过 Feign 参数传递 |
-| 钱包关联 | 每个用户按 `(customerNo, bizType)` 组合拥有独立钱包 |
+| 钱包关联 | 每个用户按 `(customerNo, appId)` 组合拥有独立钱包 |
 
 > 支付中台不负责生成 `customerNo`，仅存储和使用。下游服务需确保传入正确的用户编号。
 
@@ -123,14 +123,36 @@ Response<WalletBalanceDTO> balance = paymentFeignClient.getWalletBalance("C20260
 
 > DTO 中提供 `getAmountInYuan()` 方法可将分转换为元（`BigDecimal`，保留两位小数）。
 
-### 业务类型（bizType）— 多租户钱包隔离
+### 业务系统标识（appId）— 多租户数据隔离
 
-每个用户在不同业务线下拥有独立钱包，通过 `bizType` 参数区分。省略时默认使用 `DRONE_ORDER`。
+支付中台通过 `appId`（业务系统标识）实现多租户数据隔离。每个下游业务系统拥有唯一的 `appId`（如 `DRONE`、`SHOP`），支付中台根据请求来源自动过滤数据，确保各业务系统只能访问自己的数据。
 
 | 常量 | 值 | 说明 |
 |------|----|------|
-| `BizTypeConstants.DRONE_ORDER` | `DRONE_ORDER` | 无人机订单（默认） |
+| `BizTypeConstants.APP_ID_DRONE` | `DRONE` | 无人机系统 |
+| `BizTypeConstants.APP_ID_SHOP` | `SHOP` | 商城系统 |
+
+**自动注入机制**：
+
+- 客户端通过 `PaymentFeignAppInterceptor` 自动注入 `X-App-Id` 请求头（来源于 `payment.client.app-id` 配置）
+- 服务端 `InternalApiFilter` 从 `X-App-Id` 头提取 appId 并存入 `AppContext`（ThreadLocal）
+- `TenantAppIdInterceptor`（MyBatis 拦截器）自动为 SQL 追加 `AND app_id = ?` 条件，自动为 INSERT/UPDATE 赋值 appId
+- 定时任务、MQ 消费者等非请求上下文场景下 `AppContext.getAppId()` 为 null，拦截器不追加条件，保持全量查询
+
+**客户端无需手动传入 appId**：所有 DTO 的 `appId` 字段均标注 `@Schema(hidden = true)`，由 Feign 拦截器 + MyBatis 拦截器自动处理。
+
+### 业务类型（bizType）— 业务标记
+
+`bizType` 是客户端侧的业务类型标识（如 `DRONE_ORDER`、`CHANNEL_ORDER`、`SHOP_ORDER`），用于区分同一 appId 下的不同业务场景。**bizType 由客户端控制，支付中台只做存储和透传**。
+
+| 常量 | 值 | 说明 |
+|------|----|------|
+| `BizTypeConstants.DRONE_ORDER` | `DRONE_ORDER` | 无人机订单 |
+| `BizTypeConstants.CHANNEL_ORDER` | `CHANNEL_ORDER` | 渠道订单 |
+| `BizTypeConstants.ALLIANCE_MEMBERSHIP` | `ALLIANCE_MEMBERSHIP` | 联盟加盟 |
 | `BizTypeConstants.SHOP_ORDER` | `SHOP_ORDER` | 商城订单 |
+
+> 查询已在 appId 维度过滤，不属于当前 appId 的 bizType 自然查不到数据，不存在数据安全问题。新增 bizType 无需支付中台修改代码。
 
 ### 支付平台与支付方式
 
@@ -410,7 +432,7 @@ Feign Client 基路径：`/internal/payment`，所有端点都在此路径下。
 | `POST` | `/wallet/freeze-balance` | `Response<Boolean>` | 冻结余额（可用→冻结，提现/担保场景） |
 | `POST` | `/wallet/unfreeze-balance` | `Response<Boolean>` | 解冻余额（冻结→可用，取消提现/释放担保） |
 
-**公共参数**：以上接口均支持可选参数 `bizType`（业务类型），省略时默认 `DRONE_ORDER`。
+**公共参数**：钱包接口的 `appId` 由 Feign 拦截器自动注入，客户端无需手动传入。`bizType` 为可选参数，用于在同一 appId 下进一步按业务类型筛选。
 
 **WalletBalanceDTO 返回结构**（`/wallet/detail/{customerNo}`）：
 
@@ -1678,7 +1700,7 @@ String newMqSecret = paymentFeignClient.rotateMqSecret("DRONE").getData();
 
 ### Q: bizType 不传会怎样？
 
-A: 默认使用 `DRONE_ORDER`。如果你的业务线不是无人机订单，请务必显式传入。
+A: 钱包操作时默认使用 `DRONE_ORDER`。支付中台的 `appId` 多租户隔离由拦截器自动处理，客户端无需关心。`bizType` 是可选的业务标记，不传时使用默认值。
 
 ### Q: 支付订单创建后多久过期？
 
