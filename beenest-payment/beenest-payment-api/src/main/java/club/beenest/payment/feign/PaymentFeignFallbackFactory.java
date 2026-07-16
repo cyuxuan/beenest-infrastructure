@@ -31,8 +31,12 @@ import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
 import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import club.beenest.payment.reconciliation.entity.ReconciliationTask;
+import club.beenest.payment.shared.dto.CreateAppCredentialDTO;
+import club.beenest.payment.shared.dto.UpdateAppCredentialDTO;
+import club.beenest.payment.shared.entity.AppCredential;
 import club.beenest.payment.shared.entity.PaymentChannelConfig;
 import club.beenest.payment.shared.entity.RiskRule;
+import club.beenest.payment.shared.vo.AppCredentialVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -381,6 +385,53 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
 
             @Override
             public Response<Void> adminUpdateConfig(PaymentChannelConfig config) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            // ==================== 应用凭证管理 ====================
+
+            @Override
+            public Response<List<AppCredentialVO>> listAppCredentials() {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AppCredentialVO> getAppCredential(String appId) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<AppCredential> createAppCredential(CreateAppCredentialDTO dto) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> updateAppCredential(UpdateAppCredentialDTO dto) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<String> rotateAppSecret(String appId) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<String> rotateSignSecret(String appId) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<String> rotateMqSecret(String appId) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> enableAppCredential(String appId) {
+                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            }
+
+            @Override
+            public Response<Void> disableAppCredential(String appId) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
         };

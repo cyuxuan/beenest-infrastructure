@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
  *   <li>签名覆盖消息中所有关键字段，任何字段被篡改都会导致验签失败</li>
  *   <li>密钥通过环境变量注入，不在代码中存储</li>
  *   <li>不同消息类型有不同的签名字段组合</li>
+ *   <li>支持多密钥模式：带 secret 参数的重载方法用于 per-app 签名/验签</li>
  * </ul>
  *
  * @author System
@@ -29,7 +30,7 @@ public final class MessageSignUtil {
     private static final String DELIMITER = "|";
 
     /**
-     * HMAC 密钥，通过以下优先级加载：
+     * 全局 HMAC 密钥（向后兼容），通过以下优先级加载：
      * 1. 环境变量 MQ_SIGN_SECRET
      * 2. JVM 系统属性 mq.sign.secret
      * 3. Spring 配置（通过 setSecret 注入）
@@ -39,6 +40,11 @@ public final class MessageSignUtil {
     private MessageSignUtil() {
     }
 
+    /**
+     * 设置全局 MQ 签名密钥（向后兼容）
+     *
+     * @param secret 全局密钥
+     */
     public static void setSecret(String secret) {
         if (secret != null && !secret.isEmpty()) {
             if (hmacSecret == null || hmacSecret.isEmpty()) {
@@ -48,16 +54,29 @@ public final class MessageSignUtil {
         }
     }
 
+    // ==================== 支付订单消息 ====================
+
     /**
-     * 对支付订单完成/取消消息签名
+     * 对支付订单完成/取消消息签名（使用显式密钥）
      * 签名字段: messageId, orderNo, businessOrderNo, customerNo, amountFen, platform, bizType
+     *
+     * @param secret 签名密钥
      */
-    public static String signOrderMessage(String messageId, String orderNo, String businessOrderNo,
-                                           String customerNo, Long amountFen, String platform, String bizType) {
+    public static String signOrderMessage(String secret, String messageId, String orderNo, String businessOrderNo,
+                                          String customerNo, Long amountFen, String platform, String bizType) {
         String data = joinFields(messageId, orderNo, businessOrderNo, customerNo,
                 amountFen != null ? amountFen.toString() : "0", platform != null ? platform : "",
                 bizType != null ? bizType : "");
-        return computeHmac(data);
+        return computeHmac(secret, data);
+    }
+
+    /**
+     * 对支付订单完成/取消消息签名（使用全局密钥，向后兼容）
+     */
+    public static String signOrderMessage(String messageId, String orderNo, String businessOrderNo,
+                                           String customerNo, Long amountFen, String platform, String bizType) {
+        ensureSecretLoaded();
+        return signOrderMessage(hmacSecret, messageId, orderNo, businessOrderNo, customerNo, amountFen, platform, bizType);
     }
 
     /** 兼容旧调用 */
@@ -67,13 +86,23 @@ public final class MessageSignUtil {
     }
 
     /**
-     * 验证支付订单消息签名
+     * 验证支付订单消息签名（使用显式密钥）
+     */
+    public static boolean verifyOrderMessage(String secret, String sign, String messageId, String orderNo,
+                                              String businessOrderNo, String customerNo,
+                                              Long amountFen, String platform, String bizType) {
+        String expected = signOrderMessage(secret, messageId, orderNo, businessOrderNo, customerNo, amountFen, platform, bizType);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 验证支付订单消息签名（使用全局密钥，向后兼容）
      */
     public static boolean verifyOrderMessage(String sign, String messageId, String orderNo,
                                               String businessOrderNo, String customerNo,
                                               Long amountFen, String platform, String bizType) {
-        String expected = signOrderMessage(messageId, orderNo, businessOrderNo, customerNo, amountFen, platform, bizType);
-        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+        ensureSecretLoaded();
+        return verifyOrderMessage(hmacSecret, sign, messageId, orderNo, businessOrderNo, customerNo, amountFen, platform, bizType);
     }
 
     public static boolean verifyOrderMessage(String sign, String messageId, String orderNo,
@@ -82,15 +111,26 @@ public final class MessageSignUtil {
         return verifyOrderMessage(sign, messageId, orderNo, businessOrderNo, customerNo, amountFen, platform, null);
     }
 
+    // ==================== 退款消息 ====================
+
     /**
-     * 对退款完成消息签名
+     * 对退款完成消息签名（使用显式密钥）
      * 签名字段: messageId, refundNo, orderNo, businessOrderNo, status, bizType
      */
-    public static String signRefundMessage(String messageId, String refundNo, String orderNo,
+    public static String signRefundMessage(String secret, String messageId, String refundNo, String orderNo,
                                             String businessOrderNo, String status, String bizType) {
         String data = joinFields(messageId, refundNo, orderNo, businessOrderNo,
                 status != null ? status : "", bizType != null ? bizType : "");
-        return computeHmac(data);
+        return computeHmac(secret, data);
+    }
+
+    /**
+     * 对退款完成消息签名（使用全局密钥，向后兼容）
+     */
+    public static String signRefundMessage(String messageId, String refundNo, String orderNo,
+                                            String businessOrderNo, String status, String bizType) {
+        ensureSecretLoaded();
+        return signRefundMessage(hmacSecret, messageId, refundNo, orderNo, businessOrderNo, status, bizType);
     }
 
     /** 兼容旧调用 */
@@ -99,10 +139,22 @@ public final class MessageSignUtil {
         return signRefundMessage(messageId, refundNo, orderNo, businessOrderNo, status, null);
     }
 
+    /**
+     * 验证退款完成消息签名（使用显式密钥）
+     */
+    public static boolean verifyRefundMessage(String secret, String sign, String messageId, String refundNo,
+                                                String orderNo, String businessOrderNo, String status, String bizType) {
+        String expected = signRefundMessage(secret, messageId, refundNo, orderNo, businessOrderNo, status, bizType);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 验证退款完成消息签名（使用全局密钥，向后兼容）
+     */
     public static boolean verifyRefundMessage(String sign, String messageId, String refundNo,
                                                 String orderNo, String businessOrderNo, String status, String bizType) {
-        String expected = signRefundMessage(messageId, refundNo, orderNo, businessOrderNo, status, bizType);
-        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+        ensureSecretLoaded();
+        return verifyRefundMessage(hmacSecret, sign, messageId, refundNo, orderNo, businessOrderNo, status, bizType);
     }
 
     public static boolean verifyRefundMessage(String sign, String messageId, String refundNo,
@@ -110,17 +162,28 @@ public final class MessageSignUtil {
         return verifyRefundMessage(sign, messageId, refundNo, orderNo, businessOrderNo, status, null);
     }
 
+    // ==================== 提现消息 ====================
+
     /**
-     * 对提现完成消息签名
+     * 对提现完成消息签名（使用显式密钥）
      * 签名字段: messageId, requestNo, customerNo, actualAmountFen, status, bizType
      */
-    public static String signWithdrawMessage(String messageId, String requestNo, String customerNo,
+    public static String signWithdrawMessage(String secret, String messageId, String requestNo, String customerNo,
                                                Long actualAmountFen, String status, String bizType) {
         String data = joinFields(messageId, requestNo, customerNo,
                 actualAmountFen != null ? actualAmountFen.toString() : "0",
                 status != null ? status : "",
                 bizType != null ? bizType : "");
-        return computeHmac(data);
+        return computeHmac(secret, data);
+    }
+
+    /**
+     * 对提现完成消息签名（使用全局密钥，向后兼容）
+     */
+    public static String signWithdrawMessage(String messageId, String requestNo, String customerNo,
+                                               Long actualAmountFen, String status, String bizType) {
+        ensureSecretLoaded();
+        return signWithdrawMessage(hmacSecret, messageId, requestNo, customerNo, actualAmountFen, status, bizType);
     }
 
     /** 兼容旧调用 */
@@ -129,11 +192,23 @@ public final class MessageSignUtil {
         return signWithdrawMessage(messageId, requestNo, customerNo, actualAmountFen, status, null);
     }
 
-    public static boolean verifyWithdrawMessage(String sign, String messageId, String requestNo,
+    /**
+     * 验证提现完成消息签名（使用显式密钥）
+     */
+    public static boolean verifyWithdrawMessage(String secret, String sign, String messageId, String requestNo,
                                                   String customerNo, Long actualAmountFen,
                                                   String status, String bizType) {
-        String expected = signWithdrawMessage(messageId, requestNo, customerNo, actualAmountFen, status, bizType);
+        String expected = signWithdrawMessage(secret, messageId, requestNo, customerNo, actualAmountFen, status, bizType);
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 验证提现完成消息签名（使用全局密钥，向后兼容）
+     */
+    public static boolean verifyWithdrawMessage(String sign, String messageId, String requestNo,
+                                                  String customerNo, Long actualAmountFen, String status, String bizType) {
+        ensureSecretLoaded();
+        return verifyWithdrawMessage(hmacSecret, sign, messageId, requestNo, customerNo, actualAmountFen, status, bizType);
     }
 
     public static boolean verifyWithdrawMessage(String sign, String messageId, String requestNo,
@@ -141,18 +216,13 @@ public final class MessageSignUtil {
         return verifyWithdrawMessage(sign, messageId, requestNo, customerNo, actualAmountFen, status, null);
     }
 
+    // ==================== 余额变动消息 ====================
+
     /**
-     * 对余额变动消息签名
+     * 对余额变动消息签名（使用显式密钥）
      * 签名字段: messageId, customerNo, walletNo, beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType
      */
-    public static String signBalanceMessage(String messageId, String customerNo, String walletNo,
-                                              Long beforeBalanceFen, Long afterBalanceFen,
-                                              Long changeAmountFen, String transactionType) {
-        return signBalanceMessage(messageId, customerNo, walletNo,
-                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, null);
-    }
-
-    public static String signBalanceMessage(String messageId, String customerNo, String walletNo,
+    public static String signBalanceMessage(String secret, String messageId, String customerNo, String walletNo,
                                               Long beforeBalanceFen, Long afterBalanceFen,
                                               Long changeAmountFen, String transactionType, String bizType) {
         String data = joinFields(messageId, customerNo, walletNo,
@@ -161,7 +231,49 @@ public final class MessageSignUtil {
                 changeAmountFen != null ? changeAmountFen.toString() : "0",
                 transactionType != null ? transactionType : "",
                 bizType != null ? bizType : "");
-        return computeHmac(data);
+        return computeHmac(secret, data);
+    }
+
+    /**
+     * 对余额变动消息签名（使用全局密钥，向后兼容）
+     */
+    public static String signBalanceMessage(String messageId, String customerNo, String walletNo,
+                                              Long beforeBalanceFen, Long afterBalanceFen,
+                                              Long changeAmountFen, String transactionType, String bizType) {
+        ensureSecretLoaded();
+        return signBalanceMessage(hmacSecret, messageId, customerNo, walletNo,
+                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType);
+    }
+
+    public static String signBalanceMessage(String messageId, String customerNo, String walletNo,
+                                              Long beforeBalanceFen, Long afterBalanceFen,
+                                              Long changeAmountFen, String transactionType) {
+        return signBalanceMessage(messageId, customerNo, walletNo,
+                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, null);
+    }
+
+    /**
+     * 验证余额变动消息签名（使用显式密钥）
+     */
+    public static boolean verifyBalanceMessage(String secret, String sign, String messageId, String customerNo,
+                                                 String walletNo, Long beforeBalanceFen,
+                                                 Long afterBalanceFen, Long changeAmountFen,
+                                                 String transactionType, String bizType) {
+        String expected = signBalanceMessage(secret, messageId, customerNo, walletNo,
+                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 验证余额变动消息签名（使用全局密钥，向后兼容）
+     */
+    public static boolean verifyBalanceMessage(String sign, String messageId, String customerNo,
+                                                 String walletNo, Long beforeBalanceFen,
+                                                 Long afterBalanceFen, Long changeAmountFen,
+                                                 String transactionType, String bizType) {
+        ensureSecretLoaded();
+        return verifyBalanceMessage(hmacSecret, sign, messageId, customerNo, walletNo,
+                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType);
     }
 
     public static boolean verifyBalanceMessage(String sign, String messageId, String customerNo,
@@ -172,44 +284,61 @@ public final class MessageSignUtil {
                 beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, null);
     }
 
-    public static boolean verifyBalanceMessage(String sign, String messageId, String customerNo,
-                                                 String walletNo, Long beforeBalanceFen,
-                                                 Long afterBalanceFen, Long changeAmountFen,
-                                                 String transactionType, String bizType) {
-        String expected = signBalanceMessage(messageId, customerNo, walletNo,
-                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType);
-        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
-    }
+    // ==================== 钱包入账消息 ====================
 
     /**
-     * 对钱包入账消息签名
+     * 对钱包入账消息签名（使用显式密钥）
      * 签名字段: messageId, customerNo, bizType, amountFen, transactionType, referenceNo
      */
-    public static String signWalletCreditMessage(String messageId, String customerNo, String bizType,
+    public static String signWalletCreditMessage(String secret, String messageId, String customerNo, String bizType,
                                                    Long amountFen, String transactionType, String referenceNo) {
         String data = joinFields(messageId, customerNo,
                 bizType != null ? bizType : "",
                 amountFen != null ? amountFen.toString() : "0",
                 transactionType != null ? transactionType : "",
                 referenceNo != null ? referenceNo : "");
-        return computeHmac(data);
+        return computeHmac(secret, data);
     }
 
+    /**
+     * 对钱包入账消息签名（使用全局密钥，向后兼容）
+     */
+    public static String signWalletCreditMessage(String messageId, String customerNo, String bizType,
+                                                   Long amountFen, String transactionType, String referenceNo) {
+        ensureSecretLoaded();
+        return signWalletCreditMessage(hmacSecret, messageId, customerNo, bizType, amountFen, transactionType, referenceNo);
+    }
+
+    /**
+     * 验证钱包入账消息签名（使用显式密钥）
+     */
+    public static boolean verifyWalletCreditMessage(String secret, String sign, String messageId, String customerNo,
+                                                      String bizType, Long amountFen,
+                                                      String transactionType, String referenceNo) {
+        String expected = signWalletCreditMessage(secret, messageId, customerNo, bizType, amountFen, transactionType, referenceNo);
+        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 验证钱包入账消息签名（使用全局密钥，向后兼容）
+     */
     public static boolean verifyWalletCreditMessage(String sign, String messageId, String customerNo,
                                                       String bizType, Long amountFen,
                                                       String transactionType, String referenceNo) {
-        String expected = signWalletCreditMessage(messageId, customerNo, bizType, amountFen, transactionType, referenceNo);
-        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
+        ensureSecretLoaded();
+        return verifyWalletCreditMessage(hmacSecret, sign, messageId, customerNo, bizType, amountFen, transactionType, referenceNo);
     }
 
     // ==================== 内部方法 ====================
 
-    private static String computeHmac(String data) {
-        ensureSecretLoaded();
+    /**
+     * 使用显式密钥计算 HMAC
+     */
+    private static String computeHmac(String secret, String data) {
         try {
             Mac mac = Mac.getInstance(ALGORITHM);
             SecretKeySpec keySpec = new SecretKeySpec(
-                    hmacSecret.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+                    secret.getBytes(StandardCharsets.UTF_8), ALGORITHM);
             mac.init(keySpec);
             byte[] hashBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             return CodecUtils.bytesToHex(hashBytes);

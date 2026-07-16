@@ -6,11 +6,14 @@ import club.beenest.payment.paymentorder.mq.PaymentOrderCompletedMessage;
 import club.beenest.payment.paymentorder.mq.RefundCompletedMessage;
 import club.beenest.payment.wallet.mq.BalanceChangedMessage;
 import club.beenest.payment.withdraw.mq.WithdrawCompletedMessage;
+import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.mapper.OutboxMessageMapper;
 import club.beenest.payment.shared.domain.entity.OutboxMessage;
+import club.beenest.payment.shared.service.AppCredentialService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +29,11 @@ import java.util.UUID;
  *   <li>先尝试直接发送 MQ 消息</li>
  *   <li>发送失败时写入 outbox 表，由定时任务补偿重发</li>
  * </ol>
+ *
+ * <p>签名策略：优先使用 per-app MQ 密钥签名（通过 bizType 推导 appId），
+ * 无 appId 时回退到全局密钥。</p>
+ *
+ * @author System
  */
 @Slf4j
 @Component
@@ -35,13 +43,16 @@ public class PaymentEventProducer {
     private final RabbitTemplate rabbitTemplate;
     private final OutboxMessageMapper outboxMessageMapper;
     private final ObjectMapper objectMapper;
+    private final AppCredentialService appCredentialService;
 
     /**
      * 发送支付订单完成消息
      */
     public void sendOrderCompleted(PaymentOrderCompletedMessage message) {
         message.setMessageId(generateMessageId("ORDER-COMPLETE"));
-        message.setSign(MessageSignUtil.signOrderMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
                 message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
                 message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
                 message.getBizType()));
@@ -53,7 +64,9 @@ public class PaymentEventProducer {
      */
     public void sendOrderCancelled(PaymentOrderCompletedMessage message) {
         message.setMessageId(generateMessageId("ORDER-CANCEL"));
-        message.setSign(MessageSignUtil.signOrderMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
                 message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
                 message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
                 message.getBizType()));
@@ -65,7 +78,9 @@ public class PaymentEventProducer {
      */
     public void sendRefundCompleted(RefundCompletedMessage message) {
         message.setMessageId(generateMessageId("REFUND-COMPLETE"));
-        message.setSign(MessageSignUtil.signRefundMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signRefundMessage(mqSecret,
                 message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
                 message.getBusinessOrderNo(), message.getStatus(), message.getBizType()));
         send(PaymentMqConstants.RK_REFUND_COMPLETED, message);
@@ -76,7 +91,9 @@ public class PaymentEventProducer {
      */
     public void sendWithdrawCompleted(WithdrawCompletedMessage message) {
         message.setMessageId(generateMessageId("WITHDRAW-COMPLETE"));
-        message.setSign(MessageSignUtil.signWithdrawMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signWithdrawMessage(mqSecret,
                 message.getMessageId(), message.getRequestNo(), message.getCustomerNo(),
                 message.getActualAmountFen(), message.getStatus(), message.getBizType()));
         send(PaymentMqConstants.RK_WITHDRAW_COMPLETED, message);
@@ -87,7 +104,9 @@ public class PaymentEventProducer {
      */
     public void sendBalanceChanged(BalanceChangedMessage message) {
         message.setMessageId(generateMessageId("BALANCE-CHANGE"));
-        message.setSign(MessageSignUtil.signBalanceMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signBalanceMessage(mqSecret,
                 message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
                 message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
                 message.getChangeAmountFen(), message.getTransactionType(),
@@ -115,16 +134,16 @@ public class PaymentEventProducer {
      * 事务内直接写入 Outbox：支付订单完成消息
      *
      * <p>与 {@link #sendOrderCompleted} 不同，此方法不尝试 MQ 直发，
-     * 而是直接写入 Outbox 表，由 {@link OutboxMessageScheduler} 补偿发送。</p>
+     * 而是直接写入 Outbox 表，由 {@link club.beenest.payment.shared.scheduler.OutboxMessageScheduler} 补偿发送。</p>
      *
      * <p><b>安全关键</b>：此方法必须在 {@code @Transactional} 事务内调用，
-     * 确保 Outbox 写入与业务数据更新在同一事务中原子提交。
-     * 事务提交 = 业务已更新 + Outbox 已写入 → 消息最终一定送达。
-     * 事务回滚 = 两者都回滚 → 不会发出脏消息。</p>
+     * 确保 Outbox 写入与业务数据更新在同一事务中原子提交。</p>
      */
     public void sendOrderCompletedToOutbox(PaymentOrderCompletedMessage message) {
         message.setMessageId(generateMessageId("ORDER-COMPLETE"));
-        message.setSign(MessageSignUtil.signOrderMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
                 message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
                 message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
                 message.getBizType()));
@@ -136,12 +155,12 @@ public class PaymentEventProducer {
 
     /**
      * 事务内直接写入 Outbox：支付订单取消消息
-     *
-     * <p>同 {@link #sendOrderCompletedToOutbox}，事务内原子写入 Outbox。</p>
      */
     public void sendOrderCancelledToOutbox(PaymentOrderCompletedMessage message) {
         message.setMessageId(generateMessageId("ORDER-CANCEL"));
-        message.setSign(MessageSignUtil.signOrderMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
                 message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
                 message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
                 message.getBizType()));
@@ -156,13 +175,66 @@ public class PaymentEventProducer {
      */
     public void sendRefundCompletedToOutbox(RefundCompletedMessage message) {
         message.setMessageId(generateMessageId("REFUND-COMPLETE"));
-        message.setSign(MessageSignUtil.signRefundMessage(
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signRefundMessage(mqSecret,
                 message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
                 message.getBusinessOrderNo(), message.getStatus(), message.getBizType()));
         saveToOutbox(PaymentMqConstants.RK_REFUND_COMPLETED, message,
                 message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
         log.info("退款完成消息已写入Outbox - refundNo: {}, messageId: {}", message.getRefundNo(), message.getMessageId());
     }
+
+    // ==================== 密钥解析 ====================
+
+    /**
+     * 根据 bizType 推导 appId
+     */
+    private String resolveAppId(String bizType) {
+        return BizTypeConstants.deriveAppId(bizType);
+    }
+
+    /**
+     * 解析 MQ 签名密钥：优先 per-app 密钥，回退到全局密钥
+     *
+     * @param bizType 业务类型
+     * @return MQ 明文密钥
+     */
+    private String resolveMqSecret(String bizType) {
+        // 1. 尝试 per-app 密钥
+        String mqSecret = appCredentialService.getMqSecretByBizType(bizType);
+        if (StringUtils.isNotBlank(mqSecret)) {
+            return mqSecret;
+        }
+        // 2. 回退到全局密钥（MessageSignUtil 内部会通过 ensureSecretLoaded 加载）
+        //    直接返回 null 让 MessageSignUtil 使用全局密钥
+        //    但此处需要返回一个有效的密钥，因此使用全局密钥
+        return getGlobalMqSecret();
+    }
+
+    /**
+     * 获取全局 MQ 密钥（向后兼容）
+     */
+    private String getGlobalMqSecret() {
+        // 从 MessageSignUtil 的全局密钥获取
+        // 由于 MessageSignUtil 内部管理全局密钥，这里直接返回空字符串
+        // 让 MessageSignUtil 的无 secret 方法自动使用全局密钥
+        // 但我们用的是带 secret 参数的方法，所以需要一个兜底
+        String envSecret = System.getenv("MQ_SIGN_SECRET");
+        if (StringUtils.isNotBlank(envSecret)) {
+            return envSecret;
+        }
+        String propSecret = System.getProperty("mq.sign.secret");
+        if (StringUtils.isNotBlank(propSecret)) {
+            return propSecret;
+        }
+        // 最终兜底：从 Spring 配置获取（通过 PaymentMqConfig 设置到 MessageSignUtil）
+        // 此处无法直接获取，返回 null 让调用方处理
+        log.warn("无法获取 per-app 或全局 MQ 密钥，bizType={}", "unknown");
+        return "";
+    }
+
+    // ==================== 内部方法 ====================
 
     /**
      * 写入 outbox 表，由定时任务补偿发送

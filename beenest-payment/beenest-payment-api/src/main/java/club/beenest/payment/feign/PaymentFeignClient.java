@@ -27,8 +27,12 @@ import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import club.beenest.payment.paymentorder.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.entity.PaymentEvent;
 import club.beenest.payment.paymentorder.entity.Refund;
+import club.beenest.payment.shared.dto.CreateAppCredentialDTO;
+import club.beenest.payment.shared.dto.UpdateAppCredentialDTO;
+import club.beenest.payment.shared.entity.AppCredential;
 import club.beenest.payment.shared.entity.PaymentChannelConfig;
 import club.beenest.payment.shared.entity.RiskRule;
+import club.beenest.payment.shared.vo.AppCredentialVO;
 import club.beenest.payment.wallet.entity.Wallet;
 import club.beenest.payment.wallet.entity.WalletTransaction;
 import club.beenest.payment.withdraw.entity.WithdrawRequest;
@@ -501,4 +505,83 @@ public interface PaymentFeignClient {
      */
     @PostMapping("/admin/configs/update")
     Response<Void> adminUpdateConfig(@RequestBody PaymentChannelConfig config);
+
+    // ==================== 应用凭证管理 ====================
+
+    /**
+     * 列表查询应用凭证（密钥脱敏）
+     *
+     * @return 凭证列表
+     */
+    @GetMapping("/app-credential/list")
+    Response<List<AppCredentialVO>> listAppCredentials();
+
+    /**
+     * 查询单个应用凭证（密钥脱敏）
+     *
+     * @param appId 业务系统标识
+     * @return 凭证信息
+     */
+    @GetMapping("/app-credential/{appId}")
+    Response<AppCredentialVO> getAppCredential(@PathVariable("appId") String appId);
+
+    /**
+     * 创建应用凭证（返回原始密钥，仅此一次）
+     *
+     * @param dto 创建参数
+     * @return 创建的凭证（含明文密钥）
+     */
+    @PostMapping("/app-credential/create")
+    Response<AppCredential> createAppCredential(@RequestBody CreateAppCredentialDTO dto);
+
+    /**
+     * 更新应用信息（名称、IP白名单、描述）
+     *
+     * @param dto 更新参数
+     */
+    @PostMapping("/app-credential/update")
+    Response<Void> updateAppCredential(@RequestBody UpdateAppCredentialDTO dto);
+
+    /**
+     * 轮换 app_secret（返回新明文密钥，仅此一次）
+     *
+     * @param appId 业务系统标识
+     * @return 新的明文密钥
+     */
+    @PostMapping("/app-credential/rotate-secret/{appId}")
+    Response<String> rotateAppSecret(@PathVariable("appId") String appId);
+
+    /**
+     * 轮换 sign_secret（返回新明文密钥，仅此一次）
+     *
+     * @param appId 业务系统标识
+     * @return 新的明文密钥
+     */
+    @PostMapping("/app-credential/rotate-sign-secret/{appId}")
+    Response<String> rotateSignSecret(@PathVariable("appId") String appId);
+
+    /**
+     * 轮换 mq_secret（返回新明文密钥，仅此一次）
+     *
+     * @param appId 业务系统标识
+     * @return 新的明文密钥
+     */
+    @PostMapping("/app-credential/rotate-mq-secret/{appId}")
+    Response<String> rotateMqSecret(@PathVariable("appId") String appId);
+
+    /**
+     * 启用应用
+     *
+     * @param appId 业务系统标识
+     */
+    @PostMapping("/app-credential/enable/{appId}")
+    Response<Void> enableAppCredential(@PathVariable("appId") String appId);
+
+    /**
+     * 禁用应用
+     *
+     * @param appId 业务系统标识
+     */
+    @PostMapping("/app-credential/disable/{appId}")
+    Response<Void> disableAppCredential(@PathVariable("appId") String appId);
 }
