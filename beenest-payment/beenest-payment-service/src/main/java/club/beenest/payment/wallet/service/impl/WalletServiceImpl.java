@@ -122,7 +122,7 @@ public class WalletServiceImpl implements IWalletService {
             wallet.setWalletNo(walletNo);
             wallet.setCustomerNo(customerNo);
             wallet.setBizType(resolvedBizType);
-            wallet.setAppId(BizTypeConstants.deriveAppId(resolvedBizType));
+            // appId 由 TenantAppIdInterceptor 自动注入，此处无需手动设置
             wallet.setBalance(0L);
             wallet.setFrozenBalance(0L);
             wallet.setTotalRecharge(0L);
@@ -145,7 +145,7 @@ public class WalletServiceImpl implements IWalletService {
         } catch (org.springframework.dao.DuplicateKeyException e) {
             // 并发场景下，UNIQUE(customer_no, biz_type) 约束命中，直接返回已有钱包
             log.warn("钱包已存在，返回已有钱包：用户={}, bizType={}", customerNo, resolvedBizType);
-            return walletMapper.selectByCustomerNoAndBizType(customerNo, resolvedBizType);
+            return walletMapper.selectByCustomerNo(customerNo);
         } catch (Exception e) {
             log.error("创建用户钱包失败：用户={}, 错误={}", customerNo, e.getMessage(), e);
             throw new BusinessException("创建钱包失败：" + e.getMessage(), e);
@@ -162,7 +162,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         try {
-            Wallet wallet = walletMapper.selectByCustomerNoAndBizType(customerNo, resolvedBizType);
+            Wallet wallet = walletMapper.selectByCustomerNo(customerNo);
             if (wallet == null) {
                 log.warn("用户钱包不存在：用户={}, bizType={}", customerNo, resolvedBizType);
                 return null;
@@ -195,7 +195,7 @@ public class WalletServiceImpl implements IWalletService {
         } catch (org.springframework.dao.DuplicateKeyException e) {
             // 并发创建冲突，重新查询
             log.warn("并发创建钱包冲突，重新查询：用户={}, bizType={}", customerNo, resolvedBizType);
-            return walletMapper.selectByCustomerNoAndBizType(customerNo, resolvedBizType);
+            return walletMapper.selectByCustomerNo(customerNo);
         }
     }
 
@@ -479,10 +479,14 @@ public class WalletServiceImpl implements IWalletService {
     // ==================== 私有辅助方法 ====================
 
     /**
-     * 解析 bizType，为空时使用默认值
+     * 解析 bizType，为空时使用默认值。
+     * bizType 由客户端传入，支付中台不关心具体含义，只做存储和透传。
      */
     private String resolveBizType(String bizType) {
-        return StringUtils.hasText(bizType) ? bizType : BizTypeConstants.DEFAULT;
+        if (StringUtils.hasText(bizType)) {
+            return bizType;
+        }
+        return BizTypeConstants.DEFAULT;
     }
 
     private WalletTransaction createTransactionRecord(TransactionParam param) {

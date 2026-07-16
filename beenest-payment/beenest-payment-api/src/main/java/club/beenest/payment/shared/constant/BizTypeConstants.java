@@ -9,8 +9,11 @@ import java.util.Map;
  *
  * <p>多租户隔离维度：
  * <ul>
- *   <li>app_id — 业务系统标识（DRONE/SHOP），BFF 层按此过滤，确保业务系统只能查自己的数据</li>
- *   <li>biz_type — 业务类型标识（DRONE_ORDER/CHANNEL_ORDER/ALLIANCE_MEMBERSHIP/SHOP_ORDER），由前端透传用于业务筛选</li>
+ *   <li>app_id — 业务系统标识（DRONE/SHOP），由 {@code X-App-Id} 请求头自动注入，
+ *       服务端通过 {@code AppContext.getAppId()} 获取，客户端无需手动传入</li>
+ *   <li>biz_type — 业务类型标识（DRONE_ORDER/CHANNEL_ORDER/ALLIANCE_MEMBERSHIP/SHOP_ORDER），
+ *       客户端可选择查询属于自己的 bizType；查询基于 appId 过滤，不属于当前 appId 的 bizType
+ *       查不到数据，不存在数据安全问题</li>
  * </ul>
  * </p>
  */
@@ -48,6 +51,7 @@ public final class BizTypeConstants {
 
     /**
      * biz_type 到 app_id 的映射表。
+     * 用于 MQ 消息、定时任务等非请求上下文场景推导 appId。
      * 新增业务类型时必须在此注册，否则推导失败。
      */
     private static final Map<String, String> BIZ_TYPE_TO_APP_ID = Map.of(
@@ -59,6 +63,8 @@ public final class BizTypeConstants {
 
     /**
      * 根据 bizType 推导对应的 appId
+     *
+     * <p>用于 MQ 消息、定时任务等非请求上下文场景，当实体已有 bizType 但缺少 appId 时推导。</p>
      *
      * @param bizType 业务类型
      * @return 对应的业务系统标识，未匹配时返回 APP_ID_DRONE（安全兜底）

@@ -23,6 +23,9 @@ public class ServiceOrderCreateDTO {
     @Schema(description = "业务类型", example = "MERCHANT_DEPOSIT")
     private String bizType;
 
+    @Schema(description = "业务系统标识，由拦截器自动注入", hidden = true)
+    private String appId;
+
     @Schema(description = "支付分平台", example = "WECHAT_PAYSCORE",
             allowableValues = {"WECHAT_PAYSCORE", "ALIPAY_ZHIMA"})
     @NotBlank(message = "支付分平台不能为空")

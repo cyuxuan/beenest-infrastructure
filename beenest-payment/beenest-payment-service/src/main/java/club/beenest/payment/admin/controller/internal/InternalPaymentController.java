@@ -37,6 +37,7 @@ import club.beenest.payment.paymentorder.service.IPaymentEventService;
 import club.beenest.payment.wallet.service.IWalletService;
 import club.beenest.payment.withdraw.service.IWithdrawService;
 import club.beenest.payment.reconciliation.service.IReconciliationService;
+import club.beenest.payment.shared.constant.BizTypeConstants;
 import com.github.pagehelper.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -76,76 +77,76 @@ public class InternalPaymentController {
     // ==================== 钱包操作 ====================
 
     @GetMapping("/wallet/balance/{customerNo}")
-    public Response<BigDecimal> getBalance(@PathVariable String customerNo,
-                                           @RequestParam(value = "bizType", required = false) String bizType) {
+    public Response<BigDecimal> getBalance(@PathVariable String customerNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         return Response.success(walletService.getBalance(customerNo, bizType));
     }
 
     @GetMapping("/wallet/detail/{customerNo}")
-    public Response<WalletBalanceDTO> getWalletBalance(@PathVariable String customerNo,
-                                                       @RequestParam(value = "bizType", required = false) String bizType) {
+    public Response<WalletBalanceDTO> getWalletBalance(@PathVariable String customerNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         return Response.success(walletService.getWalletBalance(customerNo, bizType));
     }
 
     @GetMapping("/wallet/{customerNo}")
-    public Response<Wallet> getWallet(@PathVariable String customerNo,
-                                      @RequestParam(value = "bizType", required = false) String bizType) {
+    public Response<Wallet> getWallet(@PathVariable String customerNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         return Response.success(walletService.getWallet(customerNo, bizType));
     }
 
     @PostMapping("/wallet/create/{customerNo}")
-    public Response<Wallet> createWallet(@PathVariable String customerNo,
-                                         @RequestParam(value = "bizType", required = false) String bizType) {
+    public Response<Wallet> createWallet(@PathVariable String customerNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         return Response.success(walletService.createWallet(customerNo, bizType));
     }
 
     @GetMapping("/wallet/transactions/{customerNo}")
     public Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(
             @PathVariable String customerNo,
-            @RequestParam(value = "bizType", required = false) String bizType,
             @RequestParam Integer pageNum,
             @RequestParam Integer pageSize,
             @RequestParam(required = false) String transactionType) {
+        String bizType = BizTypeConstants.DEFAULT;
         Page<TransactionHistoryDTO> page = walletService.getTransactionHistory(customerNo, bizType, pageNum, pageSize, transactionType);
         return Response.success(AdminPageResult.of(page));
     }
 
     @PostMapping("/wallet/add-balance")
     public Response<Void> addBalance(@RequestParam String customerNo,
-                                     @RequestParam(value = "bizType", required = false) String bizType,
                                      @RequestParam BigDecimal amount,
                                      @RequestParam String description,
                                      @RequestParam String transactionType,
                                      @RequestParam(required = false) String referenceNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         walletService.addBalance(customerNo, bizType, amount, description, transactionType, referenceNo);
         return Response.success();
     }
 
     @PostMapping("/wallet/deduct-balance")
     public Response<Boolean> deductBalance(@RequestParam String customerNo,
-                                           @RequestParam(value = "bizType", required = false) String bizType,
                                            @RequestParam BigDecimal amount,
                                            @RequestParam String description,
                                            @RequestParam String transactionType,
                                            @RequestParam(required = false) String referenceNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         return Response.success(walletService.deductBalance(customerNo, bizType, amount, description, transactionType, referenceNo));
     }
 
     @PostMapping("/wallet/freeze-balance")
     public Response<Boolean> freezeBalance(@RequestParam String customerNo,
-                                           @RequestParam(value = "bizType", required = false) String bizType,
                                            @RequestParam Long amount,
                                            @RequestParam String description,
                                            @RequestParam(required = false) String referenceNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         return Response.success(walletService.freezeBalance(customerNo, bizType, amount, description, referenceNo));
     }
 
     @PostMapping("/wallet/unfreeze-balance")
     public Response<Boolean> unfreezeBalance(@RequestParam String customerNo,
-                                             @RequestParam(value = "bizType", required = false) String bizType,
                                              @RequestParam Long amount,
                                              @RequestParam String description,
                                              @RequestParam(required = false) String referenceNo) {
+        String bizType = BizTypeConstants.DEFAULT;
         return Response.success(walletService.unfreezeBalance(customerNo, bizType, amount, description, referenceNo));
     }
 

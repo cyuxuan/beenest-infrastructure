@@ -10,4 +10,7 @@ public class ReconciliationQueryDTO {
 
     /** 业务类型标识，用于多租户隔离 */
     private String bizType;
+
+    /** 业务系统标识，由拦截器自动注入 */
+    private String appId;
 }

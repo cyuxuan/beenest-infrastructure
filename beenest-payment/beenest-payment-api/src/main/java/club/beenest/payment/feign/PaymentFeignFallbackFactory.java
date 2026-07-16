@@ -63,52 +63,52 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             // ==================== 钱包操作 ====================
 
             @Override
-            public Response<BigDecimal> getBalance(String customerNo, String bizType) {
+            public Response<BigDecimal> getBalance(String customerNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<WalletBalanceDTO> getWalletBalance(String customerNo, String bizType) {
+            public Response<WalletBalanceDTO> getWalletBalance(String customerNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Wallet> getWallet(String customerNo, String bizType) {
+            public Response<Wallet> getWallet(String customerNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Wallet> createWallet(String customerNo, String bizType) {
+            public Response<Wallet> createWallet(String customerNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(String customerNo, String bizType,
+            public Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(String customerNo,
                                                                         Integer pageNum, Integer pageSize,
                                                                         String transactionType) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Void> addBalance(String customerNo, String bizType, BigDecimal amount,
+            public Response<Void> addBalance(String customerNo, BigDecimal amount,
                                               String description, String transactionType, String referenceNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Boolean> deductBalance(String customerNo, String bizType, BigDecimal amount,
+            public Response<Boolean> deductBalance(String customerNo, BigDecimal amount,
                                                     String description, String transactionType, String referenceNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Boolean> freezeBalance(String customerNo, String bizType, Long amount,
+            public Response<Boolean> freezeBalance(String customerNo, Long amount,
                                                     String description, String referenceNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }
 
             @Override
-            public Response<Boolean> unfreezeBalance(String customerNo, String bizType, Long amount,
+            public Response<Boolean> unfreezeBalance(String customerNo, Long amount,
                                                       String description, String referenceNo) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }

@@ -41,7 +41,7 @@
         WHERE wallet_no = #{walletNo}
     </select>
 
-    <!-- 根据用户编号查询（兼容旧调用，默认 DRONE_ORDER） -->
+    <!-- 根据用户编号查询（多租户由拦截器自动追加 AND app_id = ?） -->
     <select id="selectByCustomerNo" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM ds_wallet
@@ -49,16 +49,7 @@
         LIMIT 1
     </select>
 
-    <!-- 根据用户编号和业务类型查询（多租户） -->
-    <select id="selectByCustomerNoAndBizType" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Column_List"/>
-        FROM ds_wallet
-        WHERE customer_no = #{customerNo}
-          AND biz_type = #{bizType}
-        LIMIT 1
-    </select>
-
-    <!-- 管理端分页查询钱包列表（配合PageHelper使用） -->
+    <!-- 管理端分页查询钱包列表（配合PageHelper使用，多租户由拦截器自动追加） -->
     <select id="selectAllWithConditions" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM ds_wallet
@@ -74,9 +65,6 @@
             </if>
             <if test="bizType != null and bizType != ''">
                 AND biz_type = #{bizType}
-            </if>
-            <if test="appId != null and appId != ''">
-                AND app_id = #{appId}
             </if>
         </where>
         ORDER BY update_time DESC
@@ -201,19 +189,11 @@
         WHERE wallet_no = #{walletNo}
     </select>
 
-    <!-- 检查用户是否已有钱包 -->
+    <!-- 检查用户是否已有钱包（多租户由拦截器自动追加 AND app_id = ?） -->
     <select id="countByCustomerNo" resultType="int">
         SELECT COUNT(*)
         FROM ds_wallet
         WHERE customer_no = #{customerNo}
-    </select>
-
-    <!-- 检查用户在指定业务类型下是否已有钱包（多租户） -->
-    <select id="countByCustomerNoAndBizType" resultType="int">
-        SELECT COUNT(*)
-        FROM ds_wallet
-        WHERE customer_no = #{customerNo}
-          AND biz_type = #{bizType}
     </select>
 
     <!-- 对账修复：直接设置余额和哈希（仅管理员修复使用） -->

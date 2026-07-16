@@ -61,32 +61,26 @@ public interface PaymentFeignClient {
     // ==================== 钱包操作 ====================
 
     @GetMapping("/wallet/balance/{customerNo}")
-    Response<BigDecimal> getBalance(@PathVariable("customerNo") String customerNo,
-                                    @RequestParam(value = "bizType", required = false) String bizType);
+    Response<BigDecimal> getBalance(@PathVariable("customerNo") String customerNo);
 
     @GetMapping("/wallet/detail/{customerNo}")
-    Response<WalletBalanceDTO> getWalletBalance(@PathVariable("customerNo") String customerNo,
-                                                @RequestParam(value = "bizType", required = false) String bizType);
+    Response<WalletBalanceDTO> getWalletBalance(@PathVariable("customerNo") String customerNo);
 
     @GetMapping("/wallet/{customerNo}")
-    Response<Wallet> getWallet(@PathVariable("customerNo") String customerNo,
-                               @RequestParam(value = "bizType", required = false) String bizType);
+    Response<Wallet> getWallet(@PathVariable("customerNo") String customerNo);
 
     @PostMapping("/wallet/create/{customerNo}")
-    Response<Wallet> createWallet(@PathVariable("customerNo") String customerNo,
-                                  @RequestParam(value = "bizType", required = false) String bizType);
+    Response<Wallet> createWallet(@PathVariable("customerNo") String customerNo);
 
     @GetMapping("/wallet/transactions/{customerNo}")
     Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(
             @PathVariable("customerNo") String customerNo,
-            @RequestParam(value = "bizType", required = false) String bizType,
             @RequestParam("pageNum") Integer pageNum,
             @RequestParam("pageSize") Integer pageSize,
             @RequestParam(value = "transactionType", required = false) String transactionType);
 
     @PostMapping("/wallet/add-balance")
     Response<Void> addBalance(@RequestParam("customerNo") String customerNo,
-                              @RequestParam(value = "bizType", required = false) String bizType,
                               @RequestParam("amount") BigDecimal amount,
                               @RequestParam("description") String description,
                               @RequestParam("transactionType") String transactionType,
@@ -94,7 +88,6 @@ public interface PaymentFeignClient {
 
     @PostMapping("/wallet/deduct-balance")
     Response<Boolean> deductBalance(@RequestParam("customerNo") String customerNo,
-                                    @RequestParam(value = "bizType", required = false) String bizType,
                                     @RequestParam("amount") BigDecimal amount,
                                     @RequestParam("description") String description,
                                     @RequestParam("transactionType") String transactionType,
@@ -102,14 +95,12 @@ public interface PaymentFeignClient {
 
     @PostMapping("/wallet/freeze-balance")
     Response<Boolean> freezeBalance(@RequestParam("customerNo") String customerNo,
-                                    @RequestParam(value = "bizType", required = false) String bizType,
                                     @RequestParam("amount") Long amount,
                                     @RequestParam("description") String description,
                                     @RequestParam(value = "referenceNo", required = false) String referenceNo);
 
     @PostMapping("/wallet/unfreeze-balance")
     Response<Boolean> unfreezeBalance(@RequestParam("customerNo") String customerNo,
-                                      @RequestParam(value = "bizType", required = false) String bizType,
                                       @RequestParam("amount") Long amount,
                                       @RequestParam("description") String description,
                                       @RequestParam(value = "referenceNo", required = false) String referenceNo);

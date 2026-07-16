@@ -73,45 +73,20 @@ public interface WalletMapper {
     Wallet selectByWalletNo(@Param("walletNo") String walletNo);
 
     /**
-     * 根据用户编号查询钱包信息
-     * 
-     * <p>通过用户编号查询该用户的钱包信息。每个用户只有一个钱包。</p>
-     * 
-     * <h4>使用场景：</h4>
-     * <ul>
-     *   <li>用户登录后查询钱包</li>
-     *   <li>订单支付时查询余额</li>
-     *   <li>用户中心显示余额</li>
-     * </ul>
-     * 
-     * <h4>业务规则：</h4>
-     * <ul>
-     *   <li>一个用户只能有一个钱包</li>
-     *   <li>如果用户没有钱包，需要先创建</li>
-     *   <li>只返回状态正常的钱包</li>
-     * </ul>
-     * 
-     * @param customerNo 用户编号，不能为null或空字符串
-     * @return 钱包实体对象，如果不存在则返回null
+     * 根据用户编号查询钱包（多租户由拦截器自动追加 AND app_id = ?）
+     *
+     * @param customerNo 用户编号
+     * @return 钱包实体
      */
     Wallet selectByCustomerNo(@Param("customerNo") String customerNo);
 
     /**
-     * 根据用户编号和业务类型查询钱包（多租户）
-     *
-     * @param customerNo 用户编号
-     * @param bizType 业务类型
-     * @return 钱包实体
-     */
-    Wallet selectByCustomerNoAndBizType(@Param("customerNo") String customerNo,
-                                         @Param("bizType") String bizType);
-
-    /**
-     * 查询钱包列表（管理端使用）
+     * 查询钱包列表（管理端使用，多租户由拦截器自动追加 AND app_id = ?）
      *
      * @param customerNo 用户编号，可为空
      * @param walletNo 钱包编号，可为空
      * @param status 状态，可为空
+     * @param bizType 业务类型，可为空
      * @return 钱包列表
      */
     List<Wallet> selectAllWithConditions(@Param("customerNo") String customerNo,
@@ -393,30 +368,12 @@ public interface WalletMapper {
     int countByWalletNo(@Param("walletNo") String walletNo);
 
     /**
-     * 检查用户是否已有钱包
-     * 
-     * <p>检查指定用户是否已经有钱包，用于创建钱包时的重复检查。</p>
-     * 
-     * <h4>业务规则：</h4>
-     * <ul>
-     *   <li>每个用户只能有一个钱包</li>
-     *   <li>创建钱包前必须检查</li>
-     * </ul>
-     * 
-     * @param customerNo 用户编号，不能为null
-     * @return 存在的记录数，0表示没有钱包，大于0表示已有钱包
-     */
-    int countByCustomerNo(@Param("customerNo") String customerNo);
-
-    /**
-     * 检查用户在指定业务类型下是否已有钱包（多租户）
+     * 检查用户是否已有钱包（多租户由拦截器自动追加 AND app_id = ?）
      *
      * @param customerNo 用户编号
-     * @param bizType 业务类型
      * @return 存在的记录数
      */
-    int countByCustomerNoAndBizType(@Param("customerNo") String customerNo,
-                                    @Param("bizType") String bizType);
+    int countByCustomerNo(@Param("customerNo") String customerNo);
 
     /**
      * 对账修复：直接设置余额和哈希（仅管理员修复使用）

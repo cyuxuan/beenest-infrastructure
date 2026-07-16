@@ -79,10 +79,16 @@ public class RechargeRequestDTO {
 
     /**
      * 业务类型（可选，用于多租户钱包隔离）
-     * 不传时默认使用 DRONE_ORDER
+     * 不传时默认根据 appId 推导，必须属于当前 appId
      */
     @Schema(description = "业务类型", example = "DRONE_ORDER")
     private String bizType;
+
+    /**
+     * 业务系统标识（由 Feign 拦截器自动注入，无需客户端手动设置）
+     */
+    @Schema(description = "业务系统标识，由拦截器自动注入", example = "DRONE", hidden = true)
+    private String appId;
     
     // ==================== 业务方法 ====================
     
