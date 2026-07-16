@@ -59,8 +59,30 @@
         SELECT * FROM ds_refund WHERE refund_no = #{refundNo}
     </select>
 
+    <!-- 根据退款单号加行锁查询（退款回调并发安全） -->
+    <select id="selectByRefundNoForUpdate" resultMap="BaseResultMap">
+        SELECT * FROM ds_refund WHERE refund_no = #{refundNo} FOR UPDATE
+    </select>
+
+    <!-- 查询待补偿的退款单（PENDING + PROCESSING 状态） -->
+    <select id="selectByStatusesForSync" resultMap="BaseResultMap">
+        SELECT *
+        FROM ds_refund
+        WHERE status IN
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        ORDER BY update_time ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
     <select id="selectByThirdPartyRefundNo" resultMap="BaseResultMap">
         SELECT * FROM ds_refund WHERE third_party_refund_no = #{thirdPartyRefundNo}
+    </select>
+
+    <!-- 根据第三方退款单号加行锁查询（退款回调并发安全） -->
+    <select id="selectByThirdPartyRefundNoForUpdate" resultMap="BaseResultMap">
+        SELECT * FROM ds_refund WHERE third_party_refund_no = #{thirdPartyRefundNo} FOR UPDATE
     </select>
 
     <select id="selectByOrderNo" resultMap="BaseResultMap">

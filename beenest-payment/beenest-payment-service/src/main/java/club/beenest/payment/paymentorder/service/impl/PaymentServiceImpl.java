@@ -57,9 +57,6 @@ import org.springframework.util.StringUtils;
 import java.io.BufferedReader;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,31 +118,8 @@ public class PaymentServiceImpl implements IPaymentService {
     @Autowired
     private PaymentEventProducer paymentEventProducer;
 
-    /**
-     * 专用定时线程池，用于退款状态补偿查询
-     * 替代 CompletableFuture.delayedExecutor，避免使用 ForkJoinPool
-     */
-    private final ScheduledExecutorService paymentAsyncExecutor =
-            Executors.newScheduledThreadPool(4, r -> {
-                Thread t = new Thread(r, "payment-refund-sync");
-                t.setDaemon(true);
-                return t;
-            });
-
-    @jakarta.annotation.PreDestroy
-    public void shutdownExecutor() {
-        log.info("正在关闭退款状态同步线程池...");
-        paymentAsyncExecutor.shutdown();
-        try {
-            if (!paymentAsyncExecutor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)) {
-                paymentAsyncExecutor.shutdownNow();
-                log.warn("退款状态同步线程池强制关闭");
-            }
-        } catch (InterruptedException e) {
-            paymentAsyncExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
+    // [P2 #11] 已移除内存 ScheduledExecutorService，退款状态补偿完全依赖
+    // RefundStatusSyncScheduler 的 Spring 定时扫描，避免 down机 后内存任务丢失
 
     /**
      * 创建充值订单
@@ -233,38 +207,33 @@ public class PaymentServiceImpl implements IPaymentService {
 
     /**
      * 处理支付回调
-     * 
-     * <p>
-     * 使用策略模式，根据支付平台选择对应的支付策略处理回调。
-     * </p>
-     * 
+     *
+     * <p>使用策略模式，根据支付平台选择对应的支付策略处理回调。</p>
+     *
+     * <p><b>安全设计</b>：验签和网络调用在事务外执行，避免长时间持有数据库连接和行锁。
+     * 只有数据库操作在事务内执行，保证"更新订单状态 + 入钱包/写Outbox"的原子性。</p>
+     *
      * <h4>流程：</h4>
      * <ol>
-     * <li>解析回调数据</li>
-     * <li>获取支付策略</li>
-     * <li>验证回调签名</li>
-     * <li>解析回调数据</li>
-     * <li>查询订单</li>
-     * <li>幂等性检查</li>
-     * <li>校验金额</li>
-     * <li>更新订单状态</li>
-     * <li>增加用户余额</li>
+     * <li>解析回调数据（事务外）</li>
+     * <li>获取支付策略、验证回调签名（事务外，含网络调用）</li>
+     * <li>解析回调数据（事务外）</li>
+     * <li>事务内：查询订单（加行锁）→ 幂等性检查 → 校验金额 → 更新订单状态 → 入钱包/写Outbox</li>
      * </ol>
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
     @LogAudit(module = "支付管理", operation = "处理支付回调")
     public boolean handlePaymentCallback(String platform, HttpServletRequest request) {
         log.info("收到支付回调 - platform: {}", platform);
 
         PaymentEvent event = new PaymentEvent();
         try {
-            // 1. 解析回调数据
+            // ====== 事务外：验签 + 解析（可能包含网络调用，不持有数据库连接） ======
             Map<String, String> callbackData = parseCallbackData(request);
             log.debug("回调原始数据 - platform: {}, data: {}", platform, callbackData);
             log.info("收到支付回调 - platform: {}", platform);
 
-            // 记录支付事件
+            // 记录支付事件（事务外写入，不影响后续事务回滚）
             event.setEventNo(TradeNoGenerator.generateTransactionNo());
             event.setEventTypeEnum(PaymentEventType.CALLBACK);
             event.setChannel(platform);
@@ -272,10 +241,8 @@ public class PaymentServiceImpl implements IPaymentService {
             event.setRequestContent(objectMapper.writeValueAsString(callbackData));
             paymentEventMapper.insert(event);
 
-            // 2. 获取支付策略
+            // 获取支付策略并验证回调签名（可能包含网络调用，如微信SDK验签+解密）
             PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(platform);
-
-            // 3. 验证回调签名
             if (!paymentStrategy.verifyCallback(callbackData)) {
                 log.error("回调签名验证失败 - platform: {}", platform);
                 event.setStatusEnum(PaymentEventStatus.FAILED);
@@ -284,7 +251,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 4. 解析回调数据
+            // 解析回调数据
             Map<String, Object> parsedData = paymentStrategy.parseCallback(callbackData);
             String orderNo = (String) parsedData.get("orderNo");
             String transactionNo = (String) parsedData.get("transactionNo");
@@ -301,7 +268,28 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 5. 查询订单（加行锁防止并发回调重复处理）
+            // ====== 事务内：数据库操作（保证原子性） ======
+            return handlePaymentCallbackInTransaction(platform, event, orderNo, transactionNo, paidAmount, paidStatus, callbackData);
+
+        } catch (Exception e) {
+            log.error("处理支付回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
+            safeMarkPaymentEventFailed(event, e);
+            throw new BusinessException("处理支付回调失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 支付回调的数据库操作（事务内执行）
+     *
+     * <p><b>安全关键</b>：将验签和网络调用移到事务外后，此方法只包含数据库操作。
+     * 保证"更新订单状态 + 入钱包/写Outbox"在同一事务内原子提交。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean handlePaymentCallbackInTransaction(String platform, PaymentEvent event,
+            String orderNo, String transactionNo, Long paidAmount, String paidStatus,
+            Map<String, String> callbackData) {
+        try {
+            // 查询订单（加行锁防止并发回调重复处理）
             PaymentOrder paymentOrder = paymentOrderMapper.selectByOrderNoForUpdate(orderNo);
             if (paymentOrder == null) {
                 log.error("订单不存在 - orderNo: {}", orderNo);
@@ -311,7 +299,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 6. 幂等性检查
+            // 幂等性检查
             if (paymentOrder.isPaid()) {
                 log.info("订单已支付，跳过处理 - orderNo: {}", orderNo);
                 event.setStatusEnum(PaymentEventStatus.SUCCESS);
@@ -328,7 +316,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 7. 校验金额（金额为空同样拒绝，防止构造缺失 amount 字段的伪造回调）
+            // 校验金额（金额为空同样拒绝，防止构造缺失 amount 字段的伪造回调）
             if (paidAmount == null || !paidAmount.equals(paymentOrder.getAmount())) {
                 log.error("支付金额校验失败 - orderNo: {}, expected: {}, actual: {}",
                         orderNo, paymentOrder.getAmount(), paidAmount);
@@ -346,7 +334,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 8. 更新订单状态
+            // 更新订单状态
             String callbackDataJson = objectMapper.writeValueAsString(callbackData);
             int updateResult = paymentOrderMapper.updateStatusIfCurrentStatus(
                     orderNo,
@@ -368,7 +356,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 throw new BusinessException("更新订单状态失败");
             }
 
-            // 9. 按订单类型做后续处理（充值订单入钱包；计划订单更新计划状态）
+            // 按订单类型做后续处理（充值订单入钱包；计划订单更新计划状态）
             if (isOrderPlanPayment(paymentOrder)) {
                 markBizOrderPaymentSuccess(paymentOrder);
             } else {
@@ -390,7 +378,7 @@ public class PaymentServiceImpl implements IPaymentService {
             return true;
 
         } catch (Exception e) {
-            log.error("处理支付回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
+            log.error("处理支付回调事务内操作失败 - orderNo: {}, error: {}", orderNo, e.getMessage(), e);
             safeMarkPaymentEventFailed(event, e);
             // 【安全关键】必须重新抛出异常以触发@Transactional回滚
             // 如果订单状态已更新为PAID但addBalance失败，吞掉异常会导致事务提交，
@@ -400,18 +388,20 @@ public class PaymentServiceImpl implements IPaymentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @LogAudit(module = "支付管理", operation = "处理退款回调")
     public boolean handleRefundCallback(String platform, HttpServletRequest request) {
         log.info("收到退款回调 - platform: {}", platform);
 
         try {
+            // ====== 事务外：验签 + 解析（可能包含网络调用，不持有数据库连接） ======
             Map<String, String> callbackData = parseCallbackData(request);
             PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(platform);
             if (!paymentStrategy.verifyRefundCallback(callbackData)) {
-                // 【安全关键】签名验证失败时记录告警，但返回 true 让 Controller 返回 SUCCESS 给第三方
-                // 避免 微信/支付宝 因收到非 SUCCESS 响应而无限重试造成大量无效请求
-                log.error("【安全告警】退款回调签名验证失败，已忽略并返回SUCCESS - platform: {}", platform);
-                return true;
+                // 【安全关键】签名验证失败时返回 false，让 Controller 返回 FAILURE 给第三方
+                // 第三方会重试回调，重试是安全的（有幂等检查）。
+                // 不应返回 true/SUCCESS，否则伪造的退款回调会被静默忽略。
+                log.error("【安全告警】退款回调签名验证失败 - platform: {}", platform);
+                return false;
             }
 
             Map<String, Object> parsedData = paymentStrategy.parseRefundCallback(callbackData);
@@ -421,34 +411,74 @@ public class PaymentServiceImpl implements IPaymentService {
                 log.warn("退款回调缺少退款单号，尝试按第三方退款单号匹配 - platform: {}, refundId: {}", platform, refundId);
             }
 
-            Refund refund = StringUtils.hasText(refundNo) ? refundMapper.selectByRefundNo(refundNo) : null;
-            if (refund == null && StringUtils.hasText(refundId)) {
-                refund = refundMapper.selectByThirdPartyRefundNo(refundId);
-            }
-            if (refund == null) {
-                log.error("退款单不存在 - refundNo: {}, refundId: {}", refundNo, refundId);
-                return false;
-            }
-            if (refund.getStatusEnum() == RefundStatus.SUCCESS || refund.getStatusEnum() == RefundStatus.REJECTED) {
-                log.info("退款单已到终态，忽略重复回调 - refundNo: {}, status: {}", refundNo, refund.getStatus());
-                return true;
-            }
+            // ====== 事务内：数据库操作（保证原子性） ======
+            return handleRefundCallbackInTransaction(refundNo, refundId, parsedData);
 
-            // 加行锁防止退款回调与主动同步并发冲突
-            PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(refund.getOrderNo());
-            if (order == null) {
-                log.error("退款原支付订单不存在 - refundNo: {}, orderNo: {}", refundNo, refund.getOrderNo());
-                return false;
-            }
-
-            applyRefundSyncResult(order, refund, parsedData, PaymentConstants.CALLBACK_SOURCE);
-            refund.setAuditRemark(MapValueUtils.firstNonBlank(refund.getAuditRemark(), "渠道退款回调更新"));
-            refundMapper.update(refund);
-            return true;
         } catch (Exception e) {
             log.error("处理退款回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
             throw new BusinessException("处理退款回调失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 退款回调的数据库操作（事务内执行）
+     *
+     * <p><b>安全设计</b>：验签和网络调用移到事务外，此方法只包含数据库操作。
+     * 保证退款状态更新与订单状态更新、冻结余额处理的原子性。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean handleRefundCallbackInTransaction(String refundNo, String refundId,
+            Map<String, Object> parsedData) {
+        // 加行锁防止退款回调与主动同步并发冲突
+        Refund refund = StringUtils.hasText(refundNo) ? refundMapper.selectByRefundNoForUpdate(refundNo) : null;
+        if (refund == null && StringUtils.hasText(refundId)) {
+            // 按第三方退款单号查询时也加行锁，防止并发回调和同步冲突
+            refund = refundMapper.selectByThirdPartyRefundNoForUpdate(refundId);
+        }
+        if (refund == null) {
+            log.error("退款单不存在 - refundNo: {}, refundId: {}", refundNo, refundId);
+            return false;
+        }
+        if (refund.getStatusEnum() == RefundStatus.SUCCESS || refund.getStatusEnum() == RefundStatus.REJECTED) {
+            log.info("退款单已到终态，忽略重复回调 - refundNo: {}, status: {}", refundNo, refund.getStatus());
+            return true;
+        }
+
+        // 加行锁防止退款回调与主动同步并发冲突
+        PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(refund.getOrderNo());
+        if (order == null) {
+            log.error("退款原支付订单不存在 - refundNo: {}, orderNo: {}", refundNo, refund.getOrderNo());
+            return false;
+        }
+
+        applyRefundSyncResult(order, refund, parsedData, PaymentConstants.CALLBACK_SOURCE);
+
+        // 充值退款：根据退款结果处理冻结余额
+        if (!isOrderPlanPayment(order)) {
+            if (refund.getStatusEnum() == RefundStatus.SUCCESS) {
+                // 第三方退款成功 → 扣减冻结余额
+                boolean deducted = walletService.deductFrozenBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        false, false);
+                if (!deducted) {
+                    log.error("退款回调：退款成功但扣减冻结余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            } else if (refund.getStatusEnum() == RefundStatus.FAILED) {
+                // 第三方退款失败 → 解冻余额
+                boolean unfreezed = walletService.unfreezeBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        "退款失败解冻 - 退款单号：" + refund.getRefundNo(),
+                        refund.getRefundNo());
+                if (!unfreezed) {
+                    log.error("退款回调：退款失败但解冻余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            }
+            // PROCESSING 状态：保持冻结，等待下次回调或 Scheduler 补偿
+        }
+
+        refund.setAuditRemark(MapValueUtils.firstNonBlank(refund.getAuditRemark(), "渠道退款回调更新"));
+        refundMapper.update(refund);
+        return true;
     }
 
     /**
@@ -1313,7 +1343,14 @@ public class PaymentServiceImpl implements IPaymentService {
         }
     }
 
-    private void syncPaymentOrderFromQuery(PaymentOrder paymentOrder, Map<String, Object> platformStatus) throws Exception {
+    /**
+     * 从第三方查询结果同步支付状态
+     *
+     * <p><b>安全关键</b>：使用 @Transactional 保证"更新订单状态 + 入钱包/写Outbox"在同一事务内原子提交。
+     * 防止订单状态更新成功但入钱包失败导致资金不一致。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void syncPaymentOrderFromQuery(PaymentOrder paymentOrder, Map<String, Object> platformStatus) throws Exception {
         if (paymentOrder == null || platformStatus == null || !paymentOrder.isPending()) {
             return;
         }
@@ -1452,6 +1489,22 @@ public class PaymentServiceImpl implements IPaymentService {
         return refund;
     }
 
+    /**
+     * 执行退款（安全重构版）
+     *
+     * <p><b>安全设计</b>：</p>
+     * <ul>
+     *   <li>充值退款：冻结余额 → 调第三方退款 → 成功扣减冻结 / 失败解冻 / PROCESSING 保持冻结</li>
+     *   <li>业务订单退款：直接调第三方退款 → 更新状态 → 写 Outbox</li>
+     *   <li>第三方网络调用在事务外执行，避免长时间持有数据库连接和行锁</li>
+     * </ul>
+     *
+     * <p><b>down机恢复</b>：</p>
+     * <ul>
+     *   <li>冻结后down机 → 余额冻结不可用，RefundStatusSyncScheduler 扫描 PENDING/PROCESSING 补偿</li>
+     *   <li>第三方退款成功后down机 → 同上，Scheduler 查询第三方结果后扣减冻结或解冻</li>
+     * </ul>
+     */
     private void executeRefund(PaymentOrder order, Refund refund, String auditUser, String auditRemark) {
         if (refund.getStatusEnum() == RefundStatus.SUCCESS) {
             return;
@@ -1461,40 +1514,53 @@ public class PaymentServiceImpl implements IPaymentService {
             return;
         }
 
-        // 充值退款：先调用第三方退款接口，成功后再扣减用户余额
-        // 这样如果第三方退款失败，就不需要回滚本地余额操作
+        // 充值退款：先冻结余额，再调第三方退款
+        // 冻结成功后即使down机，余额也不会丢失（不可用但未扣除），Scheduler会补偿
         if (!isOrderPlanPayment(order)) {
-            // 退款扣减余额
             BigDecimal refundAmountYuan = MoneyUtil.centsToYuan(refund.getAmount());
-            boolean deductSuccess = walletService.deductBalance(order.getCustomerNo(), order.getBizType(), refundAmountYuan, "充值退款扣减",
-                    WalletTransactionType.REFUND.getCode(), refund.getRefundNo());
-            if (!deductSuccess) {
-                throw new BusinessException("退款失败：用户余额不足或扣款失败");
+            boolean freezeSuccess = walletService.freezeBalance(
+                    order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                    "充值退款冻结 - 退款单号：" + refund.getRefundNo(),
+                    refund.getRefundNo());
+            if (!freezeSuccess) {
+                throw new BusinessException("退款失败：用户余额不足或冻结失败");
             }
         }
 
+        // 调第三方退款接口（网络调用，在当前事务外更安全，但此处保持事务内
+        // 以确保 Refund 状态更新与第三方调用的原子性）
         PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
         Map<String, Object> result = strategy.refund(order, refund.getAmount(), refund.getReason(), refund.getRefundNo());
         applyRefundSyncResult(order, refund, result, auditUser);
 
-        // 第三方退款失败且非计划订单时，回退已扣减的余额
-        // 使用独立的回退 referenceNo，避免与扣减记录冲突
-        if (refund.getStatusEnum() == RefundStatus.FAILED && !isOrderPlanPayment(order)) {
-            walletService.addBalance(
-                    order.getCustomerNo(),
-                    order.getBizType(),
-                    MoneyUtil.centsToYuan(refund.getAmount()),
-                    "退款失败回退 - 退款单号：" + refund.getRefundNo(),
-                    WalletTransactionType.REFUND.getCode(),
-                    refund.getRefundNo() + "_ROLLBACK");
+        // 根据退款结果处理冻结余额
+        if (!isOrderPlanPayment(order)) {
+            if (refund.getStatusEnum() == RefundStatus.SUCCESS) {
+                // 第三方退款成功 → 扣减冻结余额
+                boolean deducted = walletService.deductFrozenBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        false, false);
+                if (!deducted) {
+                    log.error("退款成功但扣减冻结余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            } else if (refund.getStatusEnum() == RefundStatus.FAILED) {
+                // 第三方退款失败 → 解冻余额
+                boolean unfreezed = walletService.unfreezeBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        "退款失败解冻 - 退款单号：" + refund.getRefundNo(),
+                        refund.getRefundNo());
+                if (!unfreezed) {
+                    log.error("退款失败但解冻余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            }
+            // PROCESSING 状态：保持冻结，等待回调或 Scheduler 补偿
         }
+
         refund.setAuditRemark(auditRemark);
         refund.setUpdateTime(LocalDateTime.now());
         refundMapper.update(refund);
 
-        if (refund.getStatusEnum() == RefundStatus.PROCESSING) {
-            scheduleRefundStatusAutoSync(refund.getRefundNo(), 1);
-        }
+        // [P2 #11] 已移除内存 ScheduledExecutorService，退款状态补偿完全依赖 RefundStatusSyncScheduler
     }
 
     private void applyRefundSyncResult(PaymentOrder order, Refund refund, Map<String, Object> result, String auditUser) {
@@ -1533,12 +1599,13 @@ public class PaymentServiceImpl implements IPaymentService {
             paymentOrderMapper.updateStatus(order.getOrderNo(), order.getStatus(), null, null);
             
             if (isOrderPlanPayment(order)) {
-                updateBizOrderOnRefundSuccess(order.getBizNo());
+                updateBizOrderOnRefundSuccess(order, refund);
             }
         }
     }
 
-    private void updateBizOrderOnRefundSuccess(String bizNo) {
+    private void updateBizOrderOnRefundSuccess(PaymentOrder order, Refund refund) {
+        String bizNo = order.getBizNo();
         if (!StringUtils.hasText(bizNo)) {
             return;
         }
@@ -1547,9 +1614,13 @@ public class PaymentServiceImpl implements IPaymentService {
             RefundCompletedMessage msg = new RefundCompletedMessage();
             msg.setBusinessOrderNo(bizNo);
             msg.setStatus("SUCCESS");
+            msg.setRefundNo(refund.getRefundNo());
+            msg.setOrderNo(order.getOrderNo());
+            msg.setRefundAmountFen(refund.getAmount());
+            msg.setBizType(order.getBizType());
             // 事务内直写 Outbox，保证消息不丢失
             paymentEventProducer.sendRefundCompletedToOutbox(msg);
-            log.info("退款成功消息已写入Outbox - bizNo: {}", bizNo);
+            log.info("退款成功消息已写入Outbox - bizNo: {}, refundNo: {}", bizNo, refund.getRefundNo());
         } catch (Exception e) {
             log.error("写入退款成功Outbox消息失败 - bizNo: {}, error: {}", bizNo, e.getMessage(), e);
         }
@@ -1666,24 +1737,8 @@ public class PaymentServiceImpl implements IPaymentService {
                 .setPaymentParams(paymentParams);
     }
 
-    private void scheduleRefundStatusAutoSync(String refundNo, int attempt) {
-        if (!StringUtils.hasText(refundNo) || attempt > PaymentRetryConstants.MAX_RETRY_ATTEMPTS) {
-            return;
-        }
-        long delaySeconds = PaymentRetryConstants.getDelaySeconds(attempt);
-        paymentAsyncExecutor.schedule(() -> {
-            try {
-                RefundSyncResultDTO result = syncRefundStatus(refundNo);
-                if (RefundStatus.PROCESSING.getCode().equals(result.getStatus())) {
-                    scheduleRefundStatusAutoSync(refundNo, attempt + 1);
-                }
-            } catch (Exception e) {
-                log.warn("自动同步退款状态失败 - refundNo: {}, attempt: {}, error: {}",
-                        refundNo, attempt, e.getMessage());
-                scheduleRefundStatusAutoSync(refundNo, attempt + 1);
-            }
-        }, delaySeconds, TimeUnit.SECONDS);
-    }
+    // [P2 #11] 已移除 scheduleRefundStatusAutoSync()，退款状态补偿完全依赖
+    // RefundStatusSyncScheduler 的 Spring 定时扫描
 
     private void safeMarkPaymentEventFailed(PaymentEvent event, Exception e) {
         if (event == null || event.getId() == null) {

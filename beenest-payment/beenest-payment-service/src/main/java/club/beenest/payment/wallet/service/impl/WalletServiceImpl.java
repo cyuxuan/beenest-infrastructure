@@ -3,7 +3,6 @@ package club.beenest.payment.wallet.service.impl;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.exception.BusinessException;
 import club.beenest.payment.common.utils.MoneyUtil;
-import club.beenest.payment.common.utils.TransactionSynchronizationUtils;
 import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.wallet.event.WalletBalanceChangedEvent;
 import club.beenest.payment.wallet.mapper.WalletMapper;
@@ -342,7 +341,7 @@ public class WalletServiceImpl implements IWalletService {
                 balanceDTO.setTotalWithdraw(wallet.getTotalWithdraw());
                 balanceDTO.setTotalConsume(wallet.getTotalConsume());
             }
-            // TODO: 红包和优惠券功能迁移后对接
+            // 红包和优惠券功能尚未迁移，暂返回零值
             balanceDTO.setRedPacketBalance(0L);
             balanceDTO.setCouponCount(0);
 
@@ -692,7 +691,8 @@ public class WalletServiceImpl implements IWalletService {
                             opType == BalanceOperationType.ADD ? amountInCents : -amountInCents,
                             transactionType));
 
-                    // 发送余额变动MQ消息到业务系统 — 在事务提交后发送，防止脏消息
+                    // [P1 #8] 余额变动MQ改用 Outbox 模式，保证消息不丢失
+                    // 原方案用 afterCommit + MQ 直发，MQ 不可用时消息丢失
                     final BalanceChangedMessage mqMsg = new BalanceChangedMessage();
                     mqMsg.setCustomerNo(customerNo);
                     mqMsg.setWalletNo(wallet.getWalletNo());
@@ -703,7 +703,7 @@ public class WalletServiceImpl implements IWalletService {
                     mqMsg.setChangeAmountFen(opType == BalanceOperationType.ADD ? amountInCents : -amountInCents);
                     mqMsg.setTransactionType(transactionType);
 
-                    TransactionSynchronizationUtils.afterCommit(() -> paymentEventProducer.sendBalanceChanged(mqMsg));
+                    paymentEventProducer.sendBalanceChangedToOutbox(mqMsg);
 
                     return opType == BalanceOperationType.ADD ? null : true;
                 }

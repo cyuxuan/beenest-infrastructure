@@ -114,6 +114,27 @@ public class PaymentEventProducer {
     }
 
     /**
+     * 事务内直接写入 Outbox：余额变动消息
+     *
+     * <p><b>安全关键</b>：替代 afterCommit + MQ 直发，保证消息不丢失。
+     * 由 {@link club.beenest.payment.shared.scheduler.OutboxMessageScheduler} 补偿发送。</p>
+     */
+    public void sendBalanceChangedToOutbox(BalanceChangedMessage message) {
+        message.setMessageId(generateMessageId("BALANCE-CHANGE"));
+        String mqSecret = resolveMqSecret(message.getBizType());
+        message.setAppId(resolveAppId(message.getBizType()));
+        message.setSign(MessageSignUtil.signBalanceMessage(mqSecret,
+                message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
+                message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
+                message.getChangeAmountFen(), message.getTransactionType(),
+                message.getBizType()));
+        saveToOutbox(PaymentMqConstants.RK_BALANCE_CHANGED, message,
+                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+        log.info("余额变动消息已写入Outbox - customerNo: {}, walletNo: {}, messageId: {}",
+                message.getCustomerNo(), message.getWalletNo(), message.getMessageId());
+    }
+
+    /**
      * 发送消息：先尝试直接发送 MQ，失败后写入 outbox 表等待补偿重发
      */
     private void send(String routingKey, Object message) {

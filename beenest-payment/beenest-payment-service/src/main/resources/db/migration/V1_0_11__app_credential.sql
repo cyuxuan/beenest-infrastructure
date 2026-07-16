@@ -59,7 +59,7 @@ INSERT INTO ds_app_credential (app_id, app_name, app_secret, mq_secret, allowed_
 VALUES ('DRONE', '无人机系统',
         'e036e98d5699bf3a004bf76d7c60155ee052fe16d96be1414d5e39ac946ce9fd',
         '1121190f7ec80b1726be4bf8e560531758828a9fda642fe34543be08314d8066',
-        '127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16',
+        NULL,
         'ACTIVE', 'SYSTEM');
 
 INSERT INTO ds_app_credential (app_id, app_name, app_secret, mq_secret, allowed_networks, status, created_by)

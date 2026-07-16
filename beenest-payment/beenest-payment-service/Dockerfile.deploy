@@ -1,0 +1,42 @@
+# ============================================================================
+# beenest-payment 离线部署 Dockerfile
+# 使用方式：先本地 Maven 编译 JAR，再用此 Dockerfile 构建镜像
+#   cd beenest-payment
+#   mvn clean package -pl beenest-payment-service -am -DskipTests -B
+#   docker build --platform linux/amd64 \
+#     -t registry.cn-hangzhou.aliyuncs.com/beenest/beenest-payment:1.0.1 \
+#     -t registry.cn-hangzhou.aliyuncs.com/beenest/beenest-payment:latest \
+#     -f beenest-payment-service/Dockerfile.deploy beenest-payment-service/
+# ============================================================================
+
+FROM eclipse-temurin:21-jre-jammy
+
+LABEL maintainer="beenest"
+LABEL description="Beenest Payment Service - 支付微服务（离线部署镜像）"
+
+WORKDIR /app
+
+# 创建非 root 用户运行应用，同时创建 home 目录（Nacos 客户端快照需要）
+RUN groupadd -r appgroup && useradd -r -g appgroup -s /bin/bash -m appuser \
+    && mkdir -p /home/appuser/nacos/config && chown -R appuser:appgroup /home/appuser/nacos
+
+# 从本地拷贝 JAR 包
+COPY target/beenest-payment-service-1.0.1.jar app.jar
+
+# 创建日志目录
+RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
+
+USER appuser
+
+# 暴露端口（与 application.yml 中 server.port 一致）
+EXPOSE 8082
+
+# JVM 参数可通过 JAVA_OPTS 环境变量自定义
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -Djava.net.preferIPv4Stack=true"
+
+# Spring Profile 可通过 SPRING_PROFILES_ACTIVE 指定
+ENV SPRING_PROFILES_ACTIVE=""
+
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} \
+    ${SPRING_PROFILES_ACTIVE:+-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}} \
+    -jar /app/app.jar"]

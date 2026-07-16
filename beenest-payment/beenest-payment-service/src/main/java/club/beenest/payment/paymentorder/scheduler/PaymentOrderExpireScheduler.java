@@ -75,11 +75,10 @@ public class PaymentOrderExpireScheduler {
                 // 第三方未扣款，加入待过期列表
                 toExpire.add(order.getOrderNo());
             } catch (Exception e) {
-                // 查询失败时保守处理：加入待过期列表
-                // 但记录告警，因为可能误把已扣款订单标过期
-                log.warn("过期处理：查询第三方状态失败，保守标记过期 - orderNo: {}, error: {}",
+                // 【安全修复】查询第三方状态失败时不标记过期，等下一轮重试
+                // 避免用户已付款但第三方查询超时导致订单被误标为EXPIRED
+                log.warn("过期处理：查询第三方状态失败，跳过过期标记 - orderNo: {}, error: {}",
                         order.getOrderNo(), e.getMessage());
-                toExpire.add(order.getOrderNo());
             }
         }
 
