@@ -93,7 +93,7 @@ public class AppCredentialController {
     }
 
     /**
-     * 轮换 app_secret（返回新明文密钥，仅此一次）
+     * 轮换 app_secret（令牌认证 + HMAC 签名共用，返回新明文密钥，仅此一次）
      */
     @PostMapping("/rotate-secret/{appId}")
     public Response<String> rotateAppSecret(@PathVariable String appId) {
@@ -101,18 +101,6 @@ public class AppCredentialController {
             return Response.fail(404, "应用凭证不存在: " + appId);
         }
         String newSecret = appCredentialService.rotateAppSecret(appId, "ADMIN");
-        return Response.success(newSecret);
-    }
-
-    /**
-     * 轮换 sign_secret（返回新明文密钥，仅此一次）
-     */
-    @PostMapping("/rotate-sign-secret/{appId}")
-    public Response<String> rotateSignSecret(@PathVariable String appId) {
-        if (appCredentialService.getByAppId(appId) == null) {
-            return Response.fail(404, "应用凭证不存在: " + appId);
-        }
-        String newSecret = appCredentialService.rotateSignSecret(appId, "ADMIN");
         return Response.success(newSecret);
     }
 
@@ -157,7 +145,6 @@ public class AppCredentialController {
         vo.setAppId(credential.getAppId());
         vo.setAppName(credential.getAppName());
         vo.setAppSecret(AppCredentialService.maskSecret(credential.getAppSecret()));
-        vo.setSignSecret(AppCredentialService.maskSecret(credential.getSignSecret()));
         vo.setMqSecret(AppCredentialService.maskSecret(credential.getMqSecret()));
         vo.setAllowedNetworks(credential.getAllowedNetworks());
         vo.setStatus(credential.getStatus());

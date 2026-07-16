@@ -38,10 +38,11 @@ import java.util.concurrent.TimeUnit;
  *   <li>检查 X-App-Id 头是否存在，不存在直接 403</li>
  *   <li>查询应用凭证，校验 app 状态（ACTIVE/DISABLED）</li>
  *   <li>per-app IP 白名单校验（allowed_networks 非空时生效，支持 CIDR 网段；为空时不做 IP 限制）</li>
- *   <li>BCrypt 验证 X-Internal-Token（使用 app 独立的 app_secret）</li>
- *   <li>HMAC-SHA256 签名校验（使用 app 独立的 sign_secret，含时间戳 + Nonce 防重放）</li>
+ *   <li>app_secret 验证：常量时间比对 X-Internal-Token + HMAC-SHA256 签名校验（含时间戳 + Nonce 防重放）</li>
  *   <li>设置 {@link AppContext} 传播 appId</li>
  * </ol>
+ *
+ * <p>密钥体系：app_secret 同时用于令牌认证和 HMAC 签名，无需独立的 sign_secret。</p>
  *
  * @author System
  * @since 2026-02-11
@@ -110,7 +111,7 @@ public class InternalApiFilter extends OncePerRequestFilter {
         }
         // allowed_networks 为空时不做 IP 限制，所有 IP 可访问
 
-        // 4. BCrypt 验证 X-Internal-Token
+        // 4. app_secret 验证：常量时间比对令牌
         String requestToken = cachedRequest.getHeader("X-Internal-Token");
         if (!appCredentialService.verifyAppSecret(appId, requestToken)) {
             log.warn("内部 API Token 验证失败: app_id={}, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
@@ -118,10 +119,10 @@ public class InternalApiFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 5. HMAC-SHA256 签名校验（使用 per-app sign_secret 明文密钥）
-        String signSecret = appCredentialService.getSignSecret(appId);
-        if (signSecret != null && !signSecret.isEmpty()) {
-            if (!verifySignature(cachedRequest, signSecret)) {
+        // 5. app_secret HMAC 签名校验（令牌认证和签名共用同一个密钥）
+        String appSecret = appCredentialService.getAppSecret(appId);
+        if (appSecret != null && !appSecret.isEmpty()) {
+            if (!verifySignature(cachedRequest, appSecret)) {
                 log.warn("内部 API 签名验证失败: app_id={}, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
                 reject(response, "Invalid signature");
                 return;
@@ -146,10 +147,10 @@ public class InternalApiFilter extends OncePerRequestFilter {
      * HMAC-SHA256 签名验证
      *
      * @param request   HTTP 请求
-     * @param signSecret 签名密钥（明文，从 AES 加密存储中解密获得）
+     * @param appSecret 签名密钥（即 app_secret，令牌认证和签名共用）
      * @return 验证是否通过
      */
-    private boolean verifySignature(HttpServletRequest request, String signSecret) {
+    private boolean verifySignature(HttpServletRequest request, String appSecret) {
         String timestampStr = request.getHeader("X-Timestamp");
         String nonce = request.getHeader("X-Nonce");
         String signature = request.getHeader("X-Signature");
@@ -198,7 +199,7 @@ public class InternalApiFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         String path = request.getRequestURI();
         String data = method + "|" + path + "|" + timestamp + "|" + nonce + "|" + body;
-        String expected = computeHmac(data, signSecret);
+        String expected = computeHmac(data, appSecret);
 
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8));
     }

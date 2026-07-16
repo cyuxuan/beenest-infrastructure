@@ -543,22 +543,13 @@ public interface PaymentFeignClient {
     Response<Void> updateAppCredential(@RequestBody UpdateAppCredentialDTO dto);
 
     /**
-     * 轮换 app_secret（返回新明文密钥，仅此一次）
+     * 轮换 app_secret（令牌认证 + HMAC 签名共用，返回新明文密钥，仅此一次）
      *
      * @param appId 业务系统标识
      * @return 新的明文密钥
      */
     @PostMapping("/app-credential/rotate-secret/{appId}")
     Response<String> rotateAppSecret(@PathVariable("appId") String appId);
-
-    /**
-     * 轮换 sign_secret（返回新明文密钥，仅此一次）
-     *
-     * @param appId 业务系统标识
-     * @return 新的明文密钥
-     */
-    @PostMapping("/app-credential/rotate-sign-secret/{appId}")
-    Response<String> rotateSignSecret(@PathVariable("appId") String appId);
 
     /**
      * 轮换 mq_secret（返回新明文密钥，仅此一次）

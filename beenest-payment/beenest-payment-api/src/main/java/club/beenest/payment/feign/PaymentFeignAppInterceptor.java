@@ -19,12 +19,12 @@ import java.util.UUID;
  * <p>自动为下游服务调用支付中台的请求添加：</p>
  * <ul>
  *   <li>{@code X-App-Id} — 业务系统标识（如 DRONE、SHOP）</li>
- *   <li>{@code X-Internal-Token} — 应用专属令牌</li>
- *   <li>{@code X-Timestamp} / {@code X-Nonce} / {@code X-Signature} — HMAC-SHA256 签名（配置 sign-secret 后启用）</li>
+ *   <li>{@code X-Internal-Token} — 应用密钥（令牌认证 + HMAC 签名共用）</li>
+ *   <li>{@code X-Timestamp} / {@code X-Nonce} / {@code X-Signature} — HMAC-SHA256 签名</li>
  * </ul>
  *
- * <p>下游服务只需在配置中指定 {@code payment.client.app-id}、
- * {@code payment.client.app-secret}、{@code payment.client.sign-secret} 即可。</p>
+ * <p>下游服务只需在配置中指定 {@code payment.client.app-id} 和
+ * {@code payment.client.app-secret} 即可（app_secret 同时用于令牌认证和签名）。</p>
  *
  * @author System
  * @since 2026-07-16
@@ -41,21 +41,16 @@ public class PaymentFeignAppInterceptor implements RequestInterceptor {
     @Value("${payment.client.app-secret:}")
     private String appSecret;
 
-    @Value("${payment.client.sign-secret:}")
-    private String signSecret;
-
     @Override
     public void apply(RequestTemplate template) {
         // 1. 添加 X-App-Id 头
         template.header("X-App-Id", appId);
 
-        // 2. 添加 X-Internal-Token 头（使用 app 专属令牌替代全局 INTERNAL_TOKEN）
+        // 2. 添加 X-Internal-Token 头 + HMAC 签名（app_secret 同时用于令牌认证和签名）
         if (StringUtils.isNotBlank(appSecret)) {
             template.header("X-Internal-Token", appSecret);
-        }
 
-        // 3. HMAC 签名（配置了 sign-secret 后启用）
-        if (StringUtils.isNotBlank(signSecret)) {
+            // 3. HMAC 签名
             long timestamp = System.currentTimeMillis();
             String nonce = UUID.randomUUID().toString().replace("-", "");
 
@@ -69,7 +64,7 @@ public class PaymentFeignAppInterceptor implements RequestInterceptor {
             String method = template.method();
             String path = template.path() != null ? template.path() : "";
             String data = method + "|" + path + "|" + timestamp + "|" + nonce + "|" + body;
-            String signature = computeHmac(signSecret, data);
+            String signature = computeHmac(appSecret, data);
 
             template.header("X-Timestamp", String.valueOf(timestamp));
             template.header("X-Nonce", nonce);

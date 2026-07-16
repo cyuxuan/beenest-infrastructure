@@ -6,7 +6,12 @@ import java.time.LocalDateTime;
 
 /**
  * 应用凭证实体（Service Domain 层）
- * 存储各业务系统的独立认证密钥，实现多租户密钥隔离
+ *
+ * <p>密钥体系（2 secret 模型）：</p>
+ * <ul>
+ *   <li>app_secret — 令牌认证 + HMAC 签名共用（明文存储，DB 访问控制保护）</li>
+ *   <li>mq_secret — MQ 消息签名（明文存储，DB 访问控制保护）</li>
+ * </ul>
  *
  * @author System
  * @since 2026-07-16
@@ -30,17 +35,12 @@ public class AppCredential {
     private String appName;
 
     /**
-     * 内部 API 静态令牌（BCrypt 哈希）
+     * 内部 API 密钥（令牌认证 + HMAC 签名共用，明文存储）
      */
     private String appSecret;
 
     /**
-     * 内部 API HMAC 签名密钥（BCrypt 哈希）
-     */
-    private String signSecret;
-
-    /**
-     * MQ 消息签名密钥（AES-256-GCM 加密）
+     * MQ 消息签名密钥（明文存储）
      */
     private String mqSecret;
 

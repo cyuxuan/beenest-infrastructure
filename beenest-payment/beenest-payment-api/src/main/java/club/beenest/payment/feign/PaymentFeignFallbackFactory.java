@@ -416,11 +416,6 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             }
 
             @Override
-            public Response<String> rotateSignSecret(String appId) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
-            }
-
-            @Override
             public Response<String> rotateMqSecret(String appId) {
                 return Response.fail(503, "支付服务暂不可用，请稍后重试");
             }

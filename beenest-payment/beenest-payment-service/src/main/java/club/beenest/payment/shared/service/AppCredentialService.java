@@ -4,17 +4,10 @@ import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.domain.entity.AppCredential;
 import club.beenest.payment.shared.mapper.AppCredentialMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -25,18 +18,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <p>核心职责：</p>
  * <ul>
  *   <li>应用凭证查询（带内存缓存，定时刷新）</li>
- *   <li>BCrypt 验证 app_secret（仅做令牌验证，不需要明文）</li>
- *   <li>AES-256-GCM 解密 sign_secret（HMAC 签名验证需要明文密钥）</li>
- *   <li>AES-256-GCM 解密 mq_secret（MQ 消息签发需要明文密钥）</li>
+ *   <li>app_secret 验证（令牌认证 + HMAC 签名共用）</li>
+ *   <li>mq_secret 获取（MQ 消息签名）</li>
  *   <li>凭证管理 CRUD + 密钥轮换</li>
  * </ul>
  *
- * <p>密钥存储策略：</p>
+ * <p>密钥体系（2 secret 模型）：</p>
  * <ul>
- *   <li>app_secret → BCrypt 哈希（仅验证，不可逆，DB 泄露不暴露原始密钥）</li>
- *   <li>sign_secret → AES-256-GCM 加密（HMAC 签名验证需要明文，与 mq_secret 共用主密钥）</li>
- *   <li>mq_secret → AES-256-GCM 加密（MQ 消息签发需要明文）</li>
+ *   <li>app_secret — 令牌认证 + HMAC 签名共用（明文存储，DB 访问控制保护）</li>
+ *   <li>mq_secret — MQ 消息签名（明文存储，DB 访问控制保护）</li>
  * </ul>
+ *
+ * <p>安全说明：app_secret / mq_secret 运行时必须以明文参与 HMAC 计算，
+ * AES 加密存储只是"安全幻觉"（主密钥与密钥在同一进程内存中）。
+ * 明文存储 + DB 访问控制是更诚实、更简洁的方案。</p>
  *
  * @author System
  * @since 2026-07-16
@@ -45,19 +40,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Service
 public class AppCredentialService {
 
-    private static final String AES_ALGORITHM = "AES/GCM/NoPadding";
-    private static final int GCM_IV_LENGTH = 12;
-    private static final int GCM_TAG_LENGTH = 128;
-
     private final AppCredentialMapper mapper;
-    private final BCryptPasswordEncoder passwordEncoder;
-
-    /**
-     * AES 主密钥，用于加解密 sign_secret 和 mq_secret
-     * 通过环境变量 PAYMENT_MQ_MASTER_KEY 注入
-     * sign_secret 和 mq_secret 共用同一主密钥，简化运维
-     */
-    private final String mqMasterKey;
 
     /**
      * 内存缓存：appId → AppCredential
@@ -65,15 +48,12 @@ public class AppCredentialService {
     private final ConcurrentHashMap<String, AppCredential> credentialCache = new ConcurrentHashMap<>();
 
     /**
-     * 缓存中所有活跃凭证的快照列表（避免每次查询都遍历 ConcurrentHashMap.values()）
+     * 缓存中所有活跃凭证的快照列表
      */
     private volatile List<AppCredential> activeCredentialsSnapshot = List.of();
 
-    public AppCredentialService(AppCredentialMapper mapper,
-                                @Value("${payment.mq.master-key:CHANGE_ME}") String mqMasterKey) {
+    public AppCredentialService(AppCredentialMapper mapper) {
         this.mapper = mapper;
-        this.mqMasterKey = mqMasterKey;
-        this.passwordEncoder = new BCryptPasswordEncoder(12);
         // 启动时加载一次
         refreshCache();
     }
@@ -102,7 +82,9 @@ public class AppCredentialService {
     // ==================== 验证方法 ====================
 
     /**
-     * BCrypt 验证 app_secret
+     * 验证 app_secret（令牌认证 + HMAC 签名共用）
+     *
+     * <p>使用常量时间比较防止时序攻击。</p>
      *
      * @param appId      业务系统标识
      * @param rawSecret  原始密钥（请求头中的值）
@@ -110,48 +92,42 @@ public class AppCredentialService {
      */
     public boolean verifyAppSecret(String appId, String rawSecret) {
         AppCredential credential = getByAppId(appId);
-        if (credential == null) {
+        if (credential == null || rawSecret == null) {
             return false;
         }
-        return passwordEncoder.matches(rawSecret, credential.getAppSecret());
+        // 常量时间比较，防止时序攻击
+        return java.security.MessageDigest.isEqual(
+                credential.getAppSecret().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                rawSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /**
-     * 获取 sign_secret 明文密钥（AES 解密）
-     *
-     * <p>HMAC-SHA256 签名验证需要明文密钥重新计算签名进行比对，
-     * 因此 sign_secret 采用 AES 加密存储而非 BCrypt 哈希。</p>
+     * 获取 app_secret 明文密钥（用于 HMAC 签名验证）
      *
      * @param appId 业务系统标识
-     * @return sign_secret 明文密钥，失败返回 null
+     * @return app_secret 明文密钥，不存在返回 null
      */
-    public String getSignSecret(String appId) {
+    public String getAppSecret(String appId) {
         AppCredential credential = getByAppId(appId);
-        if (credential == null) {
-            return null;
-        }
-        return decryptAes(credential.getSignSecret());
+        return credential != null ? credential.getAppSecret() : null;
     }
 
     /**
-     * 获取 MQ 明文密钥（AES 解密）
+     * 获取 MQ 明文密钥
      *
      * @param appId 业务系统标识
-     * @return MQ 明文密钥，失败返回 null
+     * @return MQ 明文密钥，不存在返回 null
      */
     public String getMqSecret(String appId) {
         AppCredential credential = getByAppId(appId);
-        if (credential == null) {
-            return null;
-        }
-        return decryptAes(credential.getMqSecret());
+        return credential != null ? credential.getMqSecret() : null;
     }
 
     /**
      * 通过 bizType 推导 appId，再获取 MQ 明文密钥
      *
      * @param bizType 业务类型
-     * @return MQ 明文密钥，失败返回 null
+     * @return MQ 明文密钥，不存在返回 null
      */
     public String getMqSecretByBizType(String bizType) {
         String appId = BizTypeConstants.deriveAppId(bizType);
@@ -163,64 +139,56 @@ public class AppCredentialService {
     /**
      * 创建应用凭证
      *
-     * @param appId         业务系统标识
-     * @param appName       应用名称
+     * @param appId           业务系统标识
+     * @param appName         应用名称
      * @param allowedNetworks 允许的 IP/CIDR 列表
-     * @param description   描述
-     * @param operator      操作人
+     * @param description     描述
+     * @param operator        操作人
      * @return 创建的凭证实体（包含明文密钥，仅此一次返回）
      */
     public AppCredential createApp(String appId, String appName, String allowedNetworks,
                                    String description, String operator) {
         // 1. 生成密钥
         String rawAppSecret = generateSecureSecret();
-        String rawSignSecret = generateSecureSecret();
         String rawMqSecret = generateSecureSecret();
 
-        // 2. BCrypt 哈希（app_secret）+ AES 加密（sign_secret、mq_secret）
-        String hashedAppSecret = passwordEncoder.encode(rawAppSecret);
-        String encryptedSignSecret = encryptAes(rawSignSecret);
-        String encryptedMqSecret = encryptAes(rawMqSecret);
-
-        // 3. 持久化
+        // 2. 持久化（明文存储）
         AppCredential credential = new AppCredential();
         credential.setAppId(appId);
         credential.setAppName(appName);
-        credential.setAppSecret(hashedAppSecret);
-        credential.setSignSecret(encryptedSignSecret);
-        credential.setMqSecret(encryptedMqSecret);
+        credential.setAppSecret(rawAppSecret);
+        credential.setMqSecret(rawMqSecret);
         credential.setAllowedNetworks(allowedNetworks);
         credential.setStatus("ACTIVE");
         credential.setDescription(description);
         credential.setCreatedBy(operator);
         mapper.insert(credential);
 
+        // 3. 刷新缓存
+        refreshCache();
+
+        log.info("应用凭证创建成功: appId={}, appName={}, operator={}", appId, appName, operator);
+
         // 4. 返回包含明文密钥的副本（仅此一次）
         AppCredential result = new AppCredential();
         result.setAppId(appId);
         result.setAppName(appName);
         result.setAppSecret(rawAppSecret);
-        result.setSignSecret(rawSignSecret);
         result.setMqSecret(rawMqSecret);
         result.setAllowedNetworks(allowedNetworks);
         result.setStatus("ACTIVE");
         result.setDescription(description);
-
-        // 5. 刷新缓存
-        refreshCache();
-
-        log.info("应用凭证创建成功: appId={}, appName={}, operator={}", appId, appName, operator);
         return result;
     }
 
     /**
      * 更新应用信息（名称、IP白名单、描述）
      *
-     * @param appId         业务系统标识
-     * @param appName       应用名称（null 不更新）
+     * @param appId           业务系统标识
+     * @param appName         应用名称（null 不更新）
      * @param allowedNetworks IP 白名单（null 不更新）
-     * @param description   描述（null 不更新）
-     * @param operator      操作人
+     * @param description     描述（null 不更新）
+     * @param operator        操作人
      */
     public void updateApp(String appId, String appName, String allowedNetworks,
                           String description, String operator) {
@@ -237,7 +205,7 @@ public class AppCredentialService {
     }
 
     /**
-     * 轮换 app_secret
+     * 轮换 app_secret（令牌认证 + HMAC 签名共用）
      *
      * @param appId    业务系统标识
      * @param operator 操作人
@@ -245,11 +213,10 @@ public class AppCredentialService {
      */
     public String rotateAppSecret(String appId, String operator) {
         String rawSecret = generateSecureSecret();
-        String hashedSecret = passwordEncoder.encode(rawSecret);
 
         AppCredential credential = new AppCredential();
         credential.setAppId(appId);
-        credential.setAppSecret(hashedSecret);
+        credential.setAppSecret(rawSecret);
         credential.setUpdatedBy(operator);
         mapper.updateByAppId(credential);
 
@@ -259,29 +226,7 @@ public class AppCredentialService {
     }
 
     /**
-     * 轮换 sign_secret（AES 加密存储）
-     *
-     * @param appId    业务系统标识
-     * @param operator 操作人
-     * @return 新的明文密钥（仅此一次返回）
-     */
-    public String rotateSignSecret(String appId, String operator) {
-        String rawSecret = generateSecureSecret();
-        String encryptedSecret = encryptAes(rawSecret);
-
-        AppCredential credential = new AppCredential();
-        credential.setAppId(appId);
-        credential.setSignSecret(encryptedSecret);
-        credential.setUpdatedBy(operator);
-        mapper.updateByAppId(credential);
-
-        refreshCache();
-        log.info("sign_secret 轮换成功: appId={}, operator={}", appId, operator);
-        return rawSecret;
-    }
-
-    /**
-     * 轮换 mq_secret（AES 加密存储）
+     * 轮换 mq_secret
      *
      * @param appId    业务系统标识
      * @param operator 操作人
@@ -289,11 +234,10 @@ public class AppCredentialService {
      */
     public String rotateMqSecret(String appId, String operator) {
         String rawSecret = generateSecureSecret();
-        String encryptedSecret = encryptAes(rawSecret);
 
         AppCredential credential = new AppCredential();
         credential.setAppId(appId);
-        credential.setMqSecret(encryptedSecret);
+        credential.setMqSecret(rawSecret);
         credential.setUpdatedBy(operator);
         mapper.updateByAppId(credential);
 
@@ -366,89 +310,6 @@ public class AppCredentialService {
                 .filter(c -> "ACTIVE".equals(c.getStatus()))
                 .toList();
         activeCredentialsSnapshot = new CopyOnWriteArrayList<>(active);
-    }
-
-    // ==================== AES 加解密 ====================
-
-    /**
-     * AES-256-GCM 加密（用于 sign_secret 和 mq_secret）
-     *
-     * @param plainText 明文密钥
-     * @return Base64 编码的加密结果（格式：Base64(IV + ciphertext + tag)）
-     */
-    public String encryptAes(String plainText) {
-        try {
-            byte[] keyBytes = normalizeAesKey(mqMasterKey);
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            new SecureRandom().nextBytes(iv);
-
-            Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
-            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, gcmSpec);
-
-            byte[] encrypted = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
-
-            // 拼接 IV + encrypted (含 tag)
-            byte[] combined = new byte[iv.length + encrypted.length];
-            System.arraycopy(iv, 0, combined, 0, iv.length);
-            System.arraycopy(encrypted, 0, combined, iv.length, encrypted.length);
-
-            return Base64.getEncoder().encodeToString(combined);
-        } catch (Exception e) {
-            throw new RuntimeException("AES 加密失败", e);
-        }
-    }
-
-    /**
-     * AES-256-GCM 解密（用于 sign_secret 和 mq_secret）
-     *
-     * @param encrypted Base64 编码的加密数据
-     * @return 明文密钥
-     */
-    public String decryptAes(String encrypted) {
-        try {
-            byte[] keyBytes = normalizeAesKey(mqMasterKey);
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-            byte[] combined = Base64.getDecoder().decode(encrypted);
-
-            // 提取 IV
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            System.arraycopy(combined, 0, iv, 0, GCM_IV_LENGTH);
-
-            // 提取 ciphertext + tag
-            byte[] cipherText = new byte[combined.length - GCM_IV_LENGTH];
-            System.arraycopy(combined, GCM_IV_LENGTH, cipherText, 0, cipherText.length);
-
-            Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
-            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, gcmSpec);
-
-            byte[] decrypted = cipher.doFinal(cipherText);
-            return new String(decrypted, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            throw new RuntimeException("AES 解密失败", e);
-        }
-    }
-
-    /**
-     * 将主密钥规范化为 256 位（32 字节）
-     * 如果密钥不足 32 字节，使用 SHA-256 哈希扩展
-     */
-    private byte[] normalizeAesKey(String key) {
-        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length == 32) {
-            return keyBytes;
-        }
-        // 不够 32 字节时用 SHA-256 哈希
-        try {
-            java.security.MessageDigest sha256 = java.security.MessageDigest.getInstance("SHA-256");
-            return sha256.digest(keyBytes);
-        } catch (Exception e) {
-            throw new RuntimeException("SHA-256 哈希主密钥失败", e);
-        }
     }
 
     // ==================== 工具方法 ====================

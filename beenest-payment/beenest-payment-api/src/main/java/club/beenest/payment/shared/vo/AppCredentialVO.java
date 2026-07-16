@@ -29,14 +29,9 @@ public class AppCredentialVO {
     private String appName;
 
     /**
-     * 内部 API 令牌（脱敏，如 ****abcd）
+     * 内部 API 密钥（脱敏，如 ****abcd）
      */
     private String appSecret;
-
-    /**
-     * HMAC 签名密钥（脱敏）
-     */
-    private String signSecret;
 
     /**
      * MQ 消息签名密钥（脱敏）
