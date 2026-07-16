@@ -124,12 +124,9 @@ payment:
   wallet:
     hash-secret: ENC(JIsDD2wieYBFYbWV636XGk9tgYU4IOMwd+udGr9Vhb9Pgyl4BqkeUfSU9ub+JR+8lVYHkX/xP8Yr2KND0juVjrBNbovf3lMUzl3SB8jG3oD1FYDDk0kyA7Y9w7kS6jbszYSc8/IVeRCrlLmVspi965Jw6VHq9kphIbN85KR6ilBrzaW/1+t9GRo0ffc8BwMf)
   internal:
-    token: ENC(frBEbN1xXiHyJjzfIcTGnP7ETrT+howyH0pzQFSqg3Exkn3Bs4fLlfI/vtAD8TADNEJzDtYUFktUhVaKP2HkqM89TF36yGRvZgSIEpX4E3lUO5liSHR4SDgKo5J7XmxCpsWZTgs4dPDE+vvW8nERX8OKLIDORXpOKN7EB5G/rTI0YrXEWl5f+kohnxeNprQx)
-    sign-secret: ENC(ONtAsOLmH1cJbiptxMWFtYoU1O/aKC0lGP1bZ19GBZtY8x6oq2Hf2aGsAHysEbRmZzUmFCQ3my4qIhPadWiF1edqBQcpZKLpH2KUH9W7P7FKheQ5zozGxXe4TiQJyEVjiUKuUywgKKO+yTZmKN84BRUvlj3vI7peNNbr+hY3u4KNebfilB0EPtuGFqz9ewel)
     allowed-networks: 127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-    default-app-id: ${PAYMENT_DEFAULT_APP_ID:DRONE}
+    trust-proxy: ${PAYMENT_CALLBACK_TRUST_PROXY:false}
   mq:
-    sign-secret: ENC(Ecw5MQbkUSMUpOHZcQYfpLfMagACkmIg17uqQnacjaAVjkitI4nXfR5gAOsaLnJe2Gakit/nGpwianDd6qFLFJYKN+Xqo1uB3BypNDmN8ay+0LnxYMOywrSUzCgUvXX9slQeq9Sbvng4nOG+6F2KWlfgrvspjTG+kMKasu50q/cD/BP+bzGLJrzfYWAxeS1K)
     master-key: ${PAYMENT_MQ_MASTER_KEY:CHANGE_ME}
   credential:
     cache-refresh-ms: 60000

@@ -1,8 +1,6 @@
 package club.beenest.payment.shared.mq;
 
-import jakarta.annotation.PostConstruct;
 import org.springframework.amqp.core.*;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,19 +14,12 @@ import org.springframework.context.annotation.Configuration;
  *   <li>死信队列消息由人工处理或补偿任务定期扫描</li>
  *   <li>消息消费端配合 spring.rabbitmq.listener.simple.retry 实现退避重试</li>
  * </ul>
+ *
+ * <p>MQ 签名密钥已迁移到 ds_app_credential 表（per-app AES 加密存储），
+ * 全局密钥（MessageSignUtil.setSecret）已废弃。</p>
  */
 @Configuration
 public class PaymentMqConfig {
-
-    @Value("${payment.mq.sign-secret:}")
-    private String mqSignSecret;
-
-    @PostConstruct
-    public void init() {
-        if (mqSignSecret != null && !mqSignSecret.isEmpty()) {
-            MessageSignUtil.setSecret(mqSignSecret);
-        }
-    }
 
     // ==================== 死信常量 ====================
 

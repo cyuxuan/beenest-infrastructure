@@ -30,20 +30,17 @@ import java.util.concurrent.TimeUnit;
 /**
  * 内部 API 安全过滤器
  *
- * <p>/internal/** 路径接受校验，支持两种模式：</p>
+ * <p>拦截 /internal/** 路径，强制要求请求携带 {@code X-App-Id} 头，
+ * 基于应用凭证表进行 per-app 身份验证，实现业务系统级密钥隔离。</p>
  *
- * <h4>模式一：App 凭证模式（推荐，X-App-Id 头存在时启用）</h4>
+ * <h4>验证流程：</h4>
  * <ol>
+ *   <li>检查 X-App-Id 头是否存在，不存在直接 403</li>
+ *   <li>查询应用凭证，校验 app 状态（ACTIVE/DISABLED）</li>
  *   <li>per-app IP 白名单校验（allowed_networks 非空时生效，支持 CIDR 网段；为空时不做 IP 限制）</li>
  *   <li>BCrypt 验证 X-Internal-Token（使用 app 独立的 app_secret）</li>
  *   <li>HMAC-SHA256 签名校验（使用 app 独立的 sign_secret，含时间戳 + Nonce 防重放）</li>
- * </ol>
- *
- * <h4>模式二：全局密钥模式（向后兼容，X-App-Id 头不存在时回退）</h4>
- * <ol>
- *   <li>全局 IP 白名单校验</li>
- *   <li>静态令牌校验（payment.internal.token）</li>
- *   <li>HMAC-SHA256 签名校验（payment.internal.sign-secret）</li>
+ *   <li>设置 {@link AppContext} 传播 appId</li>
  * </ol>
  *
  * @author System
@@ -60,27 +57,13 @@ public class InternalApiFilter extends OncePerRequestFilter {
 
     private final AppCredentialService appCredentialService;
     private final StringRedisTemplate redisTemplate;
-
-    // 全局配置（向后兼容，无 X-App-Id 头时使用）
-    private final String globalInternalToken;
-    private final List<String> globalInternalNetworks;
-    private final String globalSignSecret;
-    private final String defaultAppId;
     private final boolean trustProxy;
 
     public InternalApiFilter(
             AppCredentialService appCredentialService,
-            @Value("${payment.internal.token:}") String globalInternalToken,
-            @Value("${payment.internal.allowed-networks:127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}") List<String> globalInternalNetworks,
-            @Value("${payment.internal.sign-secret:}") String globalSignSecret,
-            @Value("${payment.internal.default-app-id:DRONE}") String defaultAppId,
             @Value("${payment.internal.trust-proxy:false}") boolean trustProxy,
             StringRedisTemplate redisTemplate) {
         this.appCredentialService = appCredentialService;
-        this.globalInternalToken = globalInternalToken;
-        this.globalInternalNetworks = globalInternalNetworks;
-        this.globalSignSecret = globalSignSecret;
-        this.defaultAppId = defaultAppId;
         this.trustProxy = trustProxy;
         this.redisTemplate = redisTemplate;
     }
@@ -93,94 +76,60 @@ public class InternalApiFilter extends OncePerRequestFilter {
         String clientIp = getClientIp(cachedRequest);
         String appIdHeader = cachedRequest.getHeader("X-App-Id");
 
-        if (appIdHeader != null && !appIdHeader.isBlank()) {
-            // ==================== 模式一：App 凭证模式 ====================
-            AppCredential credential = appCredentialService.getByAppId(appIdHeader.trim());
+        // 1. 强制要求 X-App-Id 头
+        if (appIdHeader == null || appIdHeader.isBlank()) {
+            log.warn("内部 API 非法访问: 缺少 X-App-Id 头, uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
+            reject(response, "Missing X-App-Id header");
+            return;
+        }
 
-            // 1. 检查 app 是否存在且活跃
-            if (credential == null) {
-                log.warn("内部 API 非法访问: app_id={} 不存在, uri={}, clientIp={}", appIdHeader, cachedRequest.getRequestURI(), clientIp);
-                reject(response, "Unknown app");
-                return;
-            }
-            if (!"ACTIVE".equals(credential.getStatus())) {
-                log.warn("内部 API 非法访问: app_id={} 已禁用, uri={}, clientIp={}", appIdHeader, cachedRequest.getRequestURI(), clientIp);
-                reject(response, "App disabled");
-                return;
-            }
+        String appId = appIdHeader.trim();
 
-            // 2. per-app IP 白名单校验（非空时生效，为空时不做 IP 限制）
-            String allowedNetworks = credential.getAllowedNetworks();
-            if (allowedNetworks != null && !allowedNetworks.isBlank()) {
-                List<String> networks = parseNetworks(allowedNetworks);
-                if (!isIpInNetworks(clientIp, networks)) {
-                    log.warn("内部 API 非法访问: app_id={} IP 不在白名单, uri={}, clientIp={}", appIdHeader, cachedRequest.getRequestURI(), clientIp);
-                    reject(response, "Access denied");
-                    return;
-                }
-            }
-            // allowed_networks 为空时不做 IP 限制，所有 IP 可访问
+        // 2. 查询应用凭证
+        AppCredential credential = appCredentialService.getByAppId(appId);
+        if (credential == null) {
+            log.warn("内部 API 非法访问: app_id={} 不存在, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+            reject(response, "Unknown app");
+            return;
+        }
+        if (!"ACTIVE".equals(credential.getStatus())) {
+            log.warn("内部 API 非法访问: app_id={} 已禁用, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+            reject(response, "App disabled");
+            return;
+        }
 
-            // 3. BCrypt 验证 X-Internal-Token
-            String requestToken = cachedRequest.getHeader("X-Internal-Token");
-            if (!appCredentialService.verifyAppSecret(appIdHeader.trim(), requestToken)) {
-                log.warn("内部 API Token 验证失败: app_id={}, uri={}, clientIp={}", appIdHeader, cachedRequest.getRequestURI(), clientIp);
-                reject(response, "Invalid internal token");
-                return;
-            }
-
-            // 4. HMAC 签名校验（需要明文 sign_secret 验证）
-            //    BCrypt 无法用于 HMAC 验证，因为 HMAC 需要用明文密钥重新计算签名
-            //    策略：先 BCrypt 验证 token 通过，再使用请求头中的签名进行验证
-            //    此处仍然使用全局签名密钥做兼容，后续可考虑将 sign_secret 也改为 AES 加密存储
-            // TODO: Phase 2 — 将 sign_secret 也改为 AES 加密存储，支持 per-app HMAC 签名
-            if (globalSignSecret != null && !globalSignSecret.isEmpty()) {
-                if (!verifySignature(cachedRequest, globalSignSecret)) {
-                    log.warn("内部 API 签名验证失败: app_id={}, uri={}, clientIp={}", appIdHeader, cachedRequest.getRequestURI(), clientIp);
-                    reject(response, "Invalid signature");
-                    return;
-                }
-            }
-
-            // 5. 设置 AppContext
-            AppContext.setAppId(appIdHeader.trim());
-
-        } else {
-            // ==================== 模式二：全局密钥模式（向后兼容） ====================
-
-            // 1. 检查内网 IP
-            if (!isIpInNetworks(clientIp, globalInternalNetworks)) {
-                log.warn("内部 API 非法访问: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
+        // 3. per-app IP 白名单校验（非空时生效，为空时不做 IP 限制）
+        String allowedNetworks = credential.getAllowedNetworks();
+        if (allowedNetworks != null && !allowedNetworks.isBlank()) {
+            List<String> networks = parseNetworks(allowedNetworks);
+            if (!isIpInNetworks(clientIp, networks)) {
+                log.warn("内部 API 非法访问: app_id={} IP 不在白名单, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
                 reject(response, "Access denied");
                 return;
             }
-
-            // 2. 静态令牌校验（使用常量时间比较防止时序攻击）
-            if (globalInternalToken != null && !globalInternalToken.isEmpty()) {
-                String requestToken = cachedRequest.getHeader("X-Internal-Token");
-                if (requestToken == null || !MessageDigest.isEqual(
-                        globalInternalToken.getBytes(StandardCharsets.UTF_8),
-                        requestToken.getBytes(StandardCharsets.UTF_8))) {
-                    log.warn("内部 API Token 验证失败: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
-                    reject(response, "Invalid internal token");
-                    return;
-                }
-            } else {
-                log.warn("【安全告警】内部 API 未配置 Token，仅依赖 IP 白名单校验，生产环境请配置 payment.internal.token");
-            }
-
-            // 3. HMAC 签名校验
-            if (globalSignSecret != null && !globalSignSecret.isEmpty()) {
-                if (!verifySignature(cachedRequest, globalSignSecret)) {
-                    log.warn("内部 API 签名验证失败: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
-                    reject(response, "Invalid signature");
-                    return;
-                }
-            }
-
-            // 4. 设置默认 AppContext
-            AppContext.setAppId(defaultAppId);
         }
+        // allowed_networks 为空时不做 IP 限制，所有 IP 可访问
+
+        // 4. BCrypt 验证 X-Internal-Token
+        String requestToken = cachedRequest.getHeader("X-Internal-Token");
+        if (!appCredentialService.verifyAppSecret(appId, requestToken)) {
+            log.warn("内部 API Token 验证失败: app_id={}, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+            reject(response, "Invalid internal token");
+            return;
+        }
+
+        // 5. HMAC-SHA256 签名校验（使用 per-app sign_secret 明文密钥）
+        String signSecret = appCredentialService.getSignSecret(appId);
+        if (signSecret != null && !signSecret.isEmpty()) {
+            if (!verifySignature(cachedRequest, signSecret)) {
+                log.warn("内部 API 签名验证失败: app_id={}, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+                reject(response, "Invalid signature");
+                return;
+            }
+        }
+
+        // 6. 设置 AppContext
+        AppContext.setAppId(appId);
 
         filterChain.doFilter(cachedRequest, response);
     }
@@ -197,7 +146,7 @@ public class InternalApiFilter extends OncePerRequestFilter {
      * HMAC-SHA256 签名验证
      *
      * @param request   HTTP 请求
-     * @param signSecret 签名密钥（明文）
+     * @param signSecret 签名密钥（明文，从 AES 加密存储中解密获得）
      * @return 验证是否通过
      */
     private boolean verifySignature(HttpServletRequest request, String signSecret) {

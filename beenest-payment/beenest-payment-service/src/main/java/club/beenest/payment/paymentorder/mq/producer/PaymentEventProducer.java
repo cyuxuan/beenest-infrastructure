@@ -30,8 +30,7 @@ import java.util.UUID;
  *   <li>发送失败时写入 outbox 表，由定时任务补偿重发</li>
  * </ol>
  *
- * <p>签名策略：优先使用 per-app MQ 密钥签名（通过 bizType 推导 appId），
- * 无 appId 时回退到全局密钥。</p>
+ * <p>签名策略：通过 bizType 推导 appId，使用 per-app MQ 密钥签名。</p>
  *
  * @author System
  */
@@ -195,43 +194,19 @@ public class PaymentEventProducer {
     }
 
     /**
-     * 解析 MQ 签名密钥：优先 per-app 密钥，回退到全局密钥
+     * 解析 MQ 签名密钥：通过 bizType 推导 appId，获取 per-app 密钥
      *
      * @param bizType 业务类型
      * @return MQ 明文密钥
+     * @throws IllegalStateException 无法获取密钥时抛出
      */
     private String resolveMqSecret(String bizType) {
-        // 1. 尝试 per-app 密钥
         String mqSecret = appCredentialService.getMqSecretByBizType(bizType);
         if (StringUtils.isNotBlank(mqSecret)) {
             return mqSecret;
         }
-        // 2. 回退到全局密钥（MessageSignUtil 内部会通过 ensureSecretLoaded 加载）
-        //    直接返回 null 让 MessageSignUtil 使用全局密钥
-        //    但此处需要返回一个有效的密钥，因此使用全局密钥
-        return getGlobalMqSecret();
-    }
-
-    /**
-     * 获取全局 MQ 密钥（向后兼容）
-     */
-    private String getGlobalMqSecret() {
-        // 从 MessageSignUtil 的全局密钥获取
-        // 由于 MessageSignUtil 内部管理全局密钥，这里直接返回空字符串
-        // 让 MessageSignUtil 的无 secret 方法自动使用全局密钥
-        // 但我们用的是带 secret 参数的方法，所以需要一个兜底
-        String envSecret = System.getenv("MQ_SIGN_SECRET");
-        if (StringUtils.isNotBlank(envSecret)) {
-            return envSecret;
-        }
-        String propSecret = System.getProperty("mq.sign.secret");
-        if (StringUtils.isNotBlank(propSecret)) {
-            return propSecret;
-        }
-        // 最终兜底：从 Spring 配置获取（通过 PaymentMqConfig 设置到 MessageSignUtil）
-        // 此处无法直接获取，返回 null 让调用方处理
-        log.warn("无法获取 per-app 或全局 MQ 密钥，bizType={}", "unknown");
-        return "";
+        throw new IllegalStateException("无法获取 MQ 签名密钥: bizType=" + bizType
+                + "，请检查 ds_app_credential 表中对应 appId 的 mq_secret 配置");
     }
 
     // ==================== 内部方法 ====================

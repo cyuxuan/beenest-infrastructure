@@ -25,9 +25,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <p>核心职责：</p>
  * <ul>
  *   <li>应用凭证查询（带内存缓存，定时刷新）</li>
- *   <li>BCrypt 验证 app_secret / sign_secret</li>
- *   <li>AES-256-GCM 解密 mq_secret（支付中台需用明文签发消息）</li>
+ *   <li>BCrypt 验证 app_secret（仅做令牌验证，不需要明文）</li>
+ *   <li>AES-256-GCM 解密 sign_secret（HMAC 签名验证需要明文密钥）</li>
+ *   <li>AES-256-GCM 解密 mq_secret（MQ 消息签发需要明文密钥）</li>
  *   <li>凭证管理 CRUD + 密钥轮换</li>
+ * </ul>
+ *
+ * <p>密钥存储策略：</p>
+ * <ul>
+ *   <li>app_secret → BCrypt 哈希（仅验证，不可逆，DB 泄露不暴露原始密钥）</li>
+ *   <li>sign_secret → AES-256-GCM 加密（HMAC 签名验证需要明文，与 mq_secret 共用主密钥）</li>
+ *   <li>mq_secret → AES-256-GCM 加密（MQ 消息签发需要明文）</li>
  * </ul>
  *
  * @author System
@@ -45,8 +53,9 @@ public class AppCredentialService {
     private final BCryptPasswordEncoder passwordEncoder;
 
     /**
-     * AES 主密钥，用于加解密 mq_secret
+     * AES 主密钥，用于加解密 sign_secret 和 mq_secret
      * 通过环境变量 PAYMENT_MQ_MASTER_KEY 注入
+     * sign_secret 和 mq_secret 共用同一主密钥，简化运维
      */
     private final String mqMasterKey;
 
@@ -108,18 +117,20 @@ public class AppCredentialService {
     }
 
     /**
-     * BCrypt 验证 sign_secret
+     * 获取 sign_secret 明文密钥（AES 解密）
      *
-     * @param appId      业务系统标识
-     * @param rawSecret  原始密钥
-     * @return 验证是否通过
+     * <p>HMAC-SHA256 签名验证需要明文密钥重新计算签名进行比对，
+     * 因此 sign_secret 采用 AES 加密存储而非 BCrypt 哈希。</p>
+     *
+     * @param appId 业务系统标识
+     * @return sign_secret 明文密钥，失败返回 null
      */
-    public boolean verifySignSecret(String appId, String rawSecret) {
+    public String getSignSecret(String appId) {
         AppCredential credential = getByAppId(appId);
         if (credential == null) {
-            return false;
+            return null;
         }
-        return passwordEncoder.matches(rawSecret, credential.getSignSecret());
+        return decryptAes(credential.getSignSecret());
     }
 
     /**
@@ -133,7 +144,7 @@ public class AppCredentialService {
         if (credential == null) {
             return null;
         }
-        return decryptMqSecret(credential.getMqSecret());
+        return decryptAes(credential.getMqSecret());
     }
 
     /**
@@ -166,17 +177,17 @@ public class AppCredentialService {
         String rawSignSecret = generateSecureSecret();
         String rawMqSecret = generateSecureSecret();
 
-        // 2. BCrypt 哈希 + AES 加密
+        // 2. BCrypt 哈希（app_secret）+ AES 加密（sign_secret、mq_secret）
         String hashedAppSecret = passwordEncoder.encode(rawAppSecret);
-        String hashedSignSecret = passwordEncoder.encode(rawSignSecret);
-        String encryptedMqSecret = encryptMqSecret(rawMqSecret);
+        String encryptedSignSecret = encryptAes(rawSignSecret);
+        String encryptedMqSecret = encryptAes(rawMqSecret);
 
         // 3. 持久化
         AppCredential credential = new AppCredential();
         credential.setAppId(appId);
         credential.setAppName(appName);
         credential.setAppSecret(hashedAppSecret);
-        credential.setSignSecret(hashedSignSecret);
+        credential.setSignSecret(encryptedSignSecret);
         credential.setMqSecret(encryptedMqSecret);
         credential.setAllowedNetworks(allowedNetworks);
         credential.setStatus("ACTIVE");
@@ -248,7 +259,7 @@ public class AppCredentialService {
     }
 
     /**
-     * 轮换 sign_secret
+     * 轮换 sign_secret（AES 加密存储）
      *
      * @param appId    业务系统标识
      * @param operator 操作人
@@ -256,11 +267,11 @@ public class AppCredentialService {
      */
     public String rotateSignSecret(String appId, String operator) {
         String rawSecret = generateSecureSecret();
-        String hashedSecret = passwordEncoder.encode(rawSecret);
+        String encryptedSecret = encryptAes(rawSecret);
 
         AppCredential credential = new AppCredential();
         credential.setAppId(appId);
-        credential.setSignSecret(hashedSecret);
+        credential.setSignSecret(encryptedSecret);
         credential.setUpdatedBy(operator);
         mapper.updateByAppId(credential);
 
@@ -270,7 +281,7 @@ public class AppCredentialService {
     }
 
     /**
-     * 轮换 mq_secret
+     * 轮换 mq_secret（AES 加密存储）
      *
      * @param appId    业务系统标识
      * @param operator 操作人
@@ -278,7 +289,7 @@ public class AppCredentialService {
      */
     public String rotateMqSecret(String appId, String operator) {
         String rawSecret = generateSecureSecret();
-        String encryptedSecret = encryptMqSecret(rawSecret);
+        String encryptedSecret = encryptAes(rawSecret);
 
         AppCredential credential = new AppCredential();
         credential.setAppId(appId);
@@ -360,12 +371,12 @@ public class AppCredentialService {
     // ==================== AES 加解密 ====================
 
     /**
-     * AES-256-GCM 加密 MQ 密钥
+     * AES-256-GCM 加密（用于 sign_secret 和 mq_secret）
      *
      * @param plainText 明文密钥
      * @return Base64 编码的加密结果（格式：Base64(IV + ciphertext + tag)）
      */
-    public String encryptMqSecret(String plainText) {
+    public String encryptAes(String plainText) {
         try {
             byte[] keyBytes = normalizeAesKey(mqMasterKey);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
@@ -386,17 +397,17 @@ public class AppCredentialService {
 
             return Base64.getEncoder().encodeToString(combined);
         } catch (Exception e) {
-            throw new RuntimeException("AES 加密 MQ 密钥失败", e);
+            throw new RuntimeException("AES 加密失败", e);
         }
     }
 
     /**
-     * AES-256-GCM 解密 MQ 密钥
+     * AES-256-GCM 解密（用于 sign_secret 和 mq_secret）
      *
      * @param encrypted Base64 编码的加密数据
      * @return 明文密钥
      */
-    public String decryptMqSecret(String encrypted) {
+    public String decryptAes(String encrypted) {
         try {
             byte[] keyBytes = normalizeAesKey(mqMasterKey);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
@@ -418,7 +429,7 @@ public class AppCredentialService {
             byte[] decrypted = cipher.doFinal(cipherText);
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw new RuntimeException("AES 解密 MQ 密钥失败", e);
+            throw new RuntimeException("AES 解密失败", e);
         }
     }
 

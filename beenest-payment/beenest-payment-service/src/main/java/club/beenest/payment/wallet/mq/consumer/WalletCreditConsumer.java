@@ -22,7 +22,7 @@ import java.math.BigDecimal;
  * <p>可靠性设计：</p>
  * <ul>
  *   <li>幂等：通过 referenceNo 唯一约束防止重复入账</li>
- *   <li>验签：HMAC-SHA256 防伪造/篡改（支持 per-app 密钥和全局密钥双模式）</li>
+ *   <li>验签：HMAC-SHA256 防伪造/篡改（per-app 密钥，通过 appId 路由到对应密钥）</li>
  *   <li>枚举校验：transactionType 必须是 WalletTransactionType 枚举值</li>
  *   <li>重试：消费失败由 RabbitMQ 重试机制 + 死信队列兜底</li>
  * </ul>
@@ -43,7 +43,7 @@ public class WalletCreditConsumer {
                 message.getCustomerNo(), message.getAmountFen(),
                 message.getTransactionType(), message.getReferenceNo(), message.getAppId());
 
-        // 1. 验签（支持 per-app 密钥和全局密钥双模式）
+        // 1. 验签（per-app 密钥，通过 appId 路由到对应密钥）
         boolean signValid = verifySign(message);
         if (!signValid) {
             log.error("【安全告警】钱包入账消息签名验证失败: customerNo={}, referenceNo={}, appId={}",
@@ -90,7 +90,7 @@ public class WalletCreditConsumer {
     }
 
     /**
-     * 验签：优先使用 per-app 密钥，回退到全局密钥
+     * 验签：通过 appId 路由到对应的 per-app 密钥验签
      *
      * @param message 钱包入账消息
      * @return 验签是否通过
@@ -105,14 +105,13 @@ public class WalletCreditConsumer {
                         message.getBizType(), message.getAmountFen(),
                         message.getTransactionType(), message.getReferenceNo());
             }
-            log.warn("appId={} 无 MQ 密钥，回退到全局密钥验签", message.getAppId());
+            log.error("appId={} 无 MQ 密钥，验签失败", message.getAppId());
+            return false;
         }
 
-        // 2. 无 appId 或 per-app 密钥不可用 → 回退到全局密钥验签
-        return MessageSignUtil.verifyWalletCreditMessage(
-                message.getSign(), message.getMessageId(), message.getCustomerNo(),
-                message.getBizType(), message.getAmountFen(),
-                message.getTransactionType(), message.getReferenceNo());
+        // 2. 无 appId → 拒绝
+        log.error("钱包入账消息缺少 appId，拒绝验签");
+        return false;
     }
 
     /**
