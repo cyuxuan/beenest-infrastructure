@@ -108,15 +108,12 @@ cas:
       authority-version-attribute: permissionVersion
     access-control:
       enabled: true
-      required-role: ROLE_PAYMENT
       auto-create-on-grant: true
       auto-disable-on-revoke: true
       force-logout-on-disable: true
     business-login-proxy:
       enabled: false
     slo:
-      enabled: false
-    sync:
       enabled: false
 
 # 支付配置
