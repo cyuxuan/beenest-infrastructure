@@ -9,7 +9,6 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -58,14 +57,11 @@ public class InternalApiFilter extends OncePerRequestFilter {
 
     private final AppCredentialService appCredentialService;
     private final StringRedisTemplate redisTemplate;
-    private final boolean trustProxy;
 
     public InternalApiFilter(
             AppCredentialService appCredentialService,
-            @Value("${payment.internal.trust-proxy:false}") boolean trustProxy,
             StringRedisTemplate redisTemplate) {
         this.appCredentialService = appCredentialService;
-        this.trustProxy = trustProxy;
         this.redisTemplate = redisTemplate;
     }
 
@@ -294,20 +290,9 @@ public class InternalApiFilter extends OncePerRequestFilter {
     }
 
     /**
-     * 获取客户端 IP
+     * 获取客户端 IP（直接取 remoteAddr，内网部署无需代理头解析）
      */
     private String getClientIp(HttpServletRequest request) {
-        if (trustProxy) {
-            String ip = request.getHeader("X-Forwarded-For");
-            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                int index = ip.indexOf(',');
-                return index > 0 ? ip.substring(0, index).trim() : ip.trim();
-            }
-            ip = request.getHeader("X-Real-IP");
-            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                return ip.trim();
-            }
-        }
         return request.getRemoteAddr();
     }
 

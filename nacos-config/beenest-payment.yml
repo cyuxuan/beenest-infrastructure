@@ -123,8 +123,6 @@ cas:
 payment:
   wallet:
     hash-secret: ENC(JIsDD2wieYBFYbWV636XGk9tgYU4IOMwd+udGr9Vhb9Pgyl4BqkeUfSU9ub+JR+8lVYHkX/xP8Yr2KND0juVjrBNbovf3lMUzl3SB8jG3oD1FYDDk0kyA7Y9w7kS6jbszYSc8/IVeRCrlLmVspi965Jw6VHq9kphIbN85KR6ilBrzaW/1+t9GRo0ffc8BwMf)
-  internal:
-    trust-proxy: ${PAYMENT_INTERNAL_TRUST_PROXY:false}
   credential:
     cache-refresh-ms: 60000
   callback:
