@@ -130,9 +130,7 @@
         <if test="bizType != null and bizType != ''">
           AND biz_type = #{bizType}
         </if>
-        <if test="appId != null and appId != ''">
-          AND app_id = #{appId}
-        </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
         <if test="status != null and status != ''">
           AND status = #{status}
         </if>
@@ -169,9 +167,7 @@
         <if test="bizType != null and bizType != ''">
           AND biz_type = #{bizType}
         </if>
-        <if test="appId != null and appId != ''">
-          AND app_id = #{appId}
-        </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
         <if test="status != null and status != ''">
           AND status = #{status}
         </if>
@@ -297,9 +293,7 @@
             <if test="bizType != null and bizType != ''">
                 AND t.biz_type = #{bizType}
             </if>
-            <if test="appId != null and appId != ''">
-                AND t.app_id = #{appId}
-            </if>
+            <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
             <if test="startTime != null">
                 AND t.create_time &gt;= #{startTime}
             </if>

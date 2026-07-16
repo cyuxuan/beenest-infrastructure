@@ -56,6 +56,8 @@ public class TenantAppIdInterceptor implements Interceptor {
      */
     private static final Set<String> TENANT_TABLES = Set.of(
             "ds_payment_order",
+            "ds_payment_event",
+            "ds_refund",
             "ds_wallet",
             "ds_wallet_transaction",
             "ds_withdraw_request",
@@ -224,13 +226,19 @@ public class TenantAppIdInterceptor implements Interceptor {
     }
 
     /**
-     * 检查 SQL 是否已包含 app_id 条件（避免重复追加）
+     * 检查 SQL 是否已在 WHERE/ON 子句中包含 app_id 条件（避免重复追加）。
+     *
+     * <p>仅匹配 WHERE/ON 子句中的 {@code app_id = ?}、{@code app_id = #{appId}}、
+     * {@code t.app_id = ?} 等条件形式，不匹配 INSERT 列名、resultMap 引用等。</p>
      */
     private boolean containsAppIdCondition(String sql) {
         if (sql == null) return false;
-        String lowerSql = sql.toLowerCase();
-        // 匹配 app_id = ? 或 app_id = #{appId} 等各种写法
-        return lowerSql.contains("app_id");
+        // 匹配 WHERE/ON 子句中的 app_id 条件：
+        // - app_id = ? / app_id = #{...} / app_id IN (...)
+        // - 支持表别名：t.app_id = ?
+        // 排除 INSERT 列名（INSERT INTO ... app_id, ...）和 resultMap 引用
+        String pattern = "(?i)(?:WHERE|ON|AND|OR)\\s+[\\w.]*app_id\\s*(?:=|IN\\s*\\()";
+        return java.util.regex.Pattern.compile(pattern).matcher(sql).find();
     }
 
     /**
