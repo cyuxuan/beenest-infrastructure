@@ -37,6 +37,9 @@ public class WithdrawCompletedMessage implements Serializable {
     /** 业务类型（多租户隔离） */
     private String bizType;
 
+    /** 业务系统标识（DRONE/SHOP） */
+    private String appId;
+
     /** 消息签名（HMAC-SHA256，防伪造/篡改） */
     private String sign;
 }

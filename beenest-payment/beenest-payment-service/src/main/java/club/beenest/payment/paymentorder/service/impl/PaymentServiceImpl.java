@@ -808,6 +808,7 @@ public class PaymentServiceImpl implements IPaymentService {
         paymentOrder.setNotifyUrl(getNotifyUrl(backendPlatform));
         paymentOrder.setBizNo(bizNo);
         paymentOrder.setBizType(walletBizType);
+        paymentOrder.setAppId(BizTypeConstants.deriveAppId(walletBizType));
         paymentOrder.setExt(buildPaymentOrderExt(openid));
         paymentOrder.setRemark(buildBizOrderRemark(bizNo, usedCouponNo));
         paymentOrder.setCreateTime(now);
@@ -903,6 +904,7 @@ public class PaymentServiceImpl implements IPaymentService {
             msg.setAmountFen(paymentOrder.getAmount());
             msg.setPlatform(paymentOrder.getPlatform());
             msg.setBizType(paymentOrder.getBizType());
+            msg.setAppId(paymentOrder.getAppId() != null ? paymentOrder.getAppId() : BizTypeConstants.deriveAppId(paymentOrder.getBizType()));
             msg.setPaidAt(paymentOrder.getPaidTime() != null ? paymentOrder.getPaidTime().toString() : LocalDateTime.now().toString());
 
             // 事务内直写 Outbox，与支付状态更新原子提交
@@ -929,6 +931,7 @@ public class PaymentServiceImpl implements IPaymentService {
         msg.setAmountFen(paymentOrder.getAmount());
         msg.setPlatform(paymentOrder.getPlatform());
         msg.setBizType(paymentOrder.getBizType());
+        msg.setAppId(paymentOrder.getAppId() != null ? paymentOrder.getAppId() : BizTypeConstants.deriveAppId(paymentOrder.getBizType()));
 
         // 事务内直写 Outbox，与订单状态更新原子提交
         paymentEventProducer.sendOrderCancelledToOutbox(msg);
@@ -1816,6 +1819,7 @@ public class PaymentServiceImpl implements IPaymentService {
             msg.setAmountFen(order.getAmount());
             msg.setPlatform(order.getPlatform());
             msg.setBizType(order.getBizType());
+            msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
             msg.setPaidAt(order.getPaidTime() != null ? order.getPaidTime().toString() : LocalDateTime.now().toString());
             paymentEventProducer.sendOrderCompletedToOutbox(msg);
             result.put("outboxWritten", true);

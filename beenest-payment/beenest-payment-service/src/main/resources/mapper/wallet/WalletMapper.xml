@@ -8,6 +8,7 @@
         <result column="wallet_no" property="walletNo" jdbcType="VARCHAR"/>
         <result column="customer_no" property="customerNo" jdbcType="VARCHAR"/>
         <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="balance" property="balance" jdbcType="BIGINT"/>
         <result column="frozen_balance" property="frozenBalance" jdbcType="BIGINT"/>
         <result column="total_recharge" property="totalRecharge" jdbcType="BIGINT"/>
@@ -22,7 +23,7 @@
 
     <!-- Base Column List -->
     <sql id="Base_Column_List">
-        id, wallet_no, customer_no, biz_type, balance, frozen_balance, total_recharge,
+        id, wallet_no, customer_no, biz_type, app_id, balance, frozen_balance, total_recharge,
         total_withdraw, total_consume, status, version, balance_hash, create_time, update_time
     </sql>
 
@@ -74,6 +75,9 @@
             <if test="bizType != null and bizType != ''">
                 AND biz_type = #{bizType}
             </if>
+            <if test="appId != null and appId != ''">
+                AND app_id = #{appId}
+            </if>
         </where>
         ORDER BY update_time DESC
     </select>
@@ -81,11 +85,11 @@
     <!-- 插入钱包记录 -->
     <insert id="insert" parameterType="club.beenest.payment.wallet.domain.entity.Wallet" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ds_wallet (
-            wallet_no, customer_no, biz_type, balance, frozen_balance,
+            wallet_no, customer_no, biz_type, app_id, balance, frozen_balance,
             total_recharge, total_withdraw, total_consume,
             status, version, balance_hash, create_time, update_time
         ) VALUES (
-            #{walletNo}, #{customerNo}, #{bizType}, #{balance}, #{frozenBalance},
+            #{walletNo}, #{customerNo}, #{bizType}, #{appId}, #{balance}, #{frozenBalance},
             #{totalRecharge}, #{totalWithdraw}, #{totalConsume},
             #{status}, #{version}, #{balanceHash}, #{createTime}, #{updateTime}
         )

@@ -7,6 +7,7 @@ import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.enums.PaymentOrderStatus;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategy;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategyFactory;
+import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -149,6 +150,7 @@ public class PaymentOrderExpireScheduler {
                     msg.setAmountFen(order.getAmount());
                     msg.setPlatform(order.getPlatform());
                     msg.setBizType(order.getBizType());
+                    msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
                     msg.setPaidAt(LocalDateTime.now().toString());
                     paymentEventProducer.sendOrderCompletedToOutbox(msg);
                     log.info("过期处理：补偿PAID后Outbox已写入 - orderNo: {}, bizNo: {}", order.getOrderNo(), bizNo);
@@ -198,6 +200,7 @@ public class PaymentOrderExpireScheduler {
                 msg.setAmountFen(order.getAmount());
                 msg.setPlatform(order.getPlatform());
                 msg.setBizType(order.getBizType());
+                msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
                 msg.setPaidAt(null);
                 paymentEventProducer.sendOrderCancelledToOutbox(msg);
                 log.info("过期订单取消消息已写入Outbox - orderNo: {}, bizNo: {}", order.getOrderNo(), bizNo);

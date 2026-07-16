@@ -186,6 +186,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
             withdrawRequest.setBankBranch(withdrawRequestDTO.getBankBranch());
             withdrawRequest.setStatusEnum(needManualReview ? WithdrawStatus.MANUAL_REVIEW : WithdrawStatus.PENDING);
             withdrawRequest.setBizType(BizTypeConstants.DEFAULT);
+            withdrawRequest.setAppId(BizTypeConstants.APP_ID_DRONE);
             withdrawRequest.setRemark(withdrawRequestDTO.getRemark());
             withdrawRequest.setCreateTime(LocalDateTime.now());
             withdrawRequest.setUpdateTime(LocalDateTime.now());
@@ -606,6 +607,8 @@ public class WithdrawServiceImpl implements IWithdrawService {
             msg.setFeeFen(req.getFeeAmount());
             msg.setActualAmountFen(req.getActualAmount());
             msg.setStatus(status.name());
+            msg.setBizType(req.getBizType());
+            msg.setAppId(req.getAppId() != null ? req.getAppId() : BizTypeConstants.deriveAppId(req.getBizType()));
             paymentEventProducer.sendWithdrawCompleted(msg);
         } catch (Exception e) {
             log.error("发送提现完成MQ消息失败 - requestNo: {}", req.getRequestNo(), e);

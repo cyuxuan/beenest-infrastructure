@@ -7,6 +7,7 @@
         <result column="order_no" property="orderNo"/>
         <result column="biz_no" property="bizNo"/>
         <result column="biz_type" property="bizType"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="customer_no" property="customerNo"/>
         <result column="platform" property="platform"/>
         <result column="service_id" property="serviceId"/>
@@ -27,7 +28,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, order_no, biz_no, biz_type, customer_no, platform, service_id,
+        id, order_no, biz_no, biz_type, app_id, customer_no, platform, service_id,
         deposit_amount, frozen_amount, actual_amount, status,
         auth_time, complete_time, expire_time, third_party_order_no,
         callback_data, ext, remark, notify_url, create_time, update_time
@@ -36,12 +37,12 @@
     <insert id="insert" parameterType="club.beenest.payment.payscore.domain.entity.ServiceOrder"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ds_service_order (
-            order_no, biz_no, biz_type, customer_no, platform, service_id,
+            order_no, biz_no, biz_type, app_id, customer_no, platform, service_id,
             deposit_amount, frozen_amount, actual_amount, status,
             auth_time, complete_time, expire_time, third_party_order_no,
             callback_data, ext, remark, notify_url, create_time, update_time
         ) VALUES (
-            #{orderNo}, #{bizNo}, #{bizType}, #{customerNo}, #{platform}, #{serviceId},
+            #{orderNo}, #{bizNo}, #{bizType}, #{appId}, #{customerNo}, #{platform}, #{serviceId},
             #{depositAmount}, #{frozenAmount}, #{actualAmount}, #{status},
             #{authTime}, #{completeTime}, #{expireTime}, #{thirdPartyOrderNo},
             #{callbackData}, #{ext}, #{remark}, #{notifyUrl}, #{createTime}, #{updateTime}

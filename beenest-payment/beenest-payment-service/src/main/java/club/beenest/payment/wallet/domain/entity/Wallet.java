@@ -75,6 +75,9 @@ public class Wallet {
     @Schema(description = "业务类型", example = "DRONE_ORDER")
     private String bizType;
 
+    @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
+    private String appId;
+
     /**
      * 可用余额
      * 单位：分，避免浮点数精度问题

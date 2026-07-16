@@ -123,6 +123,7 @@ public class WalletServiceImpl implements IWalletService {
             wallet.setWalletNo(walletNo);
             wallet.setCustomerNo(customerNo);
             wallet.setBizType(resolvedBizType);
+            wallet.setAppId(BizTypeConstants.deriveAppId(resolvedBizType));
             wallet.setBalance(0L);
             wallet.setFrozenBalance(0L);
             wallet.setTotalRecharge(0L);
@@ -491,6 +492,7 @@ public class WalletServiceImpl implements IWalletService {
         transaction.setWalletNo(param.getWalletNo());
         transaction.setCustomerNo(param.getCustomerNo());
         transaction.setBizType(param.getBizType());
+        transaction.setAppId(BizTypeConstants.deriveAppId(param.getBizType()));
         transaction.setTransactionType(param.getTransactionType());
         transaction.setAmount(param.getAmount());
         transaction.setBeforeBalance(param.getBeforeBalance());
@@ -695,6 +697,7 @@ public class WalletServiceImpl implements IWalletService {
                     mqMsg.setCustomerNo(customerNo);
                     mqMsg.setWalletNo(wallet.getWalletNo());
                     mqMsg.setBizType(bizType);
+                    mqMsg.setAppId(BizTypeConstants.deriveAppId(bizType));
                     mqMsg.setBeforeBalanceFen(beforeBalance);
                     mqMsg.setAfterBalanceFen(afterBalance);
                     mqMsg.setChangeAmountFen(opType == BalanceOperationType.ADD ? amountInCents : -amountInCents);

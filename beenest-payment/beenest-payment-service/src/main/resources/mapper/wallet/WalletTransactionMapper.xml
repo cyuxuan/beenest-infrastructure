@@ -11,6 +11,7 @@
         <result column="customerName" property="customerName" jdbcType="VARCHAR"/>
         <result column="customerPhone" property="customerPhone" jdbcType="VARCHAR"/>
         <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="transaction_type" property="transactionType" jdbcType="VARCHAR"/>
         <result column="amount" property="amount" jdbcType="BIGINT"/>
         <result column="before_balance" property="beforeBalance" jdbcType="BIGINT"/>
@@ -25,7 +26,7 @@
 
     <!-- Base Column List -->
     <sql id="Base_Column_List">
-        id, transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+        id, transaction_no, wallet_no, customer_no, biz_type, app_id, transaction_type, amount,
         before_balance, after_balance, description, reference_no, reference_type,
         status, remark, create_time
     </sql>
@@ -47,11 +48,11 @@
     <!-- 插入交易流水记录 -->
     <insert id="insert" parameterType="club.beenest.payment.wallet.domain.entity.WalletTransaction" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ds_wallet_transaction (
-            transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+            transaction_no, wallet_no, customer_no, biz_type, app_id, transaction_type, amount,
             before_balance, after_balance, description, reference_no, reference_type,
             status, remark, create_time
         ) VALUES (
-            #{transactionNo}, #{walletNo}, #{customerNo}, #{bizType}, #{transactionType}, #{amount},
+            #{transactionNo}, #{walletNo}, #{customerNo}, #{bizType}, #{appId}, #{transactionType}, #{amount},
             #{beforeBalance}, #{afterBalance}, #{description}, #{referenceNo}, #{referenceType},
             #{status}, #{remark}, #{createTime}
         )
@@ -60,13 +61,13 @@
     <!-- 批量插入交易流水记录 -->
     <insert id="batchInsert" parameterType="java.util.List">
         INSERT INTO ds_wallet_transaction (
-            transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+            transaction_no, wallet_no, customer_no, biz_type, app_id, transaction_type, amount,
             before_balance, after_balance, description, reference_no, reference_type,
             status, remark, create_time
         ) VALUES
         <foreach collection="transactions" item="item" separator=",">
             (
-                #{item.transactionNo}, #{item.walletNo}, #{item.customerNo}, #{item.bizType},
+                #{item.transactionNo}, #{item.walletNo}, #{item.customerNo}, #{item.bizType}, #{item.appId},
                 #{item.transactionType}, #{item.amount}, #{item.beforeBalance},
                 #{item.afterBalance}, #{item.description}, #{item.referenceNo},
                 #{item.referenceType}, #{item.status}, #{item.remark}, #{item.createTime}
@@ -83,6 +84,9 @@
         <if test="bizType != null and bizType != ''">
           AND biz_type = #{bizType}
         </if>
+        <if test="appId != null and appId != ''">
+          AND app_id = #{appId}
+        </if>
         <if test="transactionType != null and transactionType != ''">
           AND transaction_type = #{transactionType}
         </if>
@@ -96,6 +100,9 @@
         WHERE wallet_no = #{walletNo}
         <if test="bizType != null and bizType != ''">
           AND biz_type = #{bizType}
+        </if>
+        <if test="appId != null and appId != ''">
+          AND app_id = #{appId}
         </if>
         <if test="transactionType != null and transactionType != ''">
           AND transaction_type = #{transactionType}
@@ -116,6 +123,9 @@
         </if>
         <if test="bizType != null and bizType != ''">
           AND biz_type = #{bizType}
+        </if>
+        <if test="appId != null and appId != ''">
+          AND app_id = #{appId}
         </if>
         <if test="transactionType != null and transactionType != ''">
           AND transaction_type = #{transactionType}
@@ -148,6 +158,9 @@
           AND status = 'SUCCESS'
         <if test="bizType != null and bizType != ''">
           AND biz_type = #{bizType}
+        </if>
+        <if test="appId != null and appId != ''">
+          AND app_id = #{appId}
         </if>
         <if test="startTime != null">
           AND create_time &gt;= #{startTime}
@@ -198,6 +211,9 @@
             </if>
             <if test="bizType != null and bizType != ''">
                 AND t.biz_type = #{bizType}
+            </if>
+            <if test="appId != null and appId != ''">
+                AND t.app_id = #{appId}
             </if>
             <if test="startTime != null and startTime != ''">
                 AND t.create_time &gt;= #{startTime}

@@ -8,6 +8,7 @@ import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.enums.PaymentOrderStatus;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategy;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategyFactory;
+import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -206,6 +207,7 @@ public class PaymentOrderExpireListener extends KeyExpirationEventMessageListene
                     msg.setAmountFen(order.getAmount());
                     msg.setPlatform(order.getPlatform());
                     msg.setBizType(order.getBizType());
+                    msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
                     msg.setPaidAt(LocalDateTime.now().toString());
                     paymentEventProducer.sendOrderCompletedToOutbox(msg);
                     log.info("过期处理：补偿PAID后Outbox已写入 - orderNo: {}", order.getOrderNo());
@@ -236,6 +238,7 @@ public class PaymentOrderExpireListener extends KeyExpirationEventMessageListene
             msg.setAmountFen(order.getAmount());
             msg.setPlatform(order.getPlatform());
             msg.setBizType(order.getBizType());
+            msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
             msg.setPaidAt(null); // 未支付
             paymentEventProducer.sendOrderCancelledToOutbox(msg);
             log.info("已写入订单过期取消Outbox消息 - orderNo: {}, bizNo: {}", order.getOrderNo(), bizNo);

@@ -15,6 +15,7 @@ import club.beenest.payment.payscore.service.IServiceOrderService;
 import club.beenest.payment.payscore.strategy.PayScoreStrategy;
 import club.beenest.payment.payscore.strategy.PayScoreStrategyFactory;
 import club.beenest.payment.paymentorder.config.PaymentConfig;
+import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -127,6 +128,7 @@ public class ServiceOrderServiceImpl implements IServiceOrderService {
             order.setOrderNo(orderNo);
             order.setBizNo(request.getBizNo());
             order.setBizType(request.getBizType() != null ? request.getBizType() : PaymentConstants.BIZ_TYPE_MERCHANT_DEPOSIT);
+            order.setAppId(BizTypeConstants.deriveAppId(request.getBizType() != null ? request.getBizType() : PaymentConstants.BIZ_TYPE_MERCHANT_DEPOSIT));
             order.setCustomerNo(customerNo);
             order.setPlatform(request.getPlatform());
             order.setServiceId(serviceId);

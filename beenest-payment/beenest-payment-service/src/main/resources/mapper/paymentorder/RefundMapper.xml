@@ -22,15 +22,16 @@
         <result column="customerNo" property="customerNo" />
         <result column="customerName" property="customerName" />
         <result column="customerPhone" property="customerPhone" />
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
     </resultMap>
 
     <insert id="insert" parameterType="club.beenest.payment.paymentorder.domain.entity.Refund" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ds_refund (
             refund_no, order_no, amount, reason, status, refund_policy, request_source, applicant_id,
-            third_party_refund_no, channel_status, audit_user, audit_time, audit_remark, create_time, update_time
+            third_party_refund_no, channel_status, audit_user, audit_time, audit_remark, app_id, create_time, update_time
         ) VALUES (
             #{refundNo}, #{orderNo}, #{amount}, #{reason}, #{status}, #{refundPolicy}, #{requestSource}, #{applicantId},
-            #{thirdPartyRefundNo}, #{channelStatus}, #{auditUser}, #{auditTime}, #{auditRemark}, NOW(), NOW()
+            #{thirdPartyRefundNo}, #{channelStatus}, #{auditUser}, #{auditTime}, #{auditRemark}, #{appId}, NOW(), NOW()
         )
     </insert>
 

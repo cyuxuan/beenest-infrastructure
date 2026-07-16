@@ -246,6 +246,9 @@ public class WithdrawRequest {
     @Schema(description = "业务类型", example = "DRONE_ORDER")
     private String bizType;
 
+    @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
+    private String appId;
+
     /**
      * 创建时间
      */

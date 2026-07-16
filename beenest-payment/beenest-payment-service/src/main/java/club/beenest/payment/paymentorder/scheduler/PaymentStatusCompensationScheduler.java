@@ -4,6 +4,7 @@ import club.beenest.payment.paymentorder.mq.PaymentOrderCompletedMessage;
 import club.beenest.payment.paymentorder.mq.producer.PaymentEventProducer;
 import club.beenest.payment.paymentorder.mapper.PaymentOrderMapper;
 import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
+import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.mapper.OutboxMessageMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,6 +102,7 @@ public class PaymentStatusCompensationScheduler {
                 msg.setAmountFen(order.getAmount());
                 msg.setPlatform(order.getPlatform());
                 msg.setBizType(order.getBizType());
+                msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
                 msg.setPaidAt(order.getPaidTime() != null ? order.getPaidTime().toString() : order.getUpdateTime().toString());
 
                 paymentEventProducer.sendOrderCompletedToOutbox(msg);

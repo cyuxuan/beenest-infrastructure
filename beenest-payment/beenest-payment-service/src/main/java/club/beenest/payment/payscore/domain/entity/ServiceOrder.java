@@ -40,6 +40,9 @@ public class ServiceOrder {
     @Schema(description = "业务类型", example = "MERCHANT_DEPOSIT")
     private String bizType;
 
+    @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
+    private String appId;
+
     @Schema(description = "用户/商户编号", example = "U202606151234567890")
     private String customerNo;
 
