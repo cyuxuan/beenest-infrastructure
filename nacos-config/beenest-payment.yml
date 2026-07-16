@@ -124,8 +124,7 @@ payment:
   wallet:
     hash-secret: ENC(JIsDD2wieYBFYbWV636XGk9tgYU4IOMwd+udGr9Vhb9Pgyl4BqkeUfSU9ub+JR+8lVYHkX/xP8Yr2KND0juVjrBNbovf3lMUzl3SB8jG3oD1FYDDk0kyA7Y9w7kS6jbszYSc8/IVeRCrlLmVspi965Jw6VHq9kphIbN85KR6ilBrzaW/1+t9GRo0ffc8BwMf)
   internal:
-    allowed-networks: 127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-    trust-proxy: ${PAYMENT_CALLBACK_TRUST_PROXY:false}
+    trust-proxy: ${PAYMENT_INTERNAL_TRUST_PROXY:false}
   credential:
     cache-refresh-ms: 60000
   callback:
