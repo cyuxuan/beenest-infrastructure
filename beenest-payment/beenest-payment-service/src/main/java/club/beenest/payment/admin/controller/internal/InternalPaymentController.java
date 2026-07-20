@@ -348,8 +348,7 @@ public class InternalPaymentController {
     public Response<AdminPageResult<PaymentOrder>> adminQueryOrders(@Valid @RequestBody PaymentOrderQueryDTO query,
                                                             @RequestParam int pageNum,
                                                             @RequestParam int pageSize) {
-        Page<PaymentOrder> page = paymentService.queryOrders(query, pageNum, pageSize);
-        return Response.success(AdminPageResult.of(page));
+        return queryOrders(query, pageNum, pageSize);
     }
 
     @PostMapping("/admin/orders/{orderNo}/sync")
@@ -366,40 +365,35 @@ public class InternalPaymentController {
     public Response<AdminPageResult<Refund>> adminQueryRefunds(@Valid @RequestBody RefundQueryDTO query,
                                                              @RequestParam int pageNum,
                                                              @RequestParam int pageSize) {
-        Page<Refund> page = paymentService.queryRefunds(query, pageNum, pageSize);
-        return Response.success(AdminPageResult.of(page));
+        return queryRefunds(query, pageNum, pageSize);
     }
 
     @PostMapping("/admin/refunds/audit")
     public Response<Void> adminAuditRefund(@RequestParam Long id,
                                             @RequestParam String status,
                                             @RequestParam String remark) {
-        paymentService.auditRefund(id, status, remark);
-        return Response.success();
+        return auditRefund(id, status, remark);
     }
 
     @PostMapping("/admin/wallets/page")
     public Response<AdminPageResult<Wallet>> adminQueryWallets(@Valid @RequestBody WalletAdminQueryDTO query,
                                                              @RequestParam Integer pageNum,
                                                              @RequestParam Integer pageSize) {
-        Page<Wallet> page = walletService.queryWallets(query, pageNum, pageSize);
-        return Response.success(AdminPageResult.of(page));
+        return queryWallets(query, pageNum, pageSize);
     }
 
     @PostMapping("/admin/transactions/page")
     public Response<AdminPageResult<TransactionHistoryDTO>> adminQueryTransactions(@Valid @RequestBody TransactionQueryDTO query,
                                                                   @RequestParam Integer pageNum,
                                                                   @RequestParam Integer pageSize) {
-        Page<TransactionHistoryDTO> page = walletService.queryTransactions(query, pageNum, pageSize);
-        return Response.success(AdminPageResult.of(page));
+        return queryTransactions(query, pageNum, pageSize);
     }
 
     @PostMapping("/admin/withdraws/page")
     public Response<AdminPageResult<WithdrawRequest>> adminQueryWithdraws(@Valid @RequestBody WithdrawRequestQueryDTO query,
                                                                @RequestParam int pageNum,
                                                                @RequestParam int pageSize) {
-        Page<WithdrawRequest> page = withdrawService.queryRequests(query, pageNum, pageSize);
-        return Response.success(AdminPageResult.of(page));
+        return queryWithdrawRequests(query, pageNum, pageSize);
     }
 
     @PostMapping("/admin/withdraws/audit")
@@ -412,8 +406,7 @@ public class InternalPaymentController {
     public Response<AdminPageResult<ReconciliationTask>> adminQueryReconciliation(@Valid @RequestBody ReconciliationQueryDTO query,
                                                                     @RequestParam int pageNum,
                                                                     @RequestParam int pageSize) {
-        Page<ReconciliationTask> page = reconciliationService.queryTasks(query, pageNum, pageSize);
-        return Response.success(AdminPageResult.of(page));
+        return queryReconciliationTasks(query, pageNum, pageSize);
     }
 
     @PostMapping("/admin/events/page")

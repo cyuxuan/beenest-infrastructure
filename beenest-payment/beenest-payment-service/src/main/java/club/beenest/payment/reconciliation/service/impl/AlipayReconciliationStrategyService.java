@@ -205,10 +205,7 @@ public class AlipayReconciliationStrategyService implements IReconciliationStrat
                 // 金额字段：元转分
                 String amountStr = fields.length > 9 ? fields[9].replace("`", "").trim() : "";
                 if (!amountStr.isEmpty()) {
-                    try {
-                        item.setAmount(new BigDecimal(amountStr).multiply(new BigDecimal(100)).longValue());
-                    } catch (NumberFormatException ignored) {
-                    }
+                    item.setAmount(parseAmountFen(amountStr));
                 }
 
                 // 交易状态
@@ -221,11 +218,7 @@ public class AlipayReconciliationStrategyService implements IReconciliationStrat
                     timeStr = fields.length > 5 ? fields[5].replace("`", "").trim() : "";
                 }
                 if (!timeStr.isEmpty()) {
-                    try {
-                        item.setPaidTime(LocalDateTime.parse(timeStr,
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-                    } catch (Exception ignored) {
-                    }
+                    item.setPaidTime(parseDateTime(timeStr));
                 }
 
                 item.setRawData(line);
@@ -327,5 +320,27 @@ public class AlipayReconciliationStrategyService implements IReconciliationStrat
         }
         fields.add(current.toString().trim());
         return fields.toArray(new String[0]);
+    }
+
+    /**
+     * 解析金额字符串（元→分），格式错误返回 null
+     */
+    private Long parseAmountFen(String amountStr) {
+        try {
+            return new BigDecimal(amountStr).multiply(new BigDecimal(100)).longValue();
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 解析日期时间字符串，格式错误返回 null
+     */
+    private LocalDateTime parseDateTime(String timeStr) {
+        try {
+            return LocalDateTime.parse(timeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

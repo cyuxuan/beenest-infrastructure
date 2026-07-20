@@ -154,21 +154,14 @@ public class WechatReconciliationStrategyService implements IReconciliationStrat
                 // 金额字段：元转分
                 String amountStr = fields[9].replace("`", "");
                 if (!amountStr.isEmpty()) {
-                    try {
-                        item.setAmount(Math.round(Double.parseDouble(amountStr) * 100));
-                    } catch (NumberFormatException ignored) {
-                    }
+                    item.setAmount(parseAmountFen(amountStr));
                 }
 
                 item.setStatus(fields.length > 13 ? fields[13].replace("`", "") : "");
 
                 // 交易时间
                 String timeStr = fields[0].replace("`", "");
-                try {
-                    item.setPaidTime(LocalDateTime.parse(timeStr,
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-                } catch (Exception ignored) {
-                }
+                item.setPaidTime(parseDateTime(timeStr));
 
                 item.setRawData(line);
                 items.add(item);
@@ -250,5 +243,27 @@ public class WechatReconciliationStrategyService implements IReconciliationStrat
         }
         fields.add(current.toString().trim());
         return fields.toArray(new String[0]);
+    }
+
+    /**
+     * 解析金额字符串（元→分），格式错误返回 null
+     */
+    private Long parseAmountFen(String amountStr) {
+        try {
+            return Math.round(Double.parseDouble(amountStr) * 100);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 解析日期时间字符串，格式错误返回 null
+     */
+    private LocalDateTime parseDateTime(String timeStr) {
+        try {
+            return LocalDateTime.parse(timeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

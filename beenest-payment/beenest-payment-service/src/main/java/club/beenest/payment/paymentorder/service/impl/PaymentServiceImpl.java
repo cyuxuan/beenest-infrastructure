@@ -536,18 +536,10 @@ public class PaymentServiceImpl implements IPaymentService {
             // 4. 对待支付订单主动向支付渠道补偿查询，兜住回调丢失场景
             //    第三方网络调用在事务外执行，避免长时间持有数据库连接
             if (paymentOrder.isPending()) {
-                try {
-                    PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
-                    Map<String, Object> platformStatus = paymentStrategy.queryPayment(paymentOrder);
-                    if (platformStatus != null) {
-                        syncPaymentOrderFromQuerySafe(paymentOrder, platformStatus);
-                        paymentOrder = paymentOrderMapper.selectByOrderNo(orderNo);
-                        result.setStatus(paymentOrder.getStatus());
-                        result.setPaidTime(paymentOrder.getPaidTime());
-                    }
-                } catch (Exception e) {
-                    log.warn("查询支付平台状态失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
-                }
+                queryPlatformStatusSafely(paymentOrder);
+                paymentOrder = paymentOrderMapper.selectByOrderNo(orderNo);
+                result.setStatus(paymentOrder.getStatus());
+                result.setPaidTime(paymentOrder.getPaidTime());
             }
 
             log.info("查询订单支付状态成功 - orderNo: {}, status: {}", orderNo, paymentOrder.getStatus());
@@ -559,6 +551,37 @@ public class PaymentServiceImpl implements IPaymentService {
         } catch (Exception e) {
             log.error("查询订单支付状态失败 - orderNo: {}, error: {}", orderNo, e.getMessage(), e);
             throw new BusinessException("查询订单支付状态失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 安全查询支付平台状态，失败仅记录日志不影响主流程
+     *
+     * @param paymentOrder 待查询的支付订单
+     */
+    private void queryPlatformStatusSafely(PaymentOrder paymentOrder) {
+        try {
+            PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
+            Map<String, Object> platformStatus = paymentStrategy.queryPayment(paymentOrder);
+            if (platformStatus != null) {
+                syncPaymentOrderFromQuerySafe(paymentOrder, platformStatus);
+            }
+        } catch (Exception e) {
+            log.warn("查询支付平台状态失败 - orderNo: {}, error: {}", paymentOrder.getOrderNo(), e.getMessage());
+        }
+    }
+
+    /**
+     * 安全调用支付平台取消订单，失败仅记录日志不影响本地状态更新
+     *
+     * @param paymentOrder 待取消的支付订单
+     */
+    private void cancelPaymentOnPlatformSafely(PaymentOrder paymentOrder) {
+        try {
+            PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
+            paymentStrategy.cancelPayment(paymentOrder);
+        } catch (Exception e) {
+            log.warn("调用支付平台取消订单失败 - orderNo: {}, error: {}", paymentOrder.getOrderNo(), e.getMessage());
         }
     }
 
@@ -605,13 +628,8 @@ public class PaymentServiceImpl implements IPaymentService {
                 throw new IllegalArgumentException("订单状态不允许取消");
             }
 
-            // 5. 调用支付平台取消订单（如果支持）
-            try {
-                PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
-                paymentStrategy.cancelPayment(paymentOrder);
-            } catch (Exception e) {
-                log.warn("调用支付平台取消订单失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
-            }
+            // 5. 调用支付平台取消订单（失败仅记录日志，不影响本地状态更新）
+            cancelPaymentOnPlatformSafely(paymentOrder);
 
             // 6. 更新订单状态
             int updateResult = paymentOrderMapper.updateStatus(orderNo, PaymentOrderStatus.CANCELLED.getCode(), null,

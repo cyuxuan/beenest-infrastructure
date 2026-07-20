@@ -311,28 +311,8 @@ public class WithdrawServiceImpl implements IWithdrawService {
             String statusStr = (String) result.get("status");
 
             if (thirdPartySuccess) {
-                // 提现成功，扣减冻结余额
-                try {
-                    boolean deductResult = walletService.deductFrozenBalance(
-                            withdrawRequest.getCustomerNo(), BizTypeConstants.DEFAULT,
-                            withdrawRequest.getAmount(), true, false);
-                    if (!deductResult) {
-                        throw new BusinessException("扣减冻结余额失败（乐观锁冲突）");
-                    }
-                } catch (Exception deductError) {
-                    // 【资金安全关键】第三方已扣款但本地扣减冻结余额失败
-                    // 标记为 PROCESSING_ERROR，等待人工介入确认，绝不能自动释放冻结资金
-                    log.error("第三方提现成功但本地扣减冻结余额异常，标记为PROCESSING_ERROR - requestNo: {}, transactionNo: {}, error: {}",
-                            requestNo, transactionNo, deductError.getMessage(), deductError);
-                    withdrawRequestMapper.updateProcessStatus(requestNo, WithdrawStatus.PROCESSING_ERROR.getCode(),
-                            "第三方已扣款，本地扣减冻结余额异常：" + deductError.getMessage(), transactionNo);
-
-                    // 发送告警MQ消息
-                    final WithdrawRequest mqReq = withdrawRequest;
-                    final String mqTransactionNo = transactionNo;
-                    TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.PROCESSING_ERROR));
-                    throw new BusinessException("提现处理异常，需人工介入确认");
-                }
+                // 提现成功，扣减冻结余额（失败时标记为 PROCESSING_ERROR 等待人工介入）
+                deductFrozenBalanceSafely(withdrawRequest, requestNo, transactionNo);
 
                 withdrawRequestMapper.updateProcessStatus(requestNo, WithdrawStatus.SUCCESS.getCode(), message, transactionNo);
 
@@ -592,6 +572,36 @@ public class WithdrawServiceImpl implements IWithdrawService {
         }
         log.warn("未知提现平台，不限制个人日额度 - platform: {}", platform);
         return null;
+    }
+
+    /**
+     * 安全扣减冻结余额：第三方已扣款但本地扣减失败时标记为 PROCESSING_ERROR 等待人工介入
+     *
+     * <p>【资金安全关键】第三方已扣款但本地扣减冻结余额失败时，
+     * 绝不能自动释放冻结资金，必须标记为 PROCESSING_ERROR 等待人工介入确认。</p>
+     *
+     * @param withdrawRequest 提现请求
+     * @param requestNo       请求编号
+     * @param transactionNo   第三方交易号
+     */
+    private void deductFrozenBalanceSafely(WithdrawRequest withdrawRequest, String requestNo, String transactionNo) {
+        try {
+            boolean deductResult = walletService.deductFrozenBalance(
+                    withdrawRequest.getCustomerNo(), BizTypeConstants.DEFAULT,
+                    withdrawRequest.getAmount(), true, false);
+            if (!deductResult) {
+                throw new BusinessException("扣减冻结余额失败（乐观锁冲突）");
+            }
+        } catch (Exception deductError) {
+            log.error("第三方提现成功但本地扣减冻结余额异常，标记为PROCESSING_ERROR - requestNo: {}, transactionNo: {}, error: {}",
+                    requestNo, transactionNo, deductError.getMessage(), deductError);
+            withdrawRequestMapper.updateProcessStatus(requestNo, WithdrawStatus.PROCESSING_ERROR.getCode(),
+                    "第三方已扣款，本地扣减冻结余额异常：" + deductError.getMessage(), transactionNo);
+
+            // 发送告警MQ消息
+            TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(withdrawRequest, WithdrawStatus.PROCESSING_ERROR));
+            throw new BusinessException("提现处理异常，需人工介入确认");
+        }
     }
 
     /**
