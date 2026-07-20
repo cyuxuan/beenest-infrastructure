@@ -148,8 +148,8 @@ public class PaymentMqConfig {
     }
 
     private void logDeclarationSummary(List<Declarable> declarables) {
-        long queueCount = declarables.stream().filter(d -> d instanceof Queue).count();
-        long bindingCount = declarables.stream().filter(d -> d instanceof Binding).count();
+        long queueCount = declarables.stream().filter(Queue.class::isInstance).count();
+        long bindingCount = declarables.stream().filter(Binding.class::isInstance).count();
         int tenantCount = appCredentialService.getAllActive().size();
         log.info("声明租户队列: {} 个租户, {} 个队列, {} 个绑定", tenantCount, queueCount, bindingCount);
     }

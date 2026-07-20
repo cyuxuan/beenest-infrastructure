@@ -9,9 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 支付回调 IP 白名单拦截器
@@ -35,38 +34,50 @@ import java.util.stream.Collectors;
 @Component
 public class CallbackIpWhitelistInterceptor implements HandlerInterceptor {
 
-    private volatile List<String> allowedIps = Collections.emptyList();
-    private volatile boolean enabled = false;
-    private volatile boolean trustProxy = false;
+    /**
+     * 白名单配置快照，使用 AtomicReference 保证线程安全的原子更新。
+     * 三个字段（allowedIps、enabled、trustProxy）封装在不可变 record 中，
+     * 确保读取时不会看到不一致的中间状态。
+     */
+    private final AtomicReference<WhitelistConfig> config = new AtomicReference<>(WhitelistConfig.DEFAULT);
+
+    /**
+     * 白名单配置不可变快照
+     */
+    private record WhitelistConfig(List<String> allowedIps, boolean enabled, boolean trustProxy) {
+        static final WhitelistConfig DEFAULT = new WhitelistConfig(List.of(), false, false);
+    }
 
     @Value("${payment.callback.allowed-ips:}")
     public void setAllowedIps(String allowedIpsConfig) {
         if (allowedIpsConfig != null && !allowedIpsConfig.isBlank()) {
-            this.allowedIps = Arrays.stream(allowedIpsConfig.split(","))
+            List<String> parsed = Arrays.stream(allowedIpsConfig.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toList());
-            this.enabled = !this.allowedIps.isEmpty();
-            log.info("支付回调IP白名单已加载 - 规则数: {}, 白名单: {}", this.allowedIps.size(), this.allowedIps);
+                    .toList();
+            this.config.set(new WhitelistConfig(parsed, !parsed.isEmpty(), this.config.get().trustProxy()));
+            log.info("支付回调IP白名单已加载 - 规则数: {}, 白名单: {}", parsed.size(), parsed);
         } else {
+            this.config.set(new WhitelistConfig(List.of(), false, this.config.get().trustProxy()));
             log.info("支付回调IP白名单未配置，不做拦截");
         }
     }
 
     @Value("${payment.callback.trust-proxy:false}")
     public void setTrustProxy(boolean trustProxy) {
-        this.trustProxy = trustProxy;
+        this.config.set(new WhitelistConfig(this.config.get().allowedIps(), this.config.get().enabled(), trustProxy));
         log.info("支付回调IP白名单 trust-proxy: {}", trustProxy);
     }
 
     @Override
     public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
             @NonNull Object handler) throws Exception {
-        if (!enabled) {
+        WhitelistConfig current = this.config.get();
+        if (!current.enabled()) {
             return true;
         }
 
-        String clientIp = resolveClientIp(request);
+        String clientIp = resolveClientIp(request, current.trustProxy());
 
         if (clientIp == null || clientIp.isEmpty()) {
             log.warn("回调请求无法获取客户端IP - URI: {}", request.getRequestURI());
@@ -75,7 +86,7 @@ public class CallbackIpWhitelistInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        if (isIpAllowed(clientIp)) {
+        if (isIpAllowed(clientIp, current.allowedIps())) {
             return true;
         }
 
@@ -85,7 +96,7 @@ public class CallbackIpWhitelistInterceptor implements HandlerInterceptor {
         return false;
     }
 
-    private String resolveClientIp(HttpServletRequest request) {
+    private String resolveClientIp(HttpServletRequest request, boolean trustProxy) {
         // 只在明确信任代理头时才读取，防止客户端伪造代理头绕过 IP 白名单
         if (trustProxy) {
             String ip = request.getHeader("X-Forwarded-For");
@@ -100,7 +111,7 @@ public class CallbackIpWhitelistInterceptor implements HandlerInterceptor {
         return request.getRemoteAddr();
     }
 
-    private boolean isIpAllowed(String clientIp) {
+    private boolean isIpAllowed(String clientIp, List<String> allowedIps) {
         for (String allowed : allowedIps) {
             if (matchIp(allowed, clientIp)) {
                 return true;

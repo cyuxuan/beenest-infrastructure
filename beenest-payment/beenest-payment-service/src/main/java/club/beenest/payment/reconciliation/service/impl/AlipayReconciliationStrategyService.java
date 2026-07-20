@@ -107,14 +107,15 @@ public class AlipayReconciliationStrategyService implements IReconciliationStrat
         }
 
         // 下载 ZIP 文件并解压
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest httpRequest = HttpRequest.newBuilder()
-                .uri(URI.create(downloadUrl))
-                .GET()
-                .build();
+        try (HttpClient httpClient = HttpClient.newHttpClient()) {
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(downloadUrl))
+                    .GET()
+                    .build();
 
-        HttpResponse<byte[]> zipResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofByteArray());
-        return parseAlipayBillZip(zipResponse.body());
+            HttpResponse<byte[]> zipResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofByteArray());
+            return parseAlipayBillZip(zipResponse.body());
+        }
     }
 
     /**

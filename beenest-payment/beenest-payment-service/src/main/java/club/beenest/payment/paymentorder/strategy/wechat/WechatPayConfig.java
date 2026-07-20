@@ -21,8 +21,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.util.Set;
 
 /**
  * 微信支付配置
@@ -120,7 +124,15 @@ public class WechatPayConfig {
     }
 
     /**
-     * 通用加载 Key 方法
+     * 证书临时文件存放目录，使用用户目录下的安全子目录而非系统临时目录。
+     * 系统临时目录（/tmp）对所有用户可写，存在私钥泄露风险。
+     */
+    private static final String CERT_DIR = System.getProperty("user.home") + "/.beenest/certs";
+
+    /**
+     * 通用加载 Key 方法。
+     * 当 classpath 资源无法直接获取文件路径时（如 JAR 内运行），
+     * 将证书拷贝到安全目录下的临时文件，使用后立即删除。
      */
     private <T> T loadKey(String path, KeyLoader<T> loader) throws Exception {
         if (path.startsWith("classpath:")) {
@@ -129,15 +141,38 @@ public class WechatPayConfig {
                 // 尝试直接获取文件路径（适用于本地开发环境）
                 return loader.load(resource.getFile().getAbsolutePath());
             } catch (IOException e) {
-                // 如果在 JAR 中运行，需要将资源拷贝到临时文件
+                // 如果在 JAR 中运行，需要将资源拷贝到安全目录下的临时文件
                 log.info("从 classpath 加载证书到临时文件: {}", path);
-                File tempFile = File.createTempFile("wechat_pay_cert_", ".pem");
-                tempFile.deleteOnExit();
-                try (InputStream is = resource.getInputStream();
-                     OutputStream os = new FileOutputStream(tempFile)) {
-                    is.transferTo(os);
+                Path certDir = Path.of(CERT_DIR);
+                Files.createDirectories(certDir);
+                // 设置目录权限为仅 owner 可访问
+                try {
+                    Files.setPosixFilePermissions(certDir, Set.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE,
+                            PosixFilePermission.OWNER_EXECUTE));
+                } catch (UnsupportedOperationException ignored) {
+                    // Windows 环境不支持 POSIX 权限，跳过
                 }
-                return loader.load(tempFile.getAbsolutePath());
+                Path tempFile = Files.createTempFile(certDir, "wechat_pay_cert_", ".pem");
+                try {
+                    // 设置仅 owner 可读写，防止其他用户读取私钥
+                    try {
+                        Files.setPosixFilePermissions(tempFile, Set.of(
+                                PosixFilePermission.OWNER_READ,
+                                PosixFilePermission.OWNER_WRITE));
+                    } catch (UnsupportedOperationException ignored) {
+                        // Windows 环境不支持 POSIX 权限，跳过
+                    }
+                    try (InputStream is = resource.getInputStream();
+                         OutputStream os = Files.newOutputStream(tempFile)) {
+                        is.transferTo(os);
+                    }
+                    return loader.load(tempFile.toAbsolutePath().toString());
+                } finally {
+                    // 使用后立即删除，不依赖 deleteOnExit
+                    Files.deleteIfExists(tempFile);
+                }
             }
         } else {
             return loader.load(path);

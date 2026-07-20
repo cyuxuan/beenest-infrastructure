@@ -313,7 +313,11 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
      * 4. 拼接成 k1=v1&k2=v2...&key=paymentKey
      * 5. 进行 MD5 运算
      * 6. 转大写（视具体接口要求，通常MD5后转不转大写要看文档，这里假设常规大写）
+     *
+     * <p>此处使用 MD5 是抖音支付 API 规范要求的签名算法，用于消息认证而非数据加密，
+     * 不可替换为其他算法，否则将导致签名验证失败。</p>
      */
+    @SuppressWarnings("squid:S4790")
     private String sign(Map<String, Object> params, String salt) {
         List<String> keys = new ArrayList<>(params.keySet());
         Collections.sort(keys);

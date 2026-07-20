@@ -28,6 +28,7 @@ import com.github.pagehelper.PageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +56,15 @@ public class WalletServiceImpl implements IWalletService {
 
     @Autowired
     private PaymentEventProducer paymentEventProducer;
+
+    /**
+     * 自注入代理引用，用于调用本类的 @Transactional 方法。
+     * Spring AOP 代理模式下，同一 Bean 内 this.xxx() 调用绕过代理，
+     * 导致 @Transactional 注解不生效。通过 @Lazy 自注入获取代理对象解决此问题。
+     */
+    @Autowired
+    @Lazy
+    private WalletServiceImpl self;
 
     // ==================== 钱包基础操作 ====================
 
@@ -183,14 +193,14 @@ public class WalletServiceImpl implements IWalletService {
         log.info("获取或创建用户钱包：用户={}, bizType={}", customerNo, resolvedBizType);
 
         // 先查询，快速路径
-        Wallet wallet = getWallet(customerNo, resolvedBizType);
+        Wallet wallet = self.getWallet(customerNo, resolvedBizType);
         if (wallet != null) {
             return wallet;
         }
 
         // 尝试创建，利用数据库 UNIQUE 约束防并发重复
         try {
-            return createWallet(customerNo, resolvedBizType);
+            return self.createWallet(customerNo, resolvedBizType);
         } catch (org.springframework.dao.DuplicateKeyException e) {
             // 并发创建冲突，重新查询
             log.warn("并发创建钱包冲突，重新查询：用户={}, bizType={}", customerNo, resolvedBizType);
@@ -595,7 +605,7 @@ public class WalletServiceImpl implements IWalletService {
 
         validateTransactionParams(customerNo, amount, description, transactionType);
 
-        Wallet wallet = getOrCreateWallet(customerNo, bizType);
+        Wallet wallet = self.getOrCreateWallet(customerNo, bizType);
 
         if (!wallet.isActive()) {
             if (opType == BalanceOperationType.ADD) {

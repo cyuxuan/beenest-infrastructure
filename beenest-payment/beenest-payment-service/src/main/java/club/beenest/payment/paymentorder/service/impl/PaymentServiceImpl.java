@@ -3,6 +3,7 @@ package club.beenest.payment.paymentorder.service.impl;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.constant.PaymentRedisKeyConstants;
 import club.beenest.payment.common.utils.AuthUtils;
+import club.beenest.payment.shared.scheduler.OutboxMessageScheduler;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
@@ -50,6 +51,7 @@ import com.github.pagehelper.PageHelper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -65,7 +67,7 @@ import java.util.stream.Collectors;
 /**
  * 支付服务实现类（重构版）
  * 使用策略模式和工厂模式实现支付功能
- * 
+ *
  * <p>
  * 设计模式：
  * </p>
@@ -74,7 +76,7 @@ import java.util.stream.Collectors;
  * <li>工厂模式 - 通过工厂获取支付策略</li>
  * <li>模板方法模式 - 定义支付流程骨架</li>
  * </ul>
- * 
+ *
  * <h3>优势：</h3>
  * <ul>
  * <li>易扩展 - 新增支付平台只需实现PaymentStrategy接口</li>
@@ -82,7 +84,7 @@ import java.util.stream.Collectors;
  * <li>符合开闭原则 - 对扩展开放，对修改关闭</li>
  * <li>符合单一职责原则 - 每个类只负责一个支付平台</li>
  * </ul>
- * 
+ *
  * @author System
  * @since 2026-01-26
  */
@@ -95,7 +97,6 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Autowired
     private PaymentEventMapper paymentEventMapper;
-
 
     @Autowired
     private RefundMapper refundMapper;
@@ -118,16 +119,22 @@ public class PaymentServiceImpl implements IPaymentService {
     @Autowired
     private PaymentEventProducer paymentEventProducer;
 
-    // [P2 #11] 已移除内存 ScheduledExecutorService，退款状态补偿完全依赖
-    // RefundStatusSyncScheduler 的 Spring 定时扫描，避免 down机 后内存任务丢失
+    /**
+     * 自注入代理引用，用于调用本类的 @Transactional 方法。
+     * Spring AOP 代理模式下，同一 Bean 内 this.xxx() 调用绕过代理，
+     * 导致 @Transactional 注解不生效。通过 @Lazy 自注入获取代理对象解决此问题。
+     */
+    @Autowired
+    @Lazy
+    private PaymentServiceImpl self;
 
     /**
      * 创建充值订单
-     * 
+     *
      * <p>
      * 使用策略模式，根据支付平台选择对应的支付策略。
      * </p>
-     * 
+     *
      * <h4>流程：</h4>
      * <ol>
      * <li>验证参数</li>
@@ -269,7 +276,7 @@ public class PaymentServiceImpl implements IPaymentService {
             }
 
             // ====== 事务内：数据库操作（保证原子性） ======
-            return handlePaymentCallbackInTransaction(platform, event, orderNo, transactionNo, paidAmount, paidStatus, callbackData);
+            return self.handlePaymentCallbackInTransaction(platform, event, orderNo, transactionNo, paidAmount, paidStatus, callbackData);
 
         } catch (Exception e) {
             log.error("处理支付回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
@@ -412,7 +419,7 @@ public class PaymentServiceImpl implements IPaymentService {
             }
 
             // ====== 事务内：数据库操作（保证原子性） ======
-            return handleRefundCallbackInTransaction(refundNo, refundId, parsedData);
+            return self.handleRefundCallbackInTransaction(refundNo, refundId, parsedData);
 
         } catch (Exception e) {
             log.error("处理退款回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
@@ -555,7 +562,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     /**
      * 取消充值订单
-     * 
+     *
      * <p>
      * 使用策略模式，根据支付平台选择对应的支付策略取消订单。
      * </p>
@@ -884,9 +891,6 @@ public class PaymentServiceImpl implements IPaymentService {
     private record CouponDiscountResult(Long discountAmount, String userCouponNo) {}
 
     /**
-     * 验证优惠券并计算折扣（通用化版本，使用金额而非OrderPlan）
-     */
-    /**
      * 判断是否为业务订单支付（需要通过 MQ 通知业务系统）
      *
      * <p>判断逻辑：有 bizNo 且 bizType 为业务订单类型时走 MQ 通知路径；
@@ -979,10 +983,10 @@ public class PaymentServiceImpl implements IPaymentService {
         PaymentValidateUtils.isTrue(rechargeRequest.isValidAmount(), "充值金额不在有效范围内");
         PaymentValidateUtils.isTrue(rechargeRequest.isValidPlatform(), "不支持的支付平台");
         PaymentValidateUtils.isTrue(paymentStrategyFactory.isEnabled(rechargeRequest.getPlatform()), "支付平台未启用");
-        
+
         Long amountFen = rechargeRequest.getAmount();
-        PaymentValidateUtils.inRange(amountFen, 
-                PaymentConstants.MIN_RECHARGE_AMOUNT_FEN, 
+        PaymentValidateUtils.inRange(amountFen,
+                PaymentConstants.MIN_RECHARGE_AMOUNT_FEN,
                 PaymentConstants.MAX_RECHARGE_AMOUNT_FEN,
                 "充值金额需在1元至10万元之间");
     }
@@ -1274,7 +1278,7 @@ public class PaymentServiceImpl implements IPaymentService {
         int failedCount = 0;
         for (Refund refund : refunds) {
             try {
-                RefundSyncResultDTO result = syncRefundStatus(refund.getRefundNo());
+                RefundSyncResultDTO result = self.syncRefundStatus(refund.getRefundNo());
                 if (RefundStatus.SUCCESS.getCode().equals(result.getStatus())) {
                     successCount++;
                 }
@@ -1336,7 +1340,7 @@ public class PaymentServiceImpl implements IPaymentService {
      */
     private void syncPaymentOrderFromQuerySafe(PaymentOrder paymentOrder, Map<String, Object> platformStatus) {
         try {
-            syncPaymentOrderFromQuery(paymentOrder, platformStatus);
+            self.syncPaymentOrderFromQuery(paymentOrder, platformStatus);
         } catch (Exception e) {
             // CAS 冲突或其他并发异常降级为 warn，不影响用户查询结果
             log.warn("补偿同步支付状态失败（降级） - orderNo: {}, error: {}", paymentOrder.getOrderNo(), e.getMessage());
@@ -1597,7 +1601,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 order.markAsPartialRefunded();
             }
             paymentOrderMapper.updateStatus(order.getOrderNo(), order.getStatus(), null, null);
-            
+
             if (isOrderPlanPayment(order)) {
                 updateBizOrderOnRefundSuccess(order, refund);
             }

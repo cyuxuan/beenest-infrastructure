@@ -48,9 +48,10 @@ public class AppCredentialService {
     private final ConcurrentHashMap<String, AppCredential> credentialCache = new ConcurrentHashMap<>();
 
     /**
-     * 缓存中所有活跃凭证的快照列表
+     * 缓存中所有活跃凭证的快照列表。
+     * 使用 CopyOnWriteArrayList 保证线程安全的并发读取。
      */
-    private volatile List<AppCredential> activeCredentialsSnapshot = List.of();
+    private final CopyOnWriteArrayList<AppCredential> activeCredentialsSnapshot = new CopyOnWriteArrayList<>();
 
     public AppCredentialService(AppCredentialMapper mapper) {
         this.mapper = mapper;
@@ -309,7 +310,8 @@ public class AppCredentialService {
         List<AppCredential> active = credentialCache.values().stream()
                 .filter(c -> "ACTIVE".equals(c.getStatus()))
                 .toList();
-        activeCredentialsSnapshot = new CopyOnWriteArrayList<>(active);
+        activeCredentialsSnapshot.clear();
+        activeCredentialsSnapshot.addAll(active);
     }
 
     // ==================== 工具方法 ====================
@@ -317,9 +319,11 @@ public class AppCredentialService {
     /**
      * 生成安全的随机密钥（32 字节 hex 字符串 = 256 位）
      */
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private String generateSecureSecret() {
         byte[] bytes = new byte[32];
-        new SecureRandom().nextBytes(bytes);
+        SECURE_RANDOM.nextBytes(bytes);
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
             sb.append(String.format("%02x", b));

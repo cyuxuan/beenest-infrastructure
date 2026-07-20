@@ -52,7 +52,7 @@ import java.util.concurrent.TimeUnit;
 public class InternalApiFilter extends OncePerRequestFilter {
 
     private static final String ALGORITHM = "HmacSHA256";
-    private static final long MAX_TIMESTAMP_DRIFT_MS = 5 * 60 * 1000; // 5 分钟
+    private static final long MAX_TIMESTAMP_DRIFT_MS = 5L * 60 * 1000; // 5 分钟
     private static final String NONCE_KEY_PREFIX = "internal:nonce:";
 
     private final AppCredentialService appCredentialService;

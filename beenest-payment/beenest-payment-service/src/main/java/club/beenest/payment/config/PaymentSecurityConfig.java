@@ -22,10 +22,15 @@ import java.nio.charset.StandardCharsets;
  *   <li>第三方支付回调与 Swagger 文档保持匿名访问</li>
  *   <li>管理接口通过 Spring Security 方法级鉴权限制为管理员</li>
  * </ul>
+ *
+ * <p>CSRF 保护已禁用：支付服务为纯后端 API 服务，无浏览器 UI，
+ * 使用无状态 Bearer Token 认证（SessionCreationPolicy.STATELESS），
+ * 不存在 Cookie-based 会话，CSRF 攻击向量不适用。</p>
  */
 @Configuration
 @ConditionalOnProperty(prefix = "cas.client", name = "enabled", havingValue = "true")
 @EnableMethodSecurity
+@SuppressWarnings("squid:S4502")
 public class PaymentSecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {

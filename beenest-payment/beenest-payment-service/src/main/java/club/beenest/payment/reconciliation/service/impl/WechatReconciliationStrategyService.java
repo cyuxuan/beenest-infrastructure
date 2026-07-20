@@ -90,36 +90,37 @@ public class WechatReconciliationStrategyService implements IReconciliationStrat
         // 注意：这里使用简化方式，生产环境建议通过 SDK 的 BillService 调用
         // 此处通过逐笔查询作为主要降级路径，账单 API 需要额外 SDK 配置
 
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Accept", "application/json")
-                .GET()
-                .build();
+        try (HttpClient httpClient = HttpClient.newHttpClient()) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Accept", "application/json")
+                    .GET()
+                    .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("微信账单API返回非200状态: " + response.statusCode());
+            if (response.statusCode() != 200) {
+                throw new RuntimeException("微信账单API返回非200状态: " + response.statusCode());
+            }
+
+            // 微信 V3 账单 API 返回下载链接
+            String body = response.body();
+            var jsonNode = objectMapper.readTree(body);
+            String downloadUrl = jsonNode.path("download_url").asText(null);
+
+            if (downloadUrl == null || downloadUrl.isEmpty()) {
+                throw new RuntimeException("微信账单下载链接为空");
+            }
+
+            // 下载账单 CSV（gzip 压缩）
+            HttpRequest downloadRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(downloadUrl))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> csvResponse = httpClient.send(downloadRequest, HttpResponse.BodyHandlers.ofString());
+            return parseWechatBillCsv(csvResponse.body());
         }
-
-        // 微信 V3 账单 API 返回下载链接
-        String body = response.body();
-        var jsonNode = objectMapper.readTree(body);
-        String downloadUrl = jsonNode.path("download_url").asText(null);
-
-        if (downloadUrl == null || downloadUrl.isEmpty()) {
-            throw new RuntimeException("微信账单下载链接为空");
-        }
-
-        // 下载账单 CSV（gzip 压缩）
-        HttpRequest downloadRequest = HttpRequest.newBuilder()
-                .uri(URI.create(downloadUrl))
-                .GET()
-                .build();
-
-        HttpResponse<String> csvResponse = httpClient.send(downloadRequest, HttpResponse.BodyHandlers.ofString());
-        return parseWechatBillCsv(csvResponse.body());
     }
 
     /**
