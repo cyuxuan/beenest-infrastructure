@@ -28,7 +28,7 @@ import club.beenest.payment.util.PaymentValidateUtils;
 import club.beenest.payment.common.utils.TradeNoGenerator;
 import club.beenest.payment.common.utils.TransactionSynchronizationUtils;
 import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.page.PageMethod;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -330,7 +330,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
                     // 发送告警MQ消息
                     final WithdrawRequest mqReq = withdrawRequest;
                     final String mqTransactionNo = transactionNo;
-                    TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.PROCESSING_ERROR, mqTransactionNo));
+                    TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.PROCESSING_ERROR));
                     throw new BusinessException("提现处理异常，需人工介入确认");
                 }
 
@@ -341,7 +341,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
                 // 发送提现完成MQ消息 — 在事务提交后发送，防止脏消息
                 final WithdrawRequest mqReq = withdrawRequest;
                 final String mqTransactionNo = transactionNo;
-                TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.SUCCESS, mqTransactionNo));
+                TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.SUCCESS));
             } else {
                 if ("UNKNOWN".equalsIgnoreCase(statusStr)) {
                     log.warn("第三方提现返回未知状态或网络超时，标记为 PROCESSING_ERROR 并挂起资金 - requestNo: {}", requestNo);
@@ -350,7 +350,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
 
                     final WithdrawRequest mqReq = withdrawRequest;
                     final String mqTransactionNo = transactionNo;
-                    TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.PROCESSING_ERROR, mqTransactionNo));
+                    TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.PROCESSING_ERROR));
 
                     return false;
                 }
@@ -367,7 +367,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
                 // 发送提现失败MQ消息 — 在事务提交后发送
                 final WithdrawRequest mqReq = withdrawRequest;
                 final String mqTransactionNo = transactionNo;
-                TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.FAILED, mqTransactionNo));
+                TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.FAILED));
             }
 
             return thirdPartySuccess;
@@ -391,7 +391,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
                         try {
                             WithdrawRequest errReq = withdrawRequestMapper.selectByRequestNo(mqRequestNo);
                             if (errReq != null) {
-                                sendWithdrawCompletedMessage(errReq, WithdrawStatus.PROCESSING_ERROR, null);
+                                sendWithdrawCompletedMessage(errReq, WithdrawStatus.PROCESSING_ERROR);
                             }
                         } catch (Exception mqEx) {
                             log.error("发送提现异常MQ消息失败 - requestNo: {}", mqRequestNo, mqEx);
@@ -517,7 +517,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
 
     @Override
     public Page<WithdrawRequest> queryRequests(WithdrawRequestQueryDTO query, int pageNum, int pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<WithdrawRequest>) withdrawRequestMapper.selectByQuery(query);
     }
 
@@ -597,7 +597,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
     /**
      * 发送提现完成MQ消息
      */
-    private void sendWithdrawCompletedMessage(WithdrawRequest req, WithdrawStatus status, String transactionNo) {
+    private void sendWithdrawCompletedMessage(WithdrawRequest req, WithdrawStatus status) {
         try {
             WithdrawCompletedMessage msg = new WithdrawCompletedMessage();
             msg.setRequestNo(req.getRequestNo());

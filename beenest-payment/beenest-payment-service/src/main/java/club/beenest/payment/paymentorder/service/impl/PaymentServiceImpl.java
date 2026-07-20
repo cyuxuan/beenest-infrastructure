@@ -47,7 +47,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.page.PageMethod;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -657,7 +657,7 @@ public class PaymentServiceImpl implements IPaymentService {
             Long discountAmount = request.getDiscountAmount() != null ? request.getDiscountAmount() : 0L;
 
             // 如果有优惠券，计算折扣
-            CouponDiscountResult discountResult = calculateCouponDiscount(customerNo, request, baseAmount);
+            CouponDiscountResult discountResult = calculateCouponDiscount(request);
             if (discountResult.discountAmount() > 0) {
                 discountAmount = discountResult.discountAmount();
                 finalAmount = Math.max(baseAmount - discountAmount, 0L);
@@ -669,7 +669,7 @@ public class PaymentServiceImpl implements IPaymentService {
             PaymentOrder latestPending = paymentOrderMapper.selectLatestPendingByBizNoForUpdate(bizNo);
             if (latestPending != null && latestPending.canPay()) {
                 return handleExistingPendingOrder(latestPending, backendPlatform, paymentMethod,
-                        finalAmount, baseAmount, discountAmount, discountResult.userCouponNo(), bizNo);
+                        finalAmount, baseAmount, discountAmount, bizNo);
             }
 
             return createNewOrderPayment(customerNo, bizNo, request.getBizType(), backendPlatform, paymentMethod,
@@ -701,8 +701,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
     }
 
-    private CouponDiscountResult calculateCouponDiscount(String customerNo, OrderPaymentRequestDTO request,
-            Long baseAmountFen) {
+    private CouponDiscountResult calculateCouponDiscount(OrderPaymentRequestDTO request) {
         // 优惠券逻辑已迁出支付中台，由调用方直接传入优惠金额
         Long discountAmount = request.getDiscountAmount() != null ? request.getDiscountAmount() : 0L;
         return new CouponDiscountResult(discountAmount, null);
@@ -760,7 +759,7 @@ public class PaymentServiceImpl implements IPaymentService {
     }
 
     private OrderPaymentResultDTO handleExistingPendingOrder(PaymentOrder existingOrder, String backendPlatform,
-            String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount, String usedCouponNo, String bizNo) {
+            String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount, String bizNo) {
         String existingPlatform = existingOrder.getPlatform();
 
         if (!backendPlatform.equalsIgnoreCase(existingPlatform)) {
@@ -847,7 +846,7 @@ public class PaymentServiceImpl implements IPaymentService {
         paymentOrder.setBizType(walletBizType);
         paymentOrder.setAppId(BizTypeConstants.deriveAppId(walletBizType));
         paymentOrder.setExt(buildPaymentOrderExt(openid));
-        paymentOrder.setRemark(buildBizOrderRemark(bizNo, usedCouponNo));
+        paymentOrder.setRemark(buildBizOrderRemark(bizNo));
         paymentOrder.setCreateTime(now);
         paymentOrder.setUpdateTime(now);
 
@@ -914,7 +913,7 @@ public class PaymentServiceImpl implements IPaymentService {
         return paymentOrder.getBizNo();
     }
 
-    private String buildBizOrderRemark(String bizNo, String userCouponNo) {
+    private String buildBizOrderRemark(String bizNo) {
         return PaymentConstants.BIZ_ORDER_PREFIX + bizNo;
     }
 
@@ -1106,7 +1105,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Override
     public Page<PaymentOrder> queryOrders(PaymentOrderQueryDTO query, int pageNum, int pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<PaymentOrder>) paymentOrderMapper.selectByQuery(query);
     }
 
@@ -1212,7 +1211,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Override
     public Page<Refund> queryRefunds(RefundQueryDTO query, int pageNum, int pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<Refund>) refundMapper.selectByQuery(
                 query.getRefundNo(),
                 query.getOrderNo(),
@@ -1255,7 +1254,7 @@ public class PaymentServiceImpl implements IPaymentService {
         try {
             channelResult = strategy.queryRefund(order, refund);
         } catch (Exception e) {
-            if (shouldResubmitRefundAfterQueryFailure(order, refund, e)) {
+            if (shouldResubmitRefundAfterQueryFailure(order, e)) {
                 log.warn("退款查询命中微信历史单，改为按商户退款单号补发 - refundNo: {}, error: {}",
                         refund.getRefundNo(), e.getMessage());
                 refund.setThirdPartyRefundNo(null);
@@ -1427,7 +1426,7 @@ public class PaymentServiceImpl implements IPaymentService {
         return refund.getStatusEnum() == RefundStatus.PENDING || refund.getStatusEnum() == RefundStatus.PROCESSING;
     }
 
-    private boolean shouldResubmitRefundAfterQueryFailure(PaymentOrder order, Refund refund, Exception e) {
+    private boolean shouldResubmitRefundAfterQueryFailure(PaymentOrder order, Exception e) {
         if (!PaymentConstants.PLATFORM_WECHAT.equalsIgnoreCase(order.getPlatform())) {
             return false;
         }

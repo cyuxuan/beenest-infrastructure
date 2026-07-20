@@ -8,7 +8,7 @@ import club.beenest.payment.paymentorder.domain.enums.PaymentEventType;
 import club.beenest.payment.paymentorder.service.IPaymentEventService;
 import club.beenest.payment.paymentorder.service.IPaymentService;
 import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.page.PageMethod;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -38,7 +38,7 @@ public class PaymentEventServiceImpl implements IPaymentEventService {
      */
     @Override
     public Page<PaymentEvent> queryEvents(PaymentEventQueryDTO query, int pageNum, int pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<PaymentEvent>) paymentEventMapper.selectByQuery(query.getOrderNo(), query.getEventType(), query.getChannel());
     }
 

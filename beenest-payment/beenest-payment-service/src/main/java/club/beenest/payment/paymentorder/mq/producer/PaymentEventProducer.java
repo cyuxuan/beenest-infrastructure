@@ -125,7 +125,7 @@ public class PaymentEventProducer {
                 message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
                 message.getChangeAmountFen(), message.getTransactionType(),
                 message.getAppId()));
-        saveToOutbox(PaymentMqConstants.RK_BALANCE_CHANGED, message.getAppId(), message,
+        saveToOutbox(PaymentMqConstants.RK_BALANCE_CHANGED, message,
                 message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
         log.info("余额变动消息已写入Outbox - customerNo: {}, walletNo: {}, messageId: {}",
                 message.getCustomerNo(), message.getWalletNo(), message.getMessageId());
@@ -146,7 +146,7 @@ public class PaymentEventProducer {
             log.info("MQ 消息发送成功: routingKey={}, messageId={}", tenantRoutingKey, messageId);
         } catch (Exception e) {
             log.error("MQ 消息直接发送失败，写入outbox等待补偿: routingKey={}, messageId={}", tenantRoutingKey, messageId, e);
-            saveToOutbox(baseRoutingKey, appId, message, messageId, e.getMessage());
+            saveToOutbox(baseRoutingKey, message, messageId, e.getMessage());
         }
     }
 
@@ -169,7 +169,7 @@ public class PaymentEventProducer {
                 message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
                 message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
                 message.getBizType()));
-        saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_COMPLETED, message.getAppId(), message,
+        saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_COMPLETED, message,
                 message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
         log.info("支付订单完成消息已写入Outbox - orderNo: {}, bizNo: {}, messageId: {}",
                 message.getOrderNo(), message.getBusinessOrderNo(), message.getMessageId());
@@ -186,7 +186,7 @@ public class PaymentEventProducer {
                 message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
                 message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
                 message.getBizType()));
-        saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_CANCELLED, message.getAppId(), message,
+        saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_CANCELLED, message,
                 message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
         log.info("支付订单取消消息已写入Outbox - orderNo: {}, bizNo: {}, messageId: {}",
                 message.getOrderNo(), message.getBusinessOrderNo(), message.getMessageId());
@@ -202,7 +202,7 @@ public class PaymentEventProducer {
         message.setSign(MessageSignUtil.signRefundMessage(mqSecret,
                 message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
                 message.getBusinessOrderNo(), message.getStatus(), message.getBizType()));
-        saveToOutbox(PaymentMqConstants.RK_REFUND_COMPLETED, message.getAppId(), message,
+        saveToOutbox(PaymentMqConstants.RK_REFUND_COMPLETED, message,
                 message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
         log.info("退款完成消息已写入Outbox - refundNo: {}, messageId: {}", message.getRefundNo(), message.getMessageId());
     }
@@ -262,7 +262,7 @@ public class PaymentEventProducer {
      * @param messageId      消息唯一 ID
      * @param errorMessage   错误信息
      */
-    private void saveToOutbox(String baseRoutingKey, String appId, Object message, String messageId, String errorMessage) {
+    private void saveToOutbox(String baseRoutingKey, Object message, String messageId, String errorMessage) {
         try {
             String payload = objectMapper.writeValueAsString(message);
             OutboxMessage outbox = new OutboxMessage();

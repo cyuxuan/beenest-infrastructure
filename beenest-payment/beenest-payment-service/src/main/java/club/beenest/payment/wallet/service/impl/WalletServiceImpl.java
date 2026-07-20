@@ -24,7 +24,7 @@ import club.beenest.payment.wallet.domain.enums.WalletTransactionType;
 import club.beenest.payment.wallet.security.BalanceHashCalculator;
 import club.beenest.payment.wallet.service.IWalletService;
 import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.page.PageMethod;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -245,7 +245,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         // 记录交易流水
-        recordFreezeTransaction(wallet, customerNo, resolvedBizType, amountInCents, description, referenceNo, "FREEZE");
+        recordFreezeTransaction(wallet, customerNo, amountInCents, description, referenceNo, "FREEZE");
 
         log.info("冻结余额成功：用户={}, 金额={}分", customerNo, amountInCents);
         return true;
@@ -280,7 +280,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         // 记录交易流水
-        recordFreezeTransaction(wallet, customerNo, resolvedBizType, amountInCents, description, referenceNo, "UNFREEZE");
+        recordFreezeTransaction(wallet, customerNo, amountInCents, description, referenceNo, "UNFREEZE");
 
         log.info("解冻余额成功：用户={}, 金额={}分", customerNo, amountInCents);
         return true;
@@ -383,7 +383,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         try {
-            PageHelper.startPage(pageNum, pageSize);
+            PageMethod.startPage(pageNum, pageSize);
             Page<WalletTransaction> transactionPage = walletTransactionMapper.selectByCustomerNo(customerNo, transactionType);
 
             Page<TransactionHistoryDTO> resultPage = new Page<>();
@@ -418,7 +418,7 @@ public class WalletServiceImpl implements IWalletService {
             pageSize = 20;
         }
 
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         Page<WalletTransaction> transactionPage = walletTransactionMapper.selectByQuery(query);
 
         Page<TransactionHistoryDTO> resultPage = new Page<>();
@@ -447,7 +447,7 @@ public class WalletServiceImpl implements IWalletService {
             pageSize = 20;
         }
 
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<Wallet>) walletMapper.selectAllWithConditions(
                 query.getCustomerNo(), query.getWalletNo(), query.getStatus());
     }
@@ -464,7 +464,7 @@ public class WalletServiceImpl implements IWalletService {
         if (pageSize == null || pageSize < 1 || pageSize > 100) {
             pageSize = 20;
         }
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return walletTransactionMapper.selectByCustomerNo(customerNo, transactionType);
     }
 
@@ -572,7 +572,7 @@ public class WalletServiceImpl implements IWalletService {
         }
     }
 
-    private void recordFreezeTransaction(Wallet wallet, String customerNo, String bizType,
+    private void recordFreezeTransaction(Wallet wallet, String customerNo,
                                           Long amountInCents, String description, String referenceNo,
                                           String transactionType) {
         String transactionNo = generateTransactionNo();
