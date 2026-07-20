@@ -34,9 +34,6 @@ public class WithdrawCompletedMessage implements Serializable {
     /** 消息唯一ID（用于幂等） */
     private String messageId;
 
-    /** 业务类型（多租户隔离） */
-    private String bizType;
-
     /** 业务系统标识（DRONE/SHOP） */
     private String appId;
 

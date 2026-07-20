@@ -31,9 +31,6 @@ public class BalanceChangedMessage implements Serializable {
     /** 交易类型 */
     private String transactionType;
 
-    /** 业务类型（多租户隔离） */
-    private String bizType;
-
     /** 业务系统标识（DRONE/SHOP） */
     private String appId;
 

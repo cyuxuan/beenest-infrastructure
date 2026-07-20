@@ -67,12 +67,17 @@ public final class BizTypeConstants {
      * <p>用于 MQ 消息、定时任务等非请求上下文场景，当实体已有 bizType 但缺少 appId 时推导。</p>
      *
      * @param bizType 业务类型
-     * @return 对应的业务系统标识，未匹配时返回 APP_ID_DRONE（安全兜底）
+     * @return 对应的业务系统标识
+     * @throws IllegalStateException bizType 为空或未注册时抛出，防止静默路由到错误租户
      */
     public static String deriveAppId(String bizType) {
         if (bizType == null || bizType.isBlank()) {
-            return APP_ID_DRONE;
+            throw new IllegalStateException("bizType 为空，无法推导 appId，请检查调用方是否正确设置了 bizType");
         }
-        return BIZ_TYPE_TO_APP_ID.getOrDefault(bizType, APP_ID_DRONE);
+        String appId = BIZ_TYPE_TO_APP_ID.get(bizType);
+        if (appId == null) {
+            throw new IllegalStateException("bizType=" + bizType + " 未在 BizTypeConstants.BIZ_TYPE_TO_APP_ID 中注册，无法推导 appId");
+        }
+        return appId;
     }
 }

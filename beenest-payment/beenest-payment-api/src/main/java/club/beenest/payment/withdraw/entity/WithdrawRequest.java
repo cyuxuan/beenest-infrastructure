@@ -239,13 +239,6 @@ public class WithdrawRequest {
     @Schema(description = "备注信息", example = "用户提现申请")
     private String remark;
 
-    /**
-     * 业务类型
-     * 用于多租户隔离
-     */
-    @Schema(description = "业务类型", example = "DRONE_ORDER")
-    private String bizType;
-
     @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
     private String appId;
 

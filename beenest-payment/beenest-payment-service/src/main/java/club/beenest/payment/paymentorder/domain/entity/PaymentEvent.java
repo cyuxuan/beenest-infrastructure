@@ -54,6 +54,11 @@ public class PaymentEvent {
     private String responseContent;
 
     /**
+     * 多租户应用ID
+     */
+    private String appId;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

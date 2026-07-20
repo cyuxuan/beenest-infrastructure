@@ -65,6 +65,9 @@ public class CreditAuthorization {
     @Schema(description = "第三方授权编号")
     private String thirdPartyAuthNo;
 
+    @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
+    private String appId;
+
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
 

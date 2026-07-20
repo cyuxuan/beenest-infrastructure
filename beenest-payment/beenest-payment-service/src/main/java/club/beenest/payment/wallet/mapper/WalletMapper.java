@@ -86,13 +86,11 @@ public interface WalletMapper {
      * @param customerNo 用户编号，可为空
      * @param walletNo 钱包编号，可为空
      * @param status 状态，可为空
-     * @param bizType 业务类型，可为空
      * @return 钱包列表
      */
     List<Wallet> selectAllWithConditions(@Param("customerNo") String customerNo,
                                          @Param("walletNo") String walletNo,
-                                         @Param("status") String status,
-                                         @Param("bizType") String bizType);
+                                         @Param("status") String status);
 
     /**
      * 插入新的钱包记录

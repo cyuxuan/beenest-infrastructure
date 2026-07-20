@@ -11,9 +11,9 @@
         <result column="status" property="status" />
         <result column="request_content" property="requestContent" />
         <result column="response_content" property="responseContent" />
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="create_time" property="createTime" />
         <result column="update_time" property="updateTime" />
-        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
     </resultMap>
 
     <insert id="insert" parameterType="club.beenest.payment.paymentorder.domain.entity.PaymentEvent" useGeneratedKeys="true" keyProperty="id">

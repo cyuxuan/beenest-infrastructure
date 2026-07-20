@@ -32,7 +32,4 @@ public class WithdrawRequestQueryDTO {
 
     @Schema(description = "结束时间")
     private LocalDateTime endTime;
-
-    @Schema(description = "业务类型标识，用于多租户隔离")
-    private String bizType;
 }

@@ -143,7 +143,7 @@ Response<WalletBalanceDTO> balance = paymentFeignClient.getWalletBalance("C20260
 
 ### 业务类型（bizType）— 业务标记
 
-`bizType` 是客户端侧的业务类型标识（如 `DRONE_ORDER`、`CHANNEL_ORDER`、`SHOP_ORDER`），用于区分同一 appId 下的不同业务场景。**bizType 由客户端控制，支付中台只做存储和透传**。
+`bizType` 是客户端侧的业务类型标识（如 `DRONE_ORDER`、`CHANNEL_ORDER`、`SHOP_ORDER`），用于区分同一 appId 下的不同业务场景。**bizType 由客户端控制，支付中台只做存储和透传**。仅支付订单（`ds_payment_order`）和服务订单（`ds_service_order`）保留 bizType 字段；钱包、交易记录、提现申请等表已移除 bizType，多租户隔离统一由 appId 拦截器处理。
 
 | 常量 | 值 | 说明 |
 |------|----|------|
@@ -432,7 +432,7 @@ Feign Client 基路径：`/internal/payment`，所有端点都在此路径下。
 | `POST` | `/wallet/freeze-balance` | `Response<Boolean>` | 冻结余额（可用→冻结，提现/担保场景） |
 | `POST` | `/wallet/unfreeze-balance` | `Response<Boolean>` | 解冻余额（冻结→可用，取消提现/释放担保） |
 
-**公共参数**：钱包接口的 `appId` 由 Feign 拦截器自动注入，客户端无需手动传入。`bizType` 为可选参数，用于在同一 appId 下进一步按业务类型筛选。
+**公共参数**：钱包接口的 `appId` 由 Feign 拦截器自动注入，客户端无需手动传入。
 
 **WalletBalanceDTO 返回结构**（`/wallet/detail/{customerNo}`）：
 
@@ -485,7 +485,6 @@ Feign Client 基路径：`/internal/payment`，所有端点都在此路径下。
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `customerNo` | String | 是 | 用户编号 |
-| `bizType` | String | 否 | 业务类型 |
 | `amount` | BigDecimal | 是 | 变动金额（单位：分） |
 | `description` | String | 是 | 交易描述 |
 | `transactionType` | String | 是 | 交易类型（`RECHARGE`/`PAYMENT`/`REFUND`/`WITHDRAW`/`FEE`/`PENALTY`） |
@@ -496,7 +495,6 @@ Feign Client 基路径：`/internal/payment`，所有端点都在此路径下。
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `customerNo` | String | 是 | 用户编号 |
-| `bizType` | String | 否 | 业务类型 |
 | `amount` | Long | 是 | 冻结/解冻金额（单位：分） |
 | `description` | String | 是 | 操作描述 |
 | `referenceNo` | String | 否 | 关联单号（如提现申请号） |
@@ -1045,6 +1043,7 @@ Flyway 迁移：`V1_0_8__payscore_credit_exemption.sql`
 | `third_party_order_no` | VARCHAR(128) | 第三方服务订单号 |
 | `callback_data` | TEXT | 回调数据（JSON） |
 | `ext` | TEXT | 扩展字段（JSON，含 channelUserId 等） |
+| `app_id` | VARCHAR(32) | 业务系统标识（DRONE/SHOP），多租户隔离 |
 
 **ds_credit_authorization** — 信用授权记录表：
 
@@ -1059,6 +1058,7 @@ Flyway 迁移：`V1_0_8__payscore_credit_exemption.sql`
 | `exemption_result` | VARCHAR(32) | 免押结果（`FULL_EXEMPT`/`PARTIAL_EXEMPT`/`NOT_EXEMPT`） |
 | `frozen_amount` | BIGINT | 实际冻结金额（分） |
 | `auth_status` | VARCHAR(32) | 授权状态 |
+| `app_id` | VARCHAR(32) | 业务系统标识（DRONE/SHOP），多租户隔离 |
 
 ### 设计模式
 
@@ -1238,6 +1238,7 @@ PaymentOrderCompletedMessage {
     String platform;         // 支付平台（WECHAT/ALIPAY/DOUYIN）
     String paidAt;           // 支付时间
     String bizType;          // 业务类型
+    String appId;            // 业务系统标识
     String messageId;        // 消息唯一ID（幂等键）
     String sign;             // HMAC-SHA256 签名
 }
@@ -1276,7 +1277,7 @@ WithdrawCompletedMessage {
     Long   feeFen;           // 手续费（分）
     Long   actualAmountFen;  // 实际到账金额（分）
     String status;           // 提现状态（SUCCESS/FAILED）
-    String bizType;          // 业务类型
+    String appId;            // 业务系统标识
     String messageId;
     String sign;
 }
@@ -1294,7 +1295,7 @@ BalanceChangedMessage {
     Long   afterBalanceFen;  // 变动后余额（分）
     Long   changeAmountFen;  // 变动金额（分），正数增加、负数减少
     String transactionType;  // 交易类型
-    String bizType;          // 业务类型
+    String appId;            // 业务系统标识
     String messageId;
     String sign;
 }
@@ -1314,6 +1315,7 @@ PaymentOrderCompletedMessage {
     Long   amountFen;        // 订单金额（分）
     String platform;         // 支付平台
     String bizType;          // 业务类型
+    String appId;            // 业务系统标识
     String messageId;
     String sign;
 }
@@ -1330,7 +1332,7 @@ PaymentOrderCompletedMessage {
 ```java
 WalletCreditMessage {
     String customerNo;        // 入账用户编号（必填）
-    String bizType;           // 业务类型（可选，默认 DRONE_ORDER）
+    String appId;             // 业务系统标识（必填，DRONE/SHOP）
     Long   amountFen;         // 入账金额，单位：分（必填，> 0）
     String transactionType;   // 交易类型（必填，WalletTransactionType 枚举值）
     String description;       // 交易描述（必填）
@@ -1700,7 +1702,7 @@ String newMqSecret = paymentFeignClient.rotateMqSecret("DRONE").getData();
 
 ### Q: bizType 不传会怎样？
 
-A: 钱包操作时默认使用 `DRONE_ORDER`。支付中台的 `appId` 多租户隔离由拦截器自动处理，客户端无需关心。`bizType` 是可选的业务标记，不传时使用默认值。
+A: `bizType` 仅在支付订单和服务订单中存在，是可选的业务标记，不传时为 null。钱包、交易记录、提现申请已不再使用 bizType，多租户隔离统一由 appId 拦截器自动处理，客户端无需关心。
 
 ### Q: 支付订单创建后多久过期？
 

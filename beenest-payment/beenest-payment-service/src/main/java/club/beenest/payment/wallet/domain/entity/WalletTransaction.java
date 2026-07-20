@@ -80,13 +80,6 @@ public class WalletTransaction {
     @Schema(description = "客户手机号")
     private String customerPhone;
 
-    /**
-     * 业务类型
-     * 用于多租户隔离
-     */
-    @Schema(description = "业务类型", example = "DRONE_ORDER")
-    private String bizType;
-
     @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
     private String appId;
 

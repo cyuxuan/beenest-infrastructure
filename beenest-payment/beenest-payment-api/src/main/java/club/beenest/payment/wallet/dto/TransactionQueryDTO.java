@@ -25,9 +25,6 @@ public class TransactionQueryDTO {
     @Schema(description = "结束时间")
     private String endTime;
 
-    @Schema(description = "业务类型标识，用于多租户隔离，必须属于当前 appId")
-    private String bizType;
-
     @Schema(description = "业务系统标识，由拦截器自动注入", hidden = true)
     private String appId;
 }

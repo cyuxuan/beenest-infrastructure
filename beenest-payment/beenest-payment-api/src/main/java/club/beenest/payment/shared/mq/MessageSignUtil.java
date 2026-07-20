@@ -86,16 +86,16 @@ public final class MessageSignUtil {
 
     /**
      * 对提现完成消息签名
-     * 签名字段: messageId, requestNo, customerNo, actualAmountFen, status, bizType
+     * 签名字段: messageId, requestNo, customerNo, actualAmountFen, status, appId
      *
      * @param secret 签名密钥（per-app 明文密钥）
      */
     public static String signWithdrawMessage(String secret, String messageId, String requestNo, String customerNo,
-                                               Long actualAmountFen, String status, String bizType) {
+                                               Long actualAmountFen, String status, String appId) {
         String data = joinFields(messageId, requestNo, customerNo,
                 actualAmountFen != null ? actualAmountFen.toString() : "0",
                 status != null ? status : "",
-                bizType != null ? bizType : "");
+                appId != null ? appId : "");
         return computeHmac(secret, data);
     }
 
@@ -104,8 +104,8 @@ public final class MessageSignUtil {
      */
     public static boolean verifyWithdrawMessage(String secret, String sign, String messageId, String requestNo,
                                                   String customerNo, Long actualAmountFen,
-                                                  String status, String bizType) {
-        String expected = signWithdrawMessage(secret, messageId, requestNo, customerNo, actualAmountFen, status, bizType);
+                                                  String status, String appId) {
+        String expected = signWithdrawMessage(secret, messageId, requestNo, customerNo, actualAmountFen, status, appId);
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -113,19 +113,19 @@ public final class MessageSignUtil {
 
     /**
      * 对余额变动消息签名
-     * 签名字段: messageId, customerNo, walletNo, beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType
+     * 签名字段: messageId, customerNo, walletNo, beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, appId
      *
      * @param secret 签名密钥（per-app 明文密钥）
      */
     public static String signBalanceMessage(String secret, String messageId, String customerNo, String walletNo,
                                               Long beforeBalanceFen, Long afterBalanceFen,
-                                              Long changeAmountFen, String transactionType, String bizType) {
+                                              Long changeAmountFen, String transactionType, String appId) {
         String data = joinFields(messageId, customerNo, walletNo,
                 beforeBalanceFen != null ? beforeBalanceFen.toString() : "0",
                 afterBalanceFen != null ? afterBalanceFen.toString() : "0",
                 changeAmountFen != null ? changeAmountFen.toString() : "0",
                 transactionType != null ? transactionType : "",
-                bizType != null ? bizType : "");
+                appId != null ? appId : "");
         return computeHmac(secret, data);
     }
 
@@ -135,9 +135,9 @@ public final class MessageSignUtil {
     public static boolean verifyBalanceMessage(String secret, String sign, String messageId, String customerNo,
                                                  String walletNo, Long beforeBalanceFen,
                                                  Long afterBalanceFen, Long changeAmountFen,
-                                                 String transactionType, String bizType) {
+                                                 String transactionType, String appId) {
         String expected = signBalanceMessage(secret, messageId, customerNo, walletNo,
-                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, bizType);
+                beforeBalanceFen, afterBalanceFen, changeAmountFen, transactionType, appId);
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -145,14 +145,14 @@ public final class MessageSignUtil {
 
     /**
      * 对钱包入账消息签名
-     * 签名字段: messageId, customerNo, bizType, amountFen, transactionType, referenceNo
+     * 签名字段: messageId, customerNo, appId, amountFen, transactionType, referenceNo
      *
      * @param secret 签名密钥（per-app 明文密钥）
      */
-    public static String signWalletCreditMessage(String secret, String messageId, String customerNo, String bizType,
+    public static String signWalletCreditMessage(String secret, String messageId, String customerNo, String appId,
                                                    Long amountFen, String transactionType, String referenceNo) {
         String data = joinFields(messageId, customerNo,
-                bizType != null ? bizType : "",
+                appId != null ? appId : "",
                 amountFen != null ? amountFen.toString() : "0",
                 transactionType != null ? transactionType : "",
                 referenceNo != null ? referenceNo : "");
@@ -163,9 +163,9 @@ public final class MessageSignUtil {
      * 验证钱包入账消息签名
      */
     public static boolean verifyWalletCreditMessage(String secret, String sign, String messageId, String customerNo,
-                                                      String bizType, Long amountFen,
+                                                      String appId, Long amountFen,
                                                       String transactionType, String referenceNo) {
-        String expected = signWalletCreditMessage(secret, messageId, customerNo, bizType, amountFen, transactionType, referenceNo);
+        String expected = signWalletCreditMessage(secret, messageId, customerNo, appId, amountFen, transactionType, referenceNo);
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8));
     }
 

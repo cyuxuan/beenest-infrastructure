@@ -22,9 +22,6 @@ public class WalletAdminQueryDTO {
     @Schema(description = "状态：ACTIVE/FROZEN/CLOSED")
     private String status;
 
-    @Schema(description = "业务类型标识，用于多租户隔离，必须属于当前 appId")
-    private String bizType;
-
     @Schema(description = "业务系统标识，由拦截器自动注入", hidden = true)
     private String appId;
 }

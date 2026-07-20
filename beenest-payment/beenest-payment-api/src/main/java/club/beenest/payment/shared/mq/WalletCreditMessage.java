@@ -25,9 +25,6 @@ public class WalletCreditMessage {
     /** 入账用户编号（必填） */
     private String customerNo;
 
-    /** 业务类型（可选，默认 DRONE_ORDER） */
-    private String bizType;
-
     /** 业务系统标识（DRONE/SHOP） */
     private String appId;
 

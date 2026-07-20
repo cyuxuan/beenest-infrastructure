@@ -4,6 +4,7 @@ import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.annotation.RateLimiter;
 import club.beenest.payment.common.exception.BusinessException;
 import club.beenest.payment.common.exception.RiskControlException;
+import club.beenest.payment.security.AppContext;
 import club.beenest.payment.withdraw.config.WithdrawConfig;
 import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
@@ -185,8 +186,6 @@ public class WithdrawServiceImpl implements IWithdrawService {
             withdrawRequest.setBankName(withdrawRequestDTO.getBankName());
             withdrawRequest.setBankBranch(withdrawRequestDTO.getBankBranch());
             withdrawRequest.setStatusEnum(needManualReview ? WithdrawStatus.MANUAL_REVIEW : WithdrawStatus.PENDING);
-            withdrawRequest.setBizType(BizTypeConstants.DEFAULT);
-            withdrawRequest.setAppId(BizTypeConstants.APP_ID_DRONE);
             withdrawRequest.setRemark(withdrawRequestDTO.getRemark());
             withdrawRequest.setCreateTime(LocalDateTime.now());
             withdrawRequest.setUpdateTime(LocalDateTime.now());
@@ -607,8 +606,7 @@ public class WithdrawServiceImpl implements IWithdrawService {
             msg.setFeeFen(req.getFeeAmount());
             msg.setActualAmountFen(req.getActualAmount());
             msg.setStatus(status.name());
-            msg.setBizType(req.getBizType());
-            msg.setAppId(req.getAppId() != null ? req.getAppId() : BizTypeConstants.deriveAppId(req.getBizType()));
+            msg.setAppId(req.getAppId() != null ? req.getAppId() : AppContext.getAppId());
             paymentEventProducer.sendWithdrawCompleted(msg);
         } catch (Exception e) {
             log.error("发送提现完成MQ消息失败 - requestNo: {}", req.getRequestNo(), e);

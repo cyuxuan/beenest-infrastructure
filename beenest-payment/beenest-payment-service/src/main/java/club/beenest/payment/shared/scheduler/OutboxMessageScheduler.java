@@ -142,7 +142,7 @@ public class OutboxMessageScheduler {
                         textVal(root, "customerNo"),
                         longVal(root, "actualAmountFen"),
                         textVal(root, "status"),
-                        textVal(root, "bizType"));
+                        textVal(root, "appId"));
             } else if (routingKey.contains("balance.changed")) {
                 newSign = MessageSignUtil.signBalanceMessage(mqSecret,
                         messageId,
@@ -152,7 +152,7 @@ public class OutboxMessageScheduler {
                         longVal(root, "afterBalanceFen"),
                         longVal(root, "changeAmountFen"),
                         textVal(root, "transactionType"),
-                        textVal(root, "bizType"));
+                        textVal(root, "appId"));
             } else {
                 log.warn("未知的 outbox 消息 routingKey，跳过签名重算: {}", routingKey);
                 return msg.getPayload();

@@ -3,6 +3,7 @@ package club.beenest.payment.wallet.service.impl;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.exception.BusinessException;
 import club.beenest.payment.common.utils.MoneyUtil;
+import club.beenest.payment.security.AppContext;
 import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.wallet.event.WalletBalanceChangedEvent;
 import club.beenest.payment.wallet.mapper.WalletMapper;
@@ -121,8 +122,6 @@ public class WalletServiceImpl implements IWalletService {
             Wallet wallet = new Wallet();
             wallet.setWalletNo(walletNo);
             wallet.setCustomerNo(customerNo);
-            wallet.setBizType(resolvedBizType);
-            // appId 由 TenantAppIdInterceptor 自动注入，此处无需手动设置
             wallet.setBalance(0L);
             wallet.setFrozenBalance(0L);
             wallet.setTotalRecharge(0L);
@@ -143,7 +142,7 @@ public class WalletServiceImpl implements IWalletService {
             return wallet;
 
         } catch (org.springframework.dao.DuplicateKeyException e) {
-            // 并发场景下，UNIQUE(customer_no, biz_type) 约束命中，直接返回已有钱包
+            // 并发场景下，UNIQUE(customer_no, app_id) 约束命中，直接返回已有钱包
             log.warn("钱包已存在，返回已有钱包：用户={}, bizType={}", customerNo, resolvedBizType);
             return walletMapper.selectByCustomerNo(customerNo);
         } catch (Exception e) {
@@ -440,7 +439,7 @@ public class WalletServiceImpl implements IWalletService {
 
         PageHelper.startPage(pageNum, pageSize);
         return (Page<Wallet>) walletMapper.selectAllWithConditions(
-                query.getCustomerNo(), query.getWalletNo(), query.getStatus(), query.getBizType());
+                query.getCustomerNo(), query.getWalletNo(), query.getStatus());
     }
 
     // ==================== 内部查询（供 drone-system Feign 调用） ====================
@@ -494,8 +493,6 @@ public class WalletServiceImpl implements IWalletService {
         transaction.setTransactionNo(param.getTransactionNo());
         transaction.setWalletNo(param.getWalletNo());
         transaction.setCustomerNo(param.getCustomerNo());
-        transaction.setBizType(param.getBizType());
-        transaction.setAppId(BizTypeConstants.deriveAppId(param.getBizType()));
         transaction.setTransactionType(param.getTransactionType());
         transaction.setAmount(param.getAmount());
         transaction.setBeforeBalance(param.getBeforeBalance());
@@ -573,7 +570,6 @@ public class WalletServiceImpl implements IWalletService {
         param.setTransactionNo(transactionNo);
         param.setWalletNo(wallet.getWalletNo());
         param.setCustomerNo(customerNo);
-        param.setBizType(bizType);
         param.setTransactionType(transactionType);
         param.setAmount(amountInCents);
         param.setBeforeBalance(wallet.getBalance());
@@ -665,7 +661,6 @@ public class WalletServiceImpl implements IWalletService {
                     param.setTransactionNo(transactionNo);
                     param.setWalletNo(wallet.getWalletNo());
                     param.setCustomerNo(customerNo);
-                    param.setBizType(bizType);
                     param.setTransactionType(transactionType);
                     param.setAmount(opType == BalanceOperationType.ADD ? amountInCents : -amountInCents);
                     param.setBeforeBalance(beforeBalance);
@@ -700,8 +695,7 @@ public class WalletServiceImpl implements IWalletService {
                     final BalanceChangedMessage mqMsg = new BalanceChangedMessage();
                     mqMsg.setCustomerNo(customerNo);
                     mqMsg.setWalletNo(wallet.getWalletNo());
-                    mqMsg.setBizType(bizType);
-                    mqMsg.setAppId(BizTypeConstants.deriveAppId(bizType));
+                    mqMsg.setAppId(AppContext.getAppId() != null ? AppContext.getAppId() : BizTypeConstants.deriveAppId(bizType));
                     mqMsg.setBeforeBalanceFen(beforeBalance);
                     mqMsg.setAfterBalanceFen(afterBalance);
                     mqMsg.setChangeAmountFen(opType == BalanceOperationType.ADD ? amountInCents : -amountInCents);

@@ -90,11 +90,10 @@ public class PaymentEventProducer {
      */
     public void sendWithdrawCompleted(WithdrawCompletedMessage message) {
         message.setMessageId(generateMessageId("WITHDRAW-COMPLETE"));
-        String mqSecret = resolveMqSecret(message.getBizType());
-        message.setAppId(resolveAppId(message.getBizType()));
+        String mqSecret = resolveMqSecretByAppId(message.getAppId());
         message.setSign(MessageSignUtil.signWithdrawMessage(mqSecret,
                 message.getMessageId(), message.getRequestNo(), message.getCustomerNo(),
-                message.getActualAmountFen(), message.getStatus(), message.getBizType()));
+                message.getActualAmountFen(), message.getStatus(), message.getAppId()));
         send(PaymentMqConstants.RK_WITHDRAW_COMPLETED, message);
     }
 
@@ -103,13 +102,12 @@ public class PaymentEventProducer {
      */
     public void sendBalanceChanged(BalanceChangedMessage message) {
         message.setMessageId(generateMessageId("BALANCE-CHANGE"));
-        String mqSecret = resolveMqSecret(message.getBizType());
-        message.setAppId(resolveAppId(message.getBizType()));
+        String mqSecret = resolveMqSecretByAppId(message.getAppId());
         message.setSign(MessageSignUtil.signBalanceMessage(mqSecret,
                 message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
                 message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
                 message.getChangeAmountFen(), message.getTransactionType(),
-                message.getBizType()));
+                message.getAppId()));
         send(PaymentMqConstants.RK_BALANCE_CHANGED, message);
     }
 
@@ -121,13 +119,12 @@ public class PaymentEventProducer {
      */
     public void sendBalanceChangedToOutbox(BalanceChangedMessage message) {
         message.setMessageId(generateMessageId("BALANCE-CHANGE"));
-        String mqSecret = resolveMqSecret(message.getBizType());
-        message.setAppId(resolveAppId(message.getBizType()));
+        String mqSecret = resolveMqSecretByAppId(message.getAppId());
         message.setSign(MessageSignUtil.signBalanceMessage(mqSecret,
                 message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
                 message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
                 message.getChangeAmountFen(), message.getTransactionType(),
-                message.getBizType()));
+                message.getAppId()));
         saveToOutbox(PaymentMqConstants.RK_BALANCE_CHANGED, message,
                 message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
         log.info("余额变动消息已写入Outbox - customerNo: {}, walletNo: {}, messageId: {}",
@@ -208,7 +205,7 @@ public class PaymentEventProducer {
     // ==================== 密钥解析 ====================
 
     /**
-     * 根据 bizType 推导 appId
+     * 根据 bizType 推导 appId（支付订单/退款消息仍使用 bizType）
      */
     private String resolveAppId(String bizType) {
         return BizTypeConstants.deriveAppId(bizType);
@@ -227,6 +224,25 @@ public class PaymentEventProducer {
             return mqSecret;
         }
         throw new IllegalStateException("无法获取 MQ 签名密钥: bizType=" + bizType
+                + "，请检查 ds_app_credential 表中对应 appId 的 mq_secret 配置");
+    }
+
+    /**
+     * 解析 MQ 签名密钥：通过 appId 直接获取 per-app 密钥
+     *
+     * @param appId 业务系统标识
+     * @return MQ 明文密钥
+     * @throws IllegalStateException 无法获取密钥时抛出
+     */
+    private String resolveMqSecretByAppId(String appId) {
+        if (StringUtils.isBlank(appId)) {
+            throw new IllegalStateException("appId 为空，无法获取 MQ 签名密钥");
+        }
+        String mqSecret = appCredentialService.getMqSecret(appId);
+        if (StringUtils.isNotBlank(mqSecret)) {
+            return mqSecret;
+        }
+        throw new IllegalStateException("无法获取 MQ 签名密钥: appId=" + appId
                 + "，请检查 ds_app_credential 表中对应 appId 的 mq_secret 配置");
     }
 

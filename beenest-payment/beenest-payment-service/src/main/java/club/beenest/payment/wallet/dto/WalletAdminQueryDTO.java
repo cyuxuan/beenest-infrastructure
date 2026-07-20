@@ -21,8 +21,5 @@ public class WalletAdminQueryDTO {
 
     @Schema(description = "状态：ACTIVE/FROZEN/CLOSED")
     private String status;
-
-    @Schema(description = "业务类型（多租户隔离）")
-    private String bizType;
 }
 
