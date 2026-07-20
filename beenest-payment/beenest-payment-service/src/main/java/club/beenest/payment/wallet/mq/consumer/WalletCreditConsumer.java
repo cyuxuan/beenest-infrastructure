@@ -38,7 +38,7 @@ public class WalletCreditConsumer {
     private final IWalletService walletService;
     private final AppCredentialService appCredentialService;
 
-    @RabbitListener(queues = PaymentMqConstants.QUEUE_WALLET_CREDIT)
+    @RabbitListener(queues = "#{@walletCreditQueueNames.toArray(new String[0])}")
     public void onWalletCredit(WalletCreditMessage message) {
         log.info("收到钱包入账指令: customerNo={}, amountFen={}, transactionType={}, referenceNo={}, appId={}",
                 message.getCustomerNo(), message.getAmountFen(),

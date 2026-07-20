@@ -1,12 +1,25 @@
 package club.beenest.payment.shared.mq;
 
+import club.beenest.payment.shared.domain.entity.AppCredential;
+import club.beenest.payment.shared.service.AppCredentialService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 支付中台 RabbitMQ 配置
- * 定义 Exchange、Queue、Binding、死信队列
+ *
+ * <p>多租户隔离设计：</p>
+ * <ul>
+ *   <li>Exchange 类型为 Topic，路由键带 appId 后缀实现租户物理隔离</li>
+ *   <li>启动时遍历 ds_app_credential 中所有 ACTIVE 租户，自动声明队列/DLQ/绑定</li>
+ *   <li>新增租户只需 INSERT ds_app_credential，支付中台自动声明队列，零代码改动</li>
+ *   <li>消费方通过 {@link PaymentMqConstants#tenantQueueName(String, String)} 推导队列名，无需硬编码</li>
+ * </ul>
  *
  * <p>可靠性设计：</p>
  * <ul>
@@ -14,10 +27,8 @@ import org.springframework.context.annotation.Configuration;
  *   <li>死信队列消息由人工处理或补偿任务定期扫描</li>
  *   <li>消息消费端配合 spring.rabbitmq.listener.simple.retry 实现退避重试</li>
  * </ul>
- *
- * <p>MQ 签名密钥已迁移到 ds_app_credential 表（per-app AES 加密存储），
- * 全局密钥（MessageSignUtil.setSecret）已废弃。</p>
  */
+@Slf4j
 @Configuration
 public class PaymentMqConfig {
 
@@ -28,11 +39,23 @@ public class PaymentMqConfig {
     /** 死信路由键前缀 */
     private static final String DLX_ROUTING_KEY_PREFIX = "dlx.";
 
+    private final AppCredentialService appCredentialService;
+
+    public PaymentMqConfig(AppCredentialService appCredentialService) {
+        this.appCredentialService = appCredentialService;
+    }
+
     // ==================== Exchange ====================
 
+    /**
+     * 支付事件交换机（Topic 类型）
+     *
+     * <p>Topic Exchange 支持通配符路由键匹配，实现租户物理隔离：
+     * payment.order.completed.DRONE → payment.order.completed.drone.queue</p>
+     */
     @Bean
-    public DirectExchange paymentExchange() {
-        return ExchangeBuilder.directExchange(PaymentMqConstants.PAYMENT_EXCHANGE)
+    public TopicExchange paymentExchange() {
+        return ExchangeBuilder.topicExchange(PaymentMqConstants.PAYMENT_EXCHANGE)
                 .durable(true)
                 .build();
     }
@@ -45,149 +68,89 @@ public class PaymentMqConfig {
                 .build();
     }
 
-    // ==================== 死信队列 ====================
+    // ==================== 动态租户队列声明 ====================
 
+    /**
+     * 动态声明所有租户的队列、DLQ 和绑定
+     *
+     * <p>启动时遍历 {@link AppCredentialService#getAllActive()} 中所有 ACTIVE 租户，
+     * 为每个租户声明 6 个业务队列 + 6 个 DLQ + 12 个 Binding。</p>
+     *
+     * <p>新增租户流程：INSERT ds_app_credential → 缓存刷新（60s）→ 调用管理 API 热加载队列声明</p>
+     */
     @Bean
-    public Queue dlqOrderCompleted() {
-        return QueueBuilder.durable("payment.order.completed.dlq").build();
+    public Declarables tenantQueues(TopicExchange paymentExchange, DirectExchange paymentDlxExchange) {
+        List<Declarable> declarables = new ArrayList<>();
+
+        for (AppCredential credential : appCredentialService.getAllActive()) {
+            String appId = credential.getAppId();
+            for (String baseRoutingKey : PaymentMqConstants.ALL_ROUTING_KEYS) {
+                declarables.addAll(declareTenantQueue(appId, baseRoutingKey, paymentExchange, paymentDlxExchange));
+            }
+        }
+
+        logDeclarationSummary(declarables);
+        return new Declarables(declarables);
     }
 
-    @Bean
-    public Queue dlqOrderCancelled() {
-        return QueueBuilder.durable("payment.order.cancelled.dlq").build();
-    }
+    /**
+     * 为单个租户声明一个事件类型的队列 + DLQ + 绑定
+     *
+     * @param appId          业务系统标识
+     * @param baseRoutingKey 基础路由键（如 payment.order.completed）
+     * @param exchange       Topic Exchange
+     * @param dlxExchange    DLX Exchange
+     * @return 声明对象列表（DLQ + Queue + 2 Binding）
+     */
+    private List<Declarable> declareTenantQueue(String appId, String baseRoutingKey,
+                                                 TopicExchange exchange, DirectExchange dlxExchange) {
+        // 路由键：payment.order.completed.DRONE
+        String routingKey = PaymentMqConstants.tenantRoutingKey(baseRoutingKey, appId);
+        // 队列名：payment.order.completed.drone.queue
+        String queueName = PaymentMqConstants.tenantQueueName(
+                PaymentMqConstants.routingKeyToQueueName(baseRoutingKey), appId);
+        // DLQ 名：payment.order.completed.drone.dlq
+        String dlqName = PaymentMqConstants.tenantDlqName(
+                PaymentMqConstants.routingKeyToDlqName(baseRoutingKey), appId);
+        // DLX 路由键：dlx.order.completed.DRONE
+        String dlxRoutingKey = PaymentMqConstants.tenantDlxRoutingKey(
+                DLX_ROUTING_KEY_PREFIX + PaymentMqConstants.extractDlxSegment(baseRoutingKey), appId);
 
-    @Bean
-    public Queue dlqRefundCompleted() {
-        return QueueBuilder.durable("payment.refund.completed.dlq").build();
-    }
+        // DLQ
+        Queue dlq = QueueBuilder.durable(dlqName).build();
 
-    @Bean
-    public Queue dlqWithdrawCompleted() {
-        return QueueBuilder.durable("payment.withdraw.completed.dlq").build();
-    }
-
-    @Bean
-    public Queue dlqBalanceChanged() {
-        return QueueBuilder.durable("payment.balance.changed.dlq").build();
-    }
-
-    @Bean
-    public Queue dlqWalletCredit() {
-        return QueueBuilder.durable(PaymentMqConstants.DLQ_WALLET_CREDIT).build();
-    }
-
-    // ==================== 死信绑定 ====================
-
-    @Bean
-    public Binding dlqOrderCompletedBinding(Queue dlqOrderCompleted, DirectExchange paymentDlxExchange) {
-        return BindingBuilder.bind(dlqOrderCompleted).to(paymentDlxExchange).with(DLX_ROUTING_KEY_PREFIX + "order.completed");
-    }
-
-    @Bean
-    public Binding dlqOrderCancelledBinding(Queue dlqOrderCancelled, DirectExchange paymentDlxExchange) {
-        return BindingBuilder.bind(dlqOrderCancelled).to(paymentDlxExchange).with(DLX_ROUTING_KEY_PREFIX + "order.cancelled");
-    }
-
-    @Bean
-    public Binding dlqRefundCompletedBinding(Queue dlqRefundCompleted, DirectExchange paymentDlxExchange) {
-        return BindingBuilder.bind(dlqRefundCompleted).to(paymentDlxExchange).with(DLX_ROUTING_KEY_PREFIX + "refund.completed");
-    }
-
-    @Bean
-    public Binding dlqWithdrawCompletedBinding(Queue dlqWithdrawCompleted, DirectExchange paymentDlxExchange) {
-        return BindingBuilder.bind(dlqWithdrawCompleted).to(paymentDlxExchange).with(DLX_ROUTING_KEY_PREFIX + "withdraw.completed");
-    }
-
-    @Bean
-    public Binding dlqBalanceChangedBinding(Queue dlqBalanceChanged, DirectExchange paymentDlxExchange) {
-        return BindingBuilder.bind(dlqBalanceChanged).to(paymentDlxExchange).with(DLX_ROUTING_KEY_PREFIX + "balance.changed");
-    }
-
-    @Bean
-    public Binding dlqWalletCreditBinding(Queue dlqWalletCredit, DirectExchange paymentDlxExchange) {
-        return BindingBuilder.bind(dlqWalletCredit).to(paymentDlxExchange).with(DLX_ROUTING_KEY_PREFIX + "wallet.credit");
-    }
-
-    // ==================== 业务队列（带死信配置） ====================
-
-    @Bean
-    public Queue orderCompletedQueue() {
-        return QueueBuilder.durable(PaymentMqConstants.QUEUE_ORDER_COMPLETED)
+        // 业务队列（带死信配置）
+        Queue queue = QueueBuilder.durable(queueName)
                 .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", DLX_ROUTING_KEY_PREFIX + "order.completed")
+                .withArgument("x-dead-letter-routing-key", dlxRoutingKey)
                 .build();
+
+        // 绑定：业务队列 ← Topic Exchange ← 租户路由键
+        Binding binding = BindingBuilder.bind(queue).to(exchange).with(routingKey);
+
+        // 绑定：DLQ ← DLX Exchange ← DLX 路由键
+        Binding dlqBinding = BindingBuilder.bind(dlq).to(dlxExchange).with(dlxRoutingKey);
+
+        return List.of(dlq, queue, binding, dlqBinding);
     }
 
+    /**
+     * 提供所有租户的 wallet.credit 队列名列表，供 WalletCreditConsumer 监听
+     */
     @Bean
-    public Queue orderCancelledQueue() {
-        return QueueBuilder.durable(PaymentMqConstants.QUEUE_ORDER_CANCELLED)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", DLX_ROUTING_KEY_PREFIX + "order.cancelled")
-                .build();
+    public List<String> walletCreditQueueNames() {
+        List<String> queueNames = new ArrayList<>();
+        for (AppCredential credential : appCredentialService.getAllActive()) {
+            queueNames.add(PaymentMqConstants.tenantQueueName(
+                    PaymentMqConstants.QUEUE_WALLET_CREDIT, credential.getAppId()));
+        }
+        return queueNames;
     }
 
-    @Bean
-    public Queue refundCompletedQueue() {
-        return QueueBuilder.durable(PaymentMqConstants.QUEUE_REFUND_COMPLETED)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", DLX_ROUTING_KEY_PREFIX + "refund.completed")
-                .build();
-    }
-
-    @Bean
-    public Queue withdrawCompletedQueue() {
-        return QueueBuilder.durable(PaymentMqConstants.QUEUE_WITHDRAW_COMPLETED)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", DLX_ROUTING_KEY_PREFIX + "withdraw.completed")
-                .build();
-    }
-
-    @Bean
-    public Queue balanceChangedQueue() {
-        return QueueBuilder.durable(PaymentMqConstants.QUEUE_BALANCE_CHANGED)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", DLX_ROUTING_KEY_PREFIX + "balance.changed")
-                .build();
-    }
-
-    @Bean
-    public Queue walletCreditQueue() {
-        return QueueBuilder.durable(PaymentMqConstants.QUEUE_WALLET_CREDIT)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", DLX_ROUTING_KEY_PREFIX + "wallet.credit")
-                .build();
-    }
-
-    // ==================== 业务绑定 ====================
-
-    @Bean
-    public Binding orderCompletedBinding(Queue orderCompletedQueue, DirectExchange paymentExchange) {
-        return BindingBuilder.bind(orderCompletedQueue).to(paymentExchange).with(PaymentMqConstants.RK_PAYMENT_ORDER_COMPLETED);
-    }
-
-    @Bean
-    public Binding orderCancelledBinding(Queue orderCancelledQueue, DirectExchange paymentExchange) {
-        return BindingBuilder.bind(orderCancelledQueue).to(paymentExchange).with(PaymentMqConstants.RK_PAYMENT_ORDER_CANCELLED);
-    }
-
-    @Bean
-    public Binding refundCompletedBinding(Queue refundCompletedQueue, DirectExchange paymentExchange) {
-        return BindingBuilder.bind(refundCompletedQueue).to(paymentExchange).with(PaymentMqConstants.RK_REFUND_COMPLETED);
-    }
-
-    @Bean
-    public Binding withdrawCompletedBinding(Queue withdrawCompletedQueue, DirectExchange paymentExchange) {
-        return BindingBuilder.bind(withdrawCompletedQueue).to(paymentExchange).with(PaymentMqConstants.RK_WITHDRAW_COMPLETED);
-    }
-
-    @Bean
-    public Binding balanceChangedBinding(Queue balanceChangedQueue, DirectExchange paymentExchange) {
-        return BindingBuilder.bind(balanceChangedQueue).to(paymentExchange).with(PaymentMqConstants.RK_BALANCE_CHANGED);
-    }
-
-    @Bean
-    public Binding walletCreditBinding(Queue walletCreditQueue, DirectExchange paymentExchange) {
-        return BindingBuilder.bind(walletCreditQueue).to(paymentExchange).with(PaymentMqConstants.RK_WALLET_CREDIT);
+    private void logDeclarationSummary(List<Declarable> declarables) {
+        long queueCount = declarables.stream().filter(d -> d instanceof Queue).count();
+        long bindingCount = declarables.stream().filter(d -> d instanceof Binding).count();
+        int tenantCount = appCredentialService.getAllActive().size();
+        log.info("声明租户队列: {} 个租户, {} 个队列, {} 个绑定", tenantCount, queueCount, bindingCount);
     }
 }

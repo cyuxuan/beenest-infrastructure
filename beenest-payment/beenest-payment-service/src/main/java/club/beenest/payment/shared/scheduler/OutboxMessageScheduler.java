@@ -3,6 +3,7 @@ package club.beenest.payment.shared.scheduler;
 import club.beenest.payment.shared.mapper.OutboxMessageMapper;
 import club.beenest.payment.shared.domain.entity.OutboxMessage;
 import club.beenest.payment.shared.mq.MessageSignUtil;
+import club.beenest.payment.shared.mq.PaymentMqConstants;
 import club.beenest.payment.shared.service.AppCredentialService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +27,7 @@ import java.util.List;
  *   <li>重发前基于 payload 关键字段重新计算 HMAC 签名，防止 payload 被篡改后发出伪造消息</li>
  *   <li>签名使用 per-app MQ 密钥（从 appId 字段路由到对应密钥）</li>
  *   <li>如果签名重算失败（字段缺失、密钥不可用等），标记消息为 FAILED，要求人工介入</li>
+ *   <li>路由键从 payload 中提取 appId 拼接租户后缀，确保消息路由到正确租户队列</li>
  * </ul>
  */
 @Slf4j
@@ -69,13 +71,20 @@ public class OutboxMessageScheduler {
                     continue;
                 }
 
+                // 从 payload 中提取 appId，拼接租户路由键
+                String appId = extractAppIdFromPayload(msg.getPayload());
+                String tenantRoutingKey = StringUtils.isNotBlank(appId)
+                        ? PaymentMqConstants.tenantRoutingKey(msg.getRoutingKey(), appId)
+                        : msg.getRoutingKey();
+
                 rabbitTemplate.convertAndSend(
-                        msg.getExchange() != null ? msg.getExchange() : "payment.exchange",
-                        msg.getRoutingKey(),
+                        msg.getExchange() != null ? msg.getExchange() : PaymentMqConstants.PAYMENT_EXCHANGE,
+                        tenantRoutingKey,
                         safePayload);
 
                 outboxMessageMapper.updateStatus(msg.getMessageId(), "SENT", null);
-                log.info("Outbox 消息补偿发送成功: messageId={}, retryCount={}", msg.getMessageId(), msg.getRetryCount());
+                log.info("Outbox 消息补偿发送成功: messageId={}, routingKey={}, retryCount={}",
+                        msg.getMessageId(), tenantRoutingKey, msg.getRetryCount());
             } catch (Exception e) {
                 int nextRetry = msg.getRetryCount() + 1;
                 if (nextRetry >= msg.getMaxRetry()) {
@@ -153,6 +162,14 @@ public class OutboxMessageScheduler {
                         longVal(root, "changeAmountFen"),
                         textVal(root, "transactionType"),
                         textVal(root, "appId"));
+            } else if (routingKey.contains("wallet.credit")) {
+                newSign = MessageSignUtil.signWalletCreditMessage(mqSecret,
+                        messageId,
+                        textVal(root, "customerNo"),
+                        textVal(root, "appId"),
+                        longVal(root, "amountFen"),
+                        textVal(root, "transactionType"),
+                        textVal(root, "referenceNo"));
             } else {
                 log.warn("未知的 outbox 消息 routingKey，跳过签名重算: {}", routingKey);
                 return msg.getPayload();
@@ -166,6 +183,19 @@ public class OutboxMessageScheduler {
             return msg.getPayload();
         } catch (Exception e) {
             log.error("Outbox 消息签名重算异常: messageId={}, error={}", msg.getMessageId(), e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 从 payload 中提取 appId
+     */
+    private String extractAppIdFromPayload(String payload) {
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            return textVal(root, "appId");
+        } catch (Exception e) {
+            log.warn("从 payload 提取 appId 失败: {}", e.getMessage());
             return null;
         }
     }
