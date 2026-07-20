@@ -320,7 +320,6 @@ public class WithdrawServiceImpl implements IWithdrawService {
 
                 // 发送提现完成MQ消息 — 在事务提交后发送，防止脏消息
                 final WithdrawRequest mqReq = withdrawRequest;
-                final String mqTransactionNo = transactionNo;
                 TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.SUCCESS));
             } else {
                 if ("UNKNOWN".equalsIgnoreCase(statusStr)) {
@@ -329,7 +328,6 @@ public class WithdrawServiceImpl implements IWithdrawService {
                             "支付状态未知，挂起等待对账补偿: " + message, transactionNo);
 
                     final WithdrawRequest mqReq = withdrawRequest;
-                    final String mqTransactionNo = transactionNo;
                     TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.PROCESSING_ERROR));
 
                     return false;
@@ -346,7 +344,6 @@ public class WithdrawServiceImpl implements IWithdrawService {
 
                 // 发送提现失败MQ消息 — 在事务提交后发送
                 final WithdrawRequest mqReq = withdrawRequest;
-                final String mqTransactionNo = transactionNo;
                 TransactionSynchronizationUtils.afterCommit(() -> sendWithdrawCompletedMessage(mqReq, WithdrawStatus.FAILED));
             }
 

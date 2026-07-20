@@ -859,7 +859,6 @@ public class PaymentServiceImpl implements IPaymentService {
         Long finalAmount = p.finalAmount();
         Long baseAmount = p.baseAmount();
         Long discountAmount = p.discountAmount();
-        String usedCouponNo = p.usedCouponNo();
         String openid = p.openid();
         String walletBizType = bizType != null ? bizType : BizTypeConstants.DRONE_ORDER;
         Wallet wallet = walletService.getWallet(customerNo, walletBizType);
@@ -1558,7 +1557,6 @@ public class PaymentServiceImpl implements IPaymentService {
         // 充值退款：先冻结余额，再调第三方退款
         // 冻结成功后即使down机，余额也不会丢失（不可用但未扣除），Scheduler会补偿
         if (!isOrderPlanPayment(order)) {
-            BigDecimal refundAmountYuan = MoneyUtil.centsToYuan(refund.getAmount());
             boolean freezeSuccess = walletService.freezeBalance(
                     order.getCustomerNo(), order.getBizType(), refund.getAmount(),
                     "充值退款冻结 - 退款单号：" + refund.getRefundNo(),

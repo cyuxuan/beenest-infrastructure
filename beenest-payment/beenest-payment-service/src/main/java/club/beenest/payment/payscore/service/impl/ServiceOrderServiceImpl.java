@@ -88,7 +88,6 @@ public class ServiceOrderServiceImpl implements IServiceOrderService {
 
         // 2. 获取策略并执行检查
         PayScoreStrategy strategy = payScoreStrategyFactory.getStrategy(platform);
-        PaymentConfig.PayScoreConfig payScoreConfig = paymentConfig.getPayscore();
         String serviceId = getServiceId(platform);
 
         return strategy.checkCreditEligibility(customerNo, serviceId, depositAmount);
