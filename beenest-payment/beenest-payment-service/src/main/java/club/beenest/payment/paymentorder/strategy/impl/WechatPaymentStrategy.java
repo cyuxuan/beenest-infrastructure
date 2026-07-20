@@ -53,7 +53,20 @@ import java.util.Map;
 @Component
 @Slf4j
 public class WechatPaymentStrategy extends AbstractPaymentStrategy {
-    
+
+    /** 微信支付API参数：商户订单号 */
+    private static final String PARAM_OUT_TRADE_NO = "out_trade_no";
+    /** 微信支付API参数：微信支付订单号 */
+    private static final String PARAM_TRANSACTION_ID = "transaction_id";
+    /** 微信支付API参数：金额 */
+    private static final String PARAM_AMOUNT = "amount";
+    /** 微信退款结果键：退款单号 */
+    private static final String KEY_REFUND_ID = "refundId";
+    /** 回调/查询结果中状态的 Map 键 */
+    private static final String KEY_STATUS = "status";
+    /** 回调/查询结果中消息的 Map 键 */
+    private static final String KEY_MESSAGE = "message";
+
     @Autowired(required = false)
     private AppServiceExtension appService;
 
@@ -161,8 +174,8 @@ public class WechatPaymentStrategy extends AbstractPaymentStrategy {
                         transaction.getTransactionId());
                 
                 // 将解密后的数据存回callbackData供后续使用
-                callbackData.put("out_trade_no", transaction.getOutTradeNo());
-                callbackData.put("transaction_id", transaction.getTransactionId());
+                callbackData.put(PARAM_OUT_TRADE_NO, transaction.getOutTradeNo());
+                callbackData.put(PARAM_TRANSACTION_ID, transaction.getTransactionId());
                 callbackData.put("trade_state", transaction.getTradeState().name());
                 if (transaction.getAmount() != null) {
                     callbackData.put("total", String.valueOf(transaction.getAmount().getTotal()));
@@ -200,22 +213,22 @@ public class WechatPaymentStrategy extends AbstractPaymentStrategy {
         Map<String, Object> parsedData = new HashMap<>();
         
         // 提取订单号
-        String orderNo = callbackData.get("out_trade_no");
+        String orderNo = callbackData.get(PARAM_OUT_TRADE_NO);
         parsedData.put("orderNo", orderNo);
         
         // 提取第三方交易号
-        String transactionNo = callbackData.get("transaction_id");
+        String transactionNo = callbackData.get(PARAM_TRANSACTION_ID);
         parsedData.put("transactionNo", transactionNo);
         
         // 提取支付金额（分）
         String total = callbackData.get("total");
         if (total != null) {
-            parsedData.put("amount", Long.parseLong(total));
+            parsedData.put(PARAM_AMOUNT, Long.parseLong(total));
         }
         
         // 提取交易状态
         String tradeState = callbackData.get("trade_state");
-        parsedData.put("status", PaymentConstants.REFUND_STATUS_SUCCESS.equals(tradeState) ? PaymentConstants.PAYMENT_STATUS_PAID : PaymentConstants.REFUND_STATUS_FAILED);
+        parsedData.put(KEY_STATUS, PaymentConstants.REFUND_STATUS_SUCCESS.equals(tradeState) ? PaymentConstants.PAYMENT_STATUS_PAID : PaymentConstants.REFUND_STATUS_FAILED);
         
         log.info("解析微信支付回调数据成功 - orderNo: {}", orderNo);
         return parsedData;
@@ -254,31 +267,31 @@ public class WechatPaymentStrategy extends AbstractPaymentStrategy {
             queryResult.put("transactionId", transaction.getTransactionId());
             
             if (transaction.getAmount() != null) {
-                queryResult.put("amount", transaction.getAmount().getTotal());
+                queryResult.put(PARAM_AMOUNT, transaction.getAmount().getTotal());
             }
             
             // 根据交易状态设置消息
             switch (transaction.getTradeState()) {
                 case SUCCESS:
-                    queryResult.put("message", "支付成功");
+                    queryResult.put(KEY_MESSAGE, "支付成功");
                     break;
                 case NOTPAY:
-                    queryResult.put("message", "未支付");
+                    queryResult.put(KEY_MESSAGE, "未支付");
                     break;
                 case CLOSED:
-                    queryResult.put("message", "已关闭");
+                    queryResult.put(KEY_MESSAGE, "已关闭");
                     break;
                 case REFUND:
-                    queryResult.put("message", "转入退款");
+                    queryResult.put(KEY_MESSAGE, "转入退款");
                     break;
                 case USERPAYING:
-                    queryResult.put("message", "用户支付中");
+                    queryResult.put(KEY_MESSAGE, "用户支付中");
                     break;
                 case PAYERROR:
-                    queryResult.put("message", "支付失败");
+                    queryResult.put(KEY_MESSAGE, "支付失败");
                     break;
                 default:
-                    queryResult.put("message", "未知状态");
+                    queryResult.put(KEY_MESSAGE, "未知状态");
             }
             
             log.info("查询微信支付订单状态成功 - orderNo: {}, status: {}", 
@@ -351,9 +364,9 @@ public class WechatPaymentStrategy extends AbstractPaymentStrategy {
             com.wechat.pay.java.service.refund.model.Refund refund = refundService.create(request);
             
             Map<String, Object> result = new HashMap<>();
-            result.put("refundId", refund.getRefundId());
+            result.put(KEY_REFUND_ID, refund.getRefundId());
             result.put("outRefundNo", refund.getOutRefundNo());
-            result.put("status", refund.getStatus().name());
+            result.put(KEY_STATUS, refund.getStatus().name());
             
             log.info("微信退款申请成功 - orderNo: {}, refundId: {}", 
                     paymentOrder.getOrderNo(), refund.getRefundId());
@@ -384,12 +397,12 @@ public class WechatPaymentStrategy extends AbstractPaymentStrategy {
             com.wechat.pay.java.service.refund.model.Refund response = refundService.queryByOutRefundNo(request);
 
             Map<String, Object> result = new HashMap<>();
-            result.put("refundId", response.getRefundId());
+            result.put(KEY_REFUND_ID, response.getRefundId());
             result.put("outRefundNo", response.getOutRefundNo());
-            result.put("status", response.getStatus() == null ? null : response.getStatus().name());
+            result.put(KEY_STATUS, response.getStatus() == null ? null : response.getStatus().name());
             result.put("successTime", response.getSuccessTime());
             if (response.getAmount() != null) {
-                result.put("amount", response.getAmount().getRefund());
+                result.put(PARAM_AMOUNT, response.getAmount().getRefund());
             }
             return result;
         } catch (Exception e) {
@@ -426,8 +439,8 @@ public class WechatPaymentStrategy extends AbstractPaymentStrategy {
 
             callbackData.put("refund_id", notification.getRefundId());
             callbackData.put("out_refund_no", notification.getOutRefundNo());
-            callbackData.put("transaction_id", notification.getTransactionId());
-            callbackData.put("out_trade_no", notification.getOutTradeNo());
+            callbackData.put(PARAM_TRANSACTION_ID, notification.getTransactionId());
+            callbackData.put(PARAM_OUT_TRADE_NO, notification.getOutTradeNo());
             callbackData.put("refund_status", notification.getRefundStatus() == null ? null : notification.getRefundStatus().name());
             if (notification.getAmount() != null && notification.getAmount().getRefund() != null) {
                 callbackData.put("refund", String.valueOf(notification.getAmount().getRefund()));
@@ -445,13 +458,13 @@ public class WechatPaymentStrategy extends AbstractPaymentStrategy {
 
         Map<String, Object> parsedData = new HashMap<>();
         parsedData.put("refundNo", callbackData.get("out_refund_no"));
-        parsedData.put("orderNo", callbackData.get("out_trade_no"));
-        parsedData.put("refundId", callbackData.get("refund_id"));
-        parsedData.put("transactionNo", callbackData.get("transaction_id"));
-        parsedData.put("status", callbackData.get("refund_status"));
+        parsedData.put("orderNo", callbackData.get(PARAM_OUT_TRADE_NO));
+        parsedData.put(KEY_REFUND_ID, callbackData.get("refund_id"));
+        parsedData.put("transactionNo", callbackData.get(PARAM_TRANSACTION_ID));
+        parsedData.put(KEY_STATUS, callbackData.get("refund_status"));
         String refundAmount = callbackData.get("refund");
         if (StringUtils.hasText(refundAmount)) {
-            parsedData.put("amount", Long.parseLong(refundAmount));
+            parsedData.put(PARAM_AMOUNT, Long.parseLong(refundAmount));
         }
         return parsedData;
     }

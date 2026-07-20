@@ -40,6 +40,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Service
 public class AppCredentialService {
 
+    /** 凭证活跃状态 */
+    private static final String STATUS_ACTIVE = "ACTIVE";
+
     private final AppCredentialMapper mapper;
 
     /**
@@ -160,7 +163,7 @@ public class AppCredentialService {
         credential.setAppSecret(rawAppSecret);
         credential.setMqSecret(rawMqSecret);
         credential.setAllowedNetworks(allowedNetworks);
-        credential.setStatus("ACTIVE");
+        credential.setStatus(STATUS_ACTIVE);
         credential.setDescription(description);
         credential.setCreatedBy(operator);
         mapper.insert(credential);
@@ -177,7 +180,7 @@ public class AppCredentialService {
         result.setAppSecret(rawAppSecret);
         result.setMqSecret(rawMqSecret);
         result.setAllowedNetworks(allowedNetworks);
-        result.setStatus("ACTIVE");
+        result.setStatus(STATUS_ACTIVE);
         result.setDescription(description);
         return result;
     }
@@ -266,7 +269,7 @@ public class AppCredentialService {
      * @param operator 操作人
      */
     public void enableApp(String appId, String operator) {
-        mapper.updateStatus(appId, "ACTIVE");
+        mapper.updateStatus(appId, STATUS_ACTIVE);
         refreshCache();
         log.info("应用凭证已启用: appId={}, operator={}", appId, operator);
     }
@@ -308,7 +311,7 @@ public class AppCredentialService {
      */
     private void rebuildActiveSnapshot() {
         List<AppCredential> active = credentialCache.values().stream()
-                .filter(c -> "ACTIVE".equals(c.getStatus()))
+                .filter(c -> STATUS_ACTIVE.equals(c.getStatus()))
                 .toList();
         activeCredentialsSnapshot.clear();
         activeCredentialsSnapshot.addAll(active);

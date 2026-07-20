@@ -18,6 +18,9 @@ import java.util.Map;
  */
 public final class AuthUtils {
 
+    /** 角色权限前缀 */
+    private static final String ROLE_PREFIX = "ROLE_";
+
     private AuthUtils() {
     }
 
@@ -131,7 +134,7 @@ public final class AuthUtils {
         if (!StringUtils.hasText(role)) {
             return false;
         }
-        String normalized = role.startsWith("ROLE_") ? role : "ROLE_" + role.toUpperCase();
+        String normalized = role.startsWith(ROLE_PREFIX) ? role : ROLE_PREFIX + role.toUpperCase();
         return getAuthorities().contains(normalized);
     }
 
@@ -155,8 +158,8 @@ public final class AuthUtils {
      */
     public static List<String> getRoles() {
         return getAuthorities().stream()
-                .filter(authority -> authority.startsWith("ROLE_"))
-                .map(authority -> authority.substring("ROLE_".length()))
+                .filter(authority -> authority.startsWith(ROLE_PREFIX))
+                .map(authority -> authority.substring(ROLE_PREFIX.length()))
                 .map(String::toLowerCase)
                 .toList();
     }
@@ -168,7 +171,7 @@ public final class AuthUtils {
      */
     public static List<String> getPermissions() {
         return getAuthorities().stream()
-                .filter(authority -> !authority.startsWith("ROLE_"))
+                .filter(authority -> !authority.startsWith(ROLE_PREFIX))
                 .toList();
     }
 

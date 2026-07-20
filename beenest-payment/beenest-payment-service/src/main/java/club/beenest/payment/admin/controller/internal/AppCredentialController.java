@@ -35,6 +35,11 @@ import java.util.List;
 @Slf4j
 public class AppCredentialController {
 
+    /** 管理员操作者标识 */
+    private static final String OPERATOR_ADMIN = "ADMIN";
+    /** 应用凭证不存在提示前缀 */
+    private static final String MSG_CREDENTIAL_NOT_FOUND = "应用凭证不存在: ";
+
     private final AppCredentialService appCredentialService;
 
     /**
@@ -56,7 +61,7 @@ public class AppCredentialController {
     public Response<AppCredentialVO> getByAppId(@PathVariable String appId) {
         AppCredential credential = appCredentialService.getByAppId(appId);
         if (credential == null) {
-            return Response.fail(404, "应用凭证不存在: " + appId);
+            return Response.fail(404, MSG_CREDENTIAL_NOT_FOUND + appId);
         }
         return Response.success(toMaskedVO(credential));
     }
@@ -75,7 +80,7 @@ public class AppCredentialController {
         AppCredential result = appCredentialService.createApp(
                 dto.getAppId(), dto.getAppName(),
                 dto.getAllowedNetworks(), dto.getDescription(),
-                "ADMIN");
+                OPERATOR_ADMIN);
         return Response.success(result);
     }
 
@@ -88,7 +93,7 @@ public class AppCredentialController {
             return Response.fail(400, "appId 不能为空");
         }
         appCredentialService.updateApp(dto.getAppId(), dto.getAppName(),
-                dto.getAllowedNetworks(), dto.getDescription(), "ADMIN");
+                dto.getAllowedNetworks(), dto.getDescription(), OPERATOR_ADMIN);
         return Response.success();
     }
 
@@ -98,9 +103,9 @@ public class AppCredentialController {
     @PostMapping("/rotate-secret/{appId}")
     public Response<String> rotateAppSecret(@PathVariable String appId) {
         if (appCredentialService.getByAppId(appId) == null) {
-            return Response.fail(404, "应用凭证不存在: " + appId);
+            return Response.fail(404, MSG_CREDENTIAL_NOT_FOUND + appId);
         }
-        String newSecret = appCredentialService.rotateAppSecret(appId, "ADMIN");
+        String newSecret = appCredentialService.rotateAppSecret(appId, OPERATOR_ADMIN);
         return Response.success(newSecret);
     }
 
@@ -110,9 +115,9 @@ public class AppCredentialController {
     @PostMapping("/rotate-mq-secret/{appId}")
     public Response<String> rotateMqSecret(@PathVariable String appId) {
         if (appCredentialService.getByAppId(appId) == null) {
-            return Response.fail(404, "应用凭证不存在: " + appId);
+            return Response.fail(404, MSG_CREDENTIAL_NOT_FOUND + appId);
         }
-        String newSecret = appCredentialService.rotateMqSecret(appId, "ADMIN");
+        String newSecret = appCredentialService.rotateMqSecret(appId, OPERATOR_ADMIN);
         return Response.success(newSecret);
     }
 
@@ -121,7 +126,7 @@ public class AppCredentialController {
      */
     @PostMapping("/enable/{appId}")
     public Response<Void> enable(@PathVariable String appId) {
-        appCredentialService.enableApp(appId, "ADMIN");
+        appCredentialService.enableApp(appId, OPERATOR_ADMIN);
         return Response.success();
     }
 
@@ -130,7 +135,7 @@ public class AppCredentialController {
      */
     @PostMapping("/disable/{appId}")
     public Response<Void> disable(@PathVariable String appId) {
-        appCredentialService.disableApp(appId, "ADMIN");
+        appCredentialService.disableApp(appId, OPERATOR_ADMIN);
         return Response.success();
     }
 

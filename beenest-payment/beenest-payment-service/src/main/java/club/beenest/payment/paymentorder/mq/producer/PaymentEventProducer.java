@@ -39,6 +39,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PaymentEventProducer {
 
+    /** Outbox 直写时的错误信息描述 */
+    private static final String OUTBOX_DIRECT_WRITE_MSG = "事务内Outbox直写，等待Scheduler补偿发送";
+
     private final RabbitTemplate rabbitTemplate;
     private final OutboxMessageMapper outboxMessageMapper;
     private final ObjectMapper objectMapper;
@@ -52,9 +55,8 @@ public class PaymentEventProducer {
         String mqSecret = resolveMqSecret(message.getBizType());
         message.setAppId(resolveAppId(message.getBizType()));
         message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
-                message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
-                message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
-                message.getBizType()));
+                new MessageSignUtil.OrderSignParams(message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
+                        message.getCustomerNo(), message.getAmountFen(), message.getPlatform(), message.getBizType())));
         send(PaymentMqConstants.RK_PAYMENT_ORDER_COMPLETED, message.getAppId(), message);
     }
 
@@ -66,9 +68,8 @@ public class PaymentEventProducer {
         String mqSecret = resolveMqSecret(message.getBizType());
         message.setAppId(resolveAppId(message.getBizType()));
         message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
-                message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
-                message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
-                message.getBizType()));
+                new MessageSignUtil.OrderSignParams(message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
+                        message.getCustomerNo(), message.getAmountFen(), message.getPlatform(), message.getBizType())));
         send(PaymentMqConstants.RK_PAYMENT_ORDER_CANCELLED, message.getAppId(), message);
     }
 
@@ -80,8 +81,8 @@ public class PaymentEventProducer {
         String mqSecret = resolveMqSecret(message.getBizType());
         message.setAppId(resolveAppId(message.getBizType()));
         message.setSign(MessageSignUtil.signRefundMessage(mqSecret,
-                message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
-                message.getBusinessOrderNo(), message.getStatus(), message.getBizType()));
+                new MessageSignUtil.RefundSignParams(message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
+                        message.getBusinessOrderNo(), message.getStatus(), message.getBizType())));
         send(PaymentMqConstants.RK_REFUND_COMPLETED, message.getAppId(), message);
     }
 
@@ -92,8 +93,8 @@ public class PaymentEventProducer {
         message.setMessageId(generateMessageId("WITHDRAW-COMPLETE"));
         String mqSecret = resolveMqSecretByAppId(message.getAppId());
         message.setSign(MessageSignUtil.signWithdrawMessage(mqSecret,
-                message.getMessageId(), message.getRequestNo(), message.getCustomerNo(),
-                message.getActualAmountFen(), message.getStatus(), message.getAppId()));
+                new MessageSignUtil.WithdrawSignParams(message.getMessageId(), message.getRequestNo(), message.getCustomerNo(),
+                        message.getActualAmountFen(), message.getStatus(), message.getAppId())));
         send(PaymentMqConstants.RK_WITHDRAW_COMPLETED, message.getAppId(), message);
     }
 
@@ -104,10 +105,9 @@ public class PaymentEventProducer {
         message.setMessageId(generateMessageId("BALANCE-CHANGE"));
         String mqSecret = resolveMqSecretByAppId(message.getAppId());
         message.setSign(MessageSignUtil.signBalanceMessage(mqSecret,
-                message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
-                message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
-                message.getChangeAmountFen(), message.getTransactionType(),
-                message.getAppId()));
+                new MessageSignUtil.BalanceSignParams(message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
+                        message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
+                        message.getChangeAmountFen(), message.getTransactionType(), message.getAppId())));
         send(PaymentMqConstants.RK_BALANCE_CHANGED, message.getAppId(), message);
     }
 
@@ -121,12 +121,11 @@ public class PaymentEventProducer {
         message.setMessageId(generateMessageId("BALANCE-CHANGE"));
         String mqSecret = resolveMqSecretByAppId(message.getAppId());
         message.setSign(MessageSignUtil.signBalanceMessage(mqSecret,
-                message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
-                message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
-                message.getChangeAmountFen(), message.getTransactionType(),
-                message.getAppId()));
+                new MessageSignUtil.BalanceSignParams(message.getMessageId(), message.getCustomerNo(), message.getWalletNo(),
+                        message.getBeforeBalanceFen(), message.getAfterBalanceFen(),
+                        message.getChangeAmountFen(), message.getTransactionType(), message.getAppId())));
         saveToOutbox(PaymentMqConstants.RK_BALANCE_CHANGED, message,
-                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+                message.getMessageId(), OUTBOX_DIRECT_WRITE_MSG);
         log.info("余额变动消息已写入Outbox - customerNo: {}, walletNo: {}, messageId: {}",
                 message.getCustomerNo(), message.getWalletNo(), message.getMessageId());
     }
@@ -166,11 +165,10 @@ public class PaymentEventProducer {
         String mqSecret = resolveMqSecret(message.getBizType());
         message.setAppId(resolveAppId(message.getBizType()));
         message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
-                message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
-                message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
-                message.getBizType()));
+                new MessageSignUtil.OrderSignParams(message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
+                        message.getCustomerNo(), message.getAmountFen(), message.getPlatform(), message.getBizType())));
         saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_COMPLETED, message,
-                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+                message.getMessageId(), OUTBOX_DIRECT_WRITE_MSG);
         log.info("支付订单完成消息已写入Outbox - orderNo: {}, bizNo: {}, messageId: {}",
                 message.getOrderNo(), message.getBusinessOrderNo(), message.getMessageId());
     }
@@ -183,11 +181,10 @@ public class PaymentEventProducer {
         String mqSecret = resolveMqSecret(message.getBizType());
         message.setAppId(resolveAppId(message.getBizType()));
         message.setSign(MessageSignUtil.signOrderMessage(mqSecret,
-                message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
-                message.getCustomerNo(), message.getAmountFen(), message.getPlatform(),
-                message.getBizType()));
+                new MessageSignUtil.OrderSignParams(message.getMessageId(), message.getOrderNo(), message.getBusinessOrderNo(),
+                        message.getCustomerNo(), message.getAmountFen(), message.getPlatform(), message.getBizType())));
         saveToOutbox(PaymentMqConstants.RK_PAYMENT_ORDER_CANCELLED, message,
-                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+                message.getMessageId(), OUTBOX_DIRECT_WRITE_MSG);
         log.info("支付订单取消消息已写入Outbox - orderNo: {}, bizNo: {}, messageId: {}",
                 message.getOrderNo(), message.getBusinessOrderNo(), message.getMessageId());
     }
@@ -200,10 +197,10 @@ public class PaymentEventProducer {
         String mqSecret = resolveMqSecret(message.getBizType());
         message.setAppId(resolveAppId(message.getBizType()));
         message.setSign(MessageSignUtil.signRefundMessage(mqSecret,
-                message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
-                message.getBusinessOrderNo(), message.getStatus(), message.getBizType()));
+                new MessageSignUtil.RefundSignParams(message.getMessageId(), message.getRefundNo(), message.getOrderNo(),
+                        message.getBusinessOrderNo(), message.getStatus(), message.getBizType())));
         saveToOutbox(PaymentMqConstants.RK_REFUND_COMPLETED, message,
-                message.getMessageId(), "事务内Outbox直写，等待Scheduler补偿发送");
+                message.getMessageId(), OUTBOX_DIRECT_WRITE_MSG);
         log.info("退款完成消息已写入Outbox - refundNo: {}, messageId: {}", message.getRefundNo(), message.getMessageId());
     }
 

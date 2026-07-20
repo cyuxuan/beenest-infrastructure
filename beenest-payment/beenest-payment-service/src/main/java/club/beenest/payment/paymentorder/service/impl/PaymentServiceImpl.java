@@ -128,6 +128,13 @@ public class PaymentServiceImpl implements IPaymentService {
     @Lazy
     private PaymentServiceImpl self;
 
+    /** 回调/查询结果中平台状态的 Map 键 */
+    private static final String KEY_PLATFORM_STATUS = "platformStatus";
+    /** 回调/查询结果中金额的 Map 键 */
+    private static final String KEY_AMOUNT = "amount";
+    /** 回调/查询结果中状态的 Map 键 */
+    private static final String KEY_STATUS = "status";
+
     /**
      * 创建充值订单
      *
@@ -262,8 +269,8 @@ public class PaymentServiceImpl implements IPaymentService {
             Map<String, Object> parsedData = paymentStrategy.parseCallback(callbackData);
             String orderNo = (String) parsedData.get("orderNo");
             String transactionNo = (String) parsedData.get("transactionNo");
-            Long paidAmount = (Long) parsedData.get("amount");
-            String paidStatus = MapValueUtils.stringValue(parsedData.get("status"));
+            Long paidAmount = (Long) parsedData.get(KEY_AMOUNT);
+            String paidStatus = MapValueUtils.stringValue(parsedData.get(KEY_STATUS));
 
             event.setOrderNo(orderNo);
 
@@ -672,8 +679,8 @@ public class PaymentServiceImpl implements IPaymentService {
                         finalAmount, baseAmount, discountAmount, bizNo);
             }
 
-            return createNewOrderPayment(customerNo, bizNo, request.getBizType(), backendPlatform, paymentMethod,
-                    finalAmount, baseAmount, discountAmount, discountResult.userCouponNo(), openid);
+            return createNewOrderPayment(new NewOrderParams(customerNo, bizNo, request.getBizType(), backendPlatform, paymentMethod,
+                    finalAmount, baseAmount, discountAmount, discountResult.userCouponNo(), openid));
 
         } catch (IllegalArgumentException e) {
             log.warn("创建订单支付参数错误 - customerNo: {}, error: {}", customerNo, e.getMessage());
@@ -777,7 +784,7 @@ public class PaymentServiceImpl implements IPaymentService {
             PaymentStrategy preCheckStrategy = paymentStrategyFactory.getStrategy(existingPlatform);
             Map<String, Object> platformStatus = preCheckStrategy.queryPayment(existingOrder);
             if (platformStatus != null && isPlatformPaid(
-                    platformStatus.get("platformStatus") == null ? null : platformStatus.get("platformStatus").toString())) {
+                    platformStatus.get(KEY_PLATFORM_STATUS) == null ? null : platformStatus.get(KEY_PLATFORM_STATUS).toString())) {
                 // 第三方已支付成功，走补偿同步路径
                 log.warn("复用待支付订单时发现第三方已支付，走补偿路径 - orderNo: {}", existingOrder.getOrderNo());
                 syncPaymentOrderFromQuerySafe(existingOrder, platformStatus);
@@ -796,9 +803,9 @@ public class PaymentServiceImpl implements IPaymentService {
         Map<String, Object> paymentParams = getOrCreatePaymentParams(existingOrder, paymentStrategy);
 
         log.info("复用待支付订单 - orderNo: {}, bizNo: {}", existingOrder.getOrderNo(), bizNo);
-        return buildOrderPaymentResult(existingOrder.getOrderNo(), bizNo, finalAmount, baseAmount, discountAmount,
+        return buildOrderPaymentResult(new OrderPaymentResultParams(existingOrder.getOrderNo(), bizNo, finalAmount, baseAmount, discountAmount,
                 backendPlatform, existingOrder.getPaymentMethod(), paymentStrategy.getPlatformName(),
-                existingOrder.getExpireTime(), paymentParams);
+                existingOrder.getExpireTime(), paymentParams));
     }
 
     private Map<String, Object> getOrCreatePaymentParams(PaymentOrder order, PaymentStrategy strategy) {
@@ -820,9 +827,22 @@ public class PaymentServiceImpl implements IPaymentService {
         return paymentParams;
     }
 
-    private OrderPaymentResultDTO createNewOrderPayment(String customerNo, String bizNo, String bizType,
-            String backendPlatform, String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount,
-            String usedCouponNo, String openid) {
+    /** 创建新订单的参数封装 */
+    private record NewOrderParams(String customerNo, String bizNo, String bizType,
+                                   String backendPlatform, String paymentMethod, Long finalAmount,
+                                   Long baseAmount, Long discountAmount, String usedCouponNo, String openid) {}
+
+    private OrderPaymentResultDTO createNewOrderPayment(NewOrderParams p) {
+        String customerNo = p.customerNo();
+        String bizNo = p.bizNo();
+        String bizType = p.bizType();
+        String backendPlatform = p.backendPlatform();
+        String paymentMethod = p.paymentMethod();
+        Long finalAmount = p.finalAmount();
+        Long baseAmount = p.baseAmount();
+        Long discountAmount = p.discountAmount();
+        String usedCouponNo = p.usedCouponNo();
+        String openid = p.openid();
         String walletBizType = bizType != null ? bizType : BizTypeConstants.DRONE_ORDER;
         Wallet wallet = walletService.getWallet(customerNo, walletBizType);
         String walletNo = wallet != null ? wallet.getWalletNo() : "";
@@ -864,9 +884,9 @@ public class PaymentServiceImpl implements IPaymentService {
         savePaymentParamsSafely(paymentOrder, paymentParams);
 
         log.info("订单支付创建完成 - orderNo: {}, bizNo: {}", orderNo, bizNo);
-        return buildOrderPaymentResult(orderNo, bizNo, finalAmount, baseAmount, discountAmount,
+        return buildOrderPaymentResult(new OrderPaymentResultParams(orderNo, bizNo, finalAmount, baseAmount, discountAmount,
                 backendPlatform, paymentOrder.getPaymentMethod(), paymentStrategy.getPlatformName(),
-                paymentOrder.getExpireTime(), paymentParams);
+                paymentOrder.getExpireTime(), paymentParams));
     }
 
     /**
@@ -1358,7 +1378,7 @@ public class PaymentServiceImpl implements IPaymentService {
             return;
         }
 
-        Object channelStatus = platformStatus.get("platformStatus");
+        Object channelStatus = platformStatus.get(KEY_PLATFORM_STATUS);
         if (!isPlatformPaid(channelStatus == null ? null : channelStatus.toString())) {
             return;
         }
@@ -1370,7 +1390,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
 
         // 金额校验：paidAmount 为 null 或不匹配时拒绝更新，与回调处理保持一致
-        Long paidAmount = MapValueUtils.longValue(platformStatus.get("amount"));
+        Long paidAmount = MapValueUtils.longValue(platformStatus.get(KEY_AMOUNT));
         if (paidAmount == null || !paidAmount.equals(paymentOrder.getAmount())) {
             log.error("补偿查询金额校验失败 - orderNo: {}, expected: {}, actual: {}",
                     paymentOrder.getOrderNo(), paymentOrder.getAmount(), paidAmount);
@@ -1573,7 +1593,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 refund.getThirdPartyRefundNo());
         String channelStatus = MapValueUtils.firstNonBlank(
                 MapValueUtils.stringValue(result.get("channelStatus")),
-                MapValueUtils.stringValue(result.get("status")),
+                MapValueUtils.stringValue(result.get(KEY_STATUS)),
                 refund.getChannelStatus());
 
         // 使用领域方法执行状态转换（内含合法性校验）
@@ -1657,7 +1677,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     private String normalizeRefundStatus(String platform, Map<String, Object> result) {
         if (PaymentConstants.PLATFORM_ALIPAY.equalsIgnoreCase(platform)) {
-            String refundStatus = MapValueUtils.stringValue(result.get("status"));
+            String refundStatus = MapValueUtils.stringValue(result.get(KEY_STATUS));
             if (StringUtils.hasText(refundStatus)) {
                 return refundStatus.trim().toUpperCase();
             }
@@ -1674,7 +1694,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
         String channelStatus = MapValueUtils.firstNonBlank(
                 MapValueUtils.stringValue(result.get("channelStatus")),
-                MapValueUtils.stringValue(result.get("status")));
+                MapValueUtils.stringValue(result.get(KEY_STATUS)));
         if (!StringUtils.hasText(channelStatus)) {
             return null;
         }
@@ -1724,20 +1744,24 @@ public class PaymentServiceImpl implements IPaymentService {
     /**
      * 构建订单支付结果 DTO（统一 createRechargeOrder / handleExistingPendingOrder / createNewOrderPayment 的返回结构）
      */
-    private OrderPaymentResultDTO buildOrderPaymentResult(String orderNo, String bizNo, Long amount,
-            Long originalAmount, Long discountAmount, String platform, String paymentMethod,
-            String platformName, LocalDateTime expireTime, Map<String, Object> paymentParams) {
+    /** 订单支付结果构建参数 */
+    private record OrderPaymentResultParams(String orderNo, String bizNo, Long amount,
+                                             Long originalAmount, Long discountAmount, String platform,
+                                             String paymentMethod, String platformName, LocalDateTime expireTime,
+                                             Map<String, Object> paymentParams) {}
+
+    private OrderPaymentResultDTO buildOrderPaymentResult(OrderPaymentResultParams p) {
         return new OrderPaymentResultDTO()
-                .setOrderNo(orderNo)
-                .setBizNo(bizNo)
-                .setAmount(amount)
-                .setOriginalAmount(originalAmount)
-                .setDiscountAmount(discountAmount)
-                .setPlatform(platform)
-                .setPaymentMethod(paymentMethod)
-                .setPlatformName(platformName)
-                .setExpireTime(expireTime)
-                .setPaymentParams(paymentParams);
+                .setOrderNo(p.orderNo())
+                .setBizNo(p.bizNo())
+                .setAmount(p.amount())
+                .setOriginalAmount(p.originalAmount())
+                .setDiscountAmount(p.discountAmount())
+                .setPlatform(p.platform())
+                .setPaymentMethod(p.paymentMethod())
+                .setPlatformName(p.platformName())
+                .setExpireTime(p.expireTime())
+                .setPaymentParams(p.paymentParams());
     }
 
     // [P2 #11] 已移除 scheduleRefundStatusAutoSync()，退款状态补偿完全依赖
@@ -1812,7 +1836,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
         result.put("orderNo", orderNo);
         result.put("currentStatus", order.getStatus());
-        result.put("amount", order.getAmount());
+        result.put(KEY_AMOUNT, order.getAmount());
         result.put("platform", order.getPlatform());
         result.put("bizNo", order.getBizNo());
 
@@ -1829,8 +1853,8 @@ public class PaymentServiceImpl implements IPaymentService {
             PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
             platformStatus = strategy.queryPayment(order);
             if (platformStatus != null) {
-                String status = platformStatus.get("platformStatus") == null ? null
-                        : platformStatus.get("platformStatus").toString();
+                String status = platformStatus.get(KEY_PLATFORM_STATUS) == null ? null
+                        : platformStatus.get(KEY_PLATFORM_STATUS).toString();
                 thirdPartyPaid = isPlatformPaid(status);
             }
         } catch (Exception e) {

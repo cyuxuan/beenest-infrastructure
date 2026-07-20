@@ -47,7 +47,12 @@ import java.util.Map;
 @Component
 @Slf4j
 public class AlipayPaymentStrategy extends AbstractPaymentStrategy {
-    
+
+    /** 支付宝回调/查询结果键：金额 */
+    private static final String KEY_AMOUNT = "amount";
+    /** 支付宝回调/查询结果键：状态 */
+    private static final String KEY_STATUS = "status";
+
     private AlipayClient alipayClient;
     
     public AlipayPaymentStrategy(PaymentConfig paymentConfig) {
@@ -169,12 +174,12 @@ public class AlipayPaymentStrategy extends AbstractPaymentStrategy {
         
         String totalAmount = callbackData.get("total_amount");
         if (totalAmount != null) {
-            parsedData.put("amount", new BigDecimal(totalAmount).multiply(new BigDecimal(100)).longValue());
+            parsedData.put(KEY_AMOUNT, new BigDecimal(totalAmount).multiply(new BigDecimal(100)).longValue());
         }
         
         String tradeStatus = callbackData.get("trade_status");
         boolean isSuccess = PaymentConstants.REFUND_STATUS_TRADE_SUCCESS.equals(tradeStatus) || PaymentConstants.REFUND_STATUS_TRADE_FINISHED.equals(tradeStatus);
-        parsedData.put("status", isSuccess ? PaymentConstants.PAYMENT_STATUS_PAID : PaymentConstants.REFUND_STATUS_FAILED);
+        parsedData.put(KEY_STATUS, isSuccess ? PaymentConstants.PAYMENT_STATUS_PAID : PaymentConstants.REFUND_STATUS_FAILED);
         
         return parsedData;
     }
@@ -196,7 +201,7 @@ public class AlipayPaymentStrategy extends AbstractPaymentStrategy {
             Map<String, Object> result = new HashMap<>();
             result.put("platformStatus", response.getTradeStatus());
             result.put("transactionNo", response.getTradeNo());
-            result.put("amount", new BigDecimal(response.getTotalAmount()).multiply(new BigDecimal(100)).longValue());
+            result.put(KEY_AMOUNT, new BigDecimal(response.getTotalAmount()).multiply(new BigDecimal(100)).longValue());
             
             String statusMsg;
             switch (response.getTradeStatus()) {
@@ -280,7 +285,7 @@ public class AlipayPaymentStrategy extends AbstractPaymentStrategy {
                 result.put("refundId", response.getTradeNo());
                 result.put("fundChange", response.getFundChange());
                 result.put("refundFee", response.getRefundFee());
-                result.put("status", PaymentConstants.ALIPAY_FUND_CHANGE_YES.equalsIgnoreCase(response.getFundChange()) ? PaymentConstants.REFUND_STATUS_REFUND_SUCCESS : PaymentConstants.REFUND_STATUS_PROCESSING);
+                result.put(KEY_STATUS, PaymentConstants.ALIPAY_FUND_CHANGE_YES.equalsIgnoreCase(response.getFundChange()) ? PaymentConstants.REFUND_STATUS_REFUND_SUCCESS : PaymentConstants.REFUND_STATUS_PROCESSING);
                 log.info("支付宝退款成功 - orderNo: {}", paymentOrder.getOrderNo());
                 return result;
             } else {
@@ -313,10 +318,10 @@ public class AlipayPaymentStrategy extends AbstractPaymentStrategy {
             Map<String, Object> result = new HashMap<>();
             result.put("refundId", response.getTradeNo());
             result.put("outRefundNo", response.getOutRequestNo());
-            result.put("status", response.getRefundStatus());
+            result.put(KEY_STATUS, response.getRefundStatus());
             result.put("channelStatus", response.getRefundChannelStatus());
             if (StringUtils.hasText(response.getRefundAmount())) {
-                result.put("amount", new BigDecimal(response.getRefundAmount()).multiply(new BigDecimal(100)).longValue());
+                result.put(KEY_AMOUNT, new BigDecimal(response.getRefundAmount()).multiply(new BigDecimal(100)).longValue());
             }
             if (StringUtils.hasText(response.getErrorCode())) {
                 result.put("errorCode", response.getErrorCode());

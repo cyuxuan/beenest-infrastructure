@@ -42,6 +42,13 @@ public class OutboxMessageScheduler {
 
     private static final int BATCH_SIZE = 50;
 
+    /** 消息体中 appId 字段名 */
+    private static final String FIELD_APP_ID = "appId";
+    /** 消息体中 customerNo 字段名 */
+    private static final String FIELD_CUSTOMER_NO = "customerNo";
+    /** 消息体中 bizType 字段名 */
+    private static final String FIELD_BIZ_TYPE = "bizType";
+
     @Scheduled(fixedDelay = 30_000, initialDelay = 60_000)
     public void retryPendingMessages() {
         List<OutboxMessage> messages;
@@ -123,53 +130,41 @@ public class OutboxMessageScheduler {
             }
 
             // 从 payload 中获取 appId，路由到 per-app 密钥
-            String appId = textVal(root, "appId");
+            String appId = textVal(root, FIELD_APP_ID);
             String mqSecret = resolveMqSecret(appId, root);
 
             String newSign;
             if (routingKey.contains("order.completed") || routingKey.contains("order.cancelled")) {
                 newSign = MessageSignUtil.signOrderMessage(mqSecret,
-                        messageId,
-                        textVal(root, "orderNo"),
-                        textVal(root, "businessOrderNo"),
-                        textVal(root, "customerNo"),
-                        longVal(root, "amountFen"),
-                        textVal(root, "platform"),
-                        textVal(root, "bizType"));
+                        new MessageSignUtil.OrderSignParams(messageId,
+                                textVal(root, "orderNo"), textVal(root, "businessOrderNo"),
+                                textVal(root, FIELD_CUSTOMER_NO), longVal(root, "amountFen"),
+                                textVal(root, "platform"), textVal(root, FIELD_BIZ_TYPE)));
             } else if (routingKey.contains("refund.completed")) {
                 newSign = MessageSignUtil.signRefundMessage(mqSecret,
-                        messageId,
-                        textVal(root, "refundNo"),
-                        textVal(root, "orderNo"),
-                        textVal(root, "businessOrderNo"),
-                        textVal(root, "status"),
-                        textVal(root, "bizType"));
+                        new MessageSignUtil.RefundSignParams(messageId,
+                                textVal(root, "refundNo"), textVal(root, "orderNo"),
+                                textVal(root, "businessOrderNo"), textVal(root, "status"),
+                                textVal(root, FIELD_BIZ_TYPE)));
             } else if (routingKey.contains("withdraw.completed")) {
                 newSign = MessageSignUtil.signWithdrawMessage(mqSecret,
-                        messageId,
-                        textVal(root, "requestNo"),
-                        textVal(root, "customerNo"),
-                        longVal(root, "actualAmountFen"),
-                        textVal(root, "status"),
-                        textVal(root, "appId"));
+                        new MessageSignUtil.WithdrawSignParams(messageId,
+                                textVal(root, "requestNo"), textVal(root, FIELD_CUSTOMER_NO),
+                                longVal(root, "actualAmountFen"), textVal(root, "status"),
+                                textVal(root, FIELD_APP_ID)));
             } else if (routingKey.contains("balance.changed")) {
                 newSign = MessageSignUtil.signBalanceMessage(mqSecret,
-                        messageId,
-                        textVal(root, "customerNo"),
-                        textVal(root, "walletNo"),
-                        longVal(root, "beforeBalanceFen"),
-                        longVal(root, "afterBalanceFen"),
-                        longVal(root, "changeAmountFen"),
-                        textVal(root, "transactionType"),
-                        textVal(root, "appId"));
+                        new MessageSignUtil.BalanceSignParams(messageId,
+                                textVal(root, FIELD_CUSTOMER_NO), textVal(root, "walletNo"),
+                                longVal(root, "beforeBalanceFen"), longVal(root, "afterBalanceFen"),
+                                longVal(root, "changeAmountFen"), textVal(root, "transactionType"),
+                                textVal(root, FIELD_APP_ID)));
             } else if (routingKey.contains("wallet.credit")) {
                 newSign = MessageSignUtil.signWalletCreditMessage(mqSecret,
-                        messageId,
-                        textVal(root, "customerNo"),
-                        textVal(root, "appId"),
-                        longVal(root, "amountFen"),
-                        textVal(root, "transactionType"),
-                        textVal(root, "referenceNo"));
+                        new MessageSignUtil.WalletCreditSignParams(messageId,
+                                textVal(root, FIELD_CUSTOMER_NO), textVal(root, FIELD_APP_ID),
+                                longVal(root, "amountFen"), textVal(root, "transactionType"),
+                                textVal(root, "referenceNo")));
             } else {
                 log.warn("未知的 outbox 消息 routingKey，跳过签名重算: {}", routingKey);
                 return msg.getPayload();
@@ -193,7 +188,7 @@ public class OutboxMessageScheduler {
     private String extractAppIdFromPayload(String payload) {
         try {
             JsonNode root = objectMapper.readTree(payload);
-            return textVal(root, "appId");
+            return textVal(root, FIELD_APP_ID);
         } catch (Exception e) {
             log.warn("从 payload 提取 appId 失败: {}", e.getMessage());
             return null;
@@ -216,7 +211,7 @@ public class OutboxMessageScheduler {
             }
         }
         // 2. 回退到 bizType 推导
-        String bizType = textVal(root, "bizType");
+        String bizType = textVal(root, FIELD_BIZ_TYPE);
         if (StringUtils.isNotBlank(bizType)) {
             String secret = appCredentialService.getMqSecretByBizType(bizType);
             if (StringUtils.isNotBlank(secret)) {

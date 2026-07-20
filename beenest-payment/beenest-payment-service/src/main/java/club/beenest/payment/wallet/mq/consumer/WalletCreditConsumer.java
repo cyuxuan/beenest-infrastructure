@@ -110,9 +110,9 @@ public class WalletCreditConsumer {
             String mqSecret = appCredentialService.getMqSecret(message.getAppId());
             if (StringUtils.isNotBlank(mqSecret)) {
                 return MessageSignUtil.verifyWalletCreditMessage(mqSecret,
-                        message.getSign(), message.getMessageId(), message.getCustomerNo(),
-                        message.getAppId(), message.getAmountFen(),
-                        message.getTransactionType(), message.getReferenceNo());
+                        message.getSign(), new MessageSignUtil.WalletCreditSignParams(message.getMessageId(),
+                                message.getCustomerNo(), message.getAppId(), message.getAmountFen(),
+                                message.getTransactionType(), message.getReferenceNo()));
             }
             log.error("appId={} 无 MQ 密钥，验签失败", message.getAppId());
             return false;

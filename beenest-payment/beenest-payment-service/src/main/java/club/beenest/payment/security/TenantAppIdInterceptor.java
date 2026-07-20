@@ -68,6 +68,9 @@ public class TenantAppIdInterceptor implements Interceptor {
     /** 拦截器追加的参数名前缀，避免与业务参数冲突 */
     private static final String APP_ID_PARAM_KEY = "_tenantAppId";
 
+    /** 参数对象中的 appId 字段名 */
+    private static final String FIELD_APP_ID = "appId";
+
     /** Mapper 方法缓存：className#methodName → 是否标注 @TenantIgnore */
     private final Map<String, Boolean> tenantIgnoreCache = new HashMap<>();
 
@@ -250,18 +253,18 @@ public class TenantAppIdInterceptor implements Interceptor {
             if (parameter instanceof Map) {
                 // 多参数场景：尝试设置 map 中的 appId 键
                 Map<?, ?> paramMap = (Map<?, ?>) parameter;
-                if (!paramMap.containsKey("appId")) {
+                if (!paramMap.containsKey(FIELD_APP_ID)) {
                     return;
                 }
-                Object existing = ((Map) parameter).get("appId");
+                Object existing = ((Map) parameter).get(FIELD_APP_ID);
                 if (existing == null || (existing instanceof String && ((String) existing).isBlank())) {
-                    ((Map) parameter).put("appId", appId);
+                    ((Map) parameter).put(FIELD_APP_ID, appId);
                 }
                 return;
             }
 
             // 单参数对象：通过反射设置 appId 字段
-            java.lang.reflect.Field field = ReflectionUtils.findField(parameter.getClass(), "appId");
+            java.lang.reflect.Field field = ReflectionUtils.findField(parameter.getClass(), FIELD_APP_ID);
             if (field == null) return;
 
             field.setAccessible(true);
