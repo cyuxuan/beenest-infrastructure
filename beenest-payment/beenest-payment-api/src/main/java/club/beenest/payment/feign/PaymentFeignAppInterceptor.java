@@ -3,6 +3,7 @@ package club.beenest.payment.feign;
 import club.beenest.payment.shared.codec.CodecUtils;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
+import feign.Target;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
@@ -25,6 +27,13 @@ import java.util.UUID;
  *
  * <p>下游服务只需在配置中指定 {@code payment.client.app-id} 和
  * {@code payment.client.app-secret} 即可（app_secret 同时用于令牌认证和签名）。</p>
+ *
+ * <h4>签名路径说明</h4>
+ * <p>Feign 的 {@code RequestTemplate.path()} 仅返回方法级路径（如 {@code /payment/orders}），
+ * 不包含 {@code @FeignClient(path=...)} 的基础路径前缀（如 {@code /internal/payment}）。
+ * 但服务端 {@code InternalApiFilter} 使用 {@code request.getRequestURI()} 获取完整路径，
+ * 因此签名时必须拼接完整路径。本拦截器通过 {@code template.feignTarget().url()}
+ * 提取基础路径前缀，确保客户端与服务端签名数据一致。</p>
  *
  * @author System
  * @since 2026-07-16
@@ -61,14 +70,56 @@ public class PaymentFeignAppInterceptor implements RequestInterceptor {
             }
 
             // 构建签名数据：METHOD|PATH|TIMESTAMP|NONCE|BODY
+            // 关键：template.path() 仅返回方法级路径（如 /payment/orders），
+            // 不包含 @FeignClient(path="/internal/payment") 的基础路径前缀。
+            // 但服务端 InternalApiFilter 使用 request.getRequestURI()（含完整路径），
+            // 因此必须拼接 feignTarget 的 URL path 前缀，确保签名一致。
             String method = template.method();
-            String path = template.path() != null ? template.path() : "";
-            String data = method + "|" + path + "|" + timestamp + "|" + nonce + "|" + body;
+            String methodPath = template.path() != null ? template.path() : "";
+            // 去掉 query string（服务端 getRequestURI() 不含 query）
+            if (methodPath.contains("?")) {
+                methodPath = methodPath.substring(0, methodPath.indexOf("?"));
+            }
+            // 从 feignTarget.url() 提取基础路径前缀
+            // feignTarget.url() 格式如 "http://beenest-payment/internal/payment"
+            String basePath = extractBasePath(template);
+            String fullPath = basePath + methodPath;
+            String data = method + "|" + fullPath + "|" + timestamp + "|" + nonce + "|" + body;
             String signature = computeHmac(appSecret, data);
 
             template.header("X-Timestamp", String.valueOf(timestamp));
             template.header("X-Nonce", nonce);
             template.header("X-Signature", signature);
+        }
+    }
+
+    /**
+     * 从 Feign Target 的 URL 中提取基础路径前缀
+     *
+     * <p>Spring Cloud OpenFeign 的 Target URL 格式为 {@code http://service-name/base-path}，
+     * 其中 base-path 即 {@code @FeignClient(path=...)} 的值。
+     * 本方法提取该路径部分（如 {@code /internal/payment}）。</p>
+     *
+     * @param template Feign 请求模板
+     * @return 基础路径前缀（如 "/internal/payment"），无路径时返回空字符串
+     */
+    private String extractBasePath(RequestTemplate template) {
+        Target<?> feignTarget = template.feignTarget();
+        if (feignTarget == null) {
+            return "";
+        }
+        String targetUrl = feignTarget.url();
+        if (targetUrl == null || targetUrl.isEmpty()) {
+            return "";
+        }
+        try {
+            URI uri = URI.create(targetUrl);
+            String path = uri.getPath();
+            // URI.getPath() 对 "http://host" 返回 null 或 ""
+            return path != null ? path : "";
+        } catch (Exception e) {
+            log.warn("无法解析 Feign Target URL 的路径: url={}", targetUrl, e);
+            return "";
         }
     }
 

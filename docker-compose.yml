@@ -10,10 +10,10 @@ services:
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
+    # 初始化脚本：创建数据库 + schema
+    # schema 列表：drone_system, beenest_payment, beenest_cas
     volumes:
-      - postgres-data:/var/lib/postgresql/data
       # 初始化脚本：创建数据库 + schema
-      # schema 列表：drone_system, beenest_payment, beenest_cas
       - ./infra/postgres/00-create-databases.sh:/docker-entrypoint-initdb.d/00-create-databases.sh
       - ./infra/postgres/01-schema-drone-system.sql:/tmp/sql/01-schema-drone-system.sql
       - ./infra/postgres/02-schema-beenest-payment.sql:/tmp/sql/02-schema-beenest-payment.sql
@@ -31,8 +31,6 @@ services:
     container_name: beenest-redis
     ports:
       - "6379:6379"
-    volumes:
-      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -43,15 +41,13 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: drone-rabbitmq
+    container_name: beenest-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     ports:
       - "5672:5672"
       - "15672:15672"
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
       interval: 15s
@@ -69,11 +65,9 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
-    volumes:
-      - minio-data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -91,8 +85,6 @@ services:
     ports:
       - "8848:8848"
       - "9848:9848"
-    volumes:
-      - nacos-data:/home/nacos/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/v1/console/health/readiness"]
       interval: 15s
@@ -114,14 +106,13 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - ./beenest-cas/.env
+      - ./beenest-cas/.env.dev
     ports:
       - "8081:8081"
     volumes:
       - ./beenest-cas/beenest-cas-service/build/libs/cas.war:/app/app.war
       - ./beenest-cas/beenest-cas-service/etc/cas/oidc/jwks.json:/etc/cas/oidc/jwks.json
       - ./beenest-cas/beenest-cas-service/etc/cas/saml:/etc/cas/saml
-      - beenest-cas-logs:/app/logs
     working_dir: /app
     entrypoint: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.war"]
     networks:
@@ -141,26 +132,20 @@ services:
       nacos:
         condition: service_healthy
     env_file:
-      - ./beenest-payment/.env
+      - ./beenest-payment/.env.dev
     ports:
       - "8082:8082"
     volumes:
-      - ./beenest-payment/beenest-payment-service/target/beenest-payment-service-0.0.1-SNAPSHOT.jar:/app/app.jar
-      - beenest-payment-logs:/app/logs
+      - ./beenest-payment/beenest-payment-service/target/beenest-payment-service-1.0.4.jar:/app/app.jar
     working_dir: /app
     entrypoint: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
     networks:
       - beenest-net
 
+# ============================================================
+# 使用前需先创建外部网络：
+#   docker network create beenest-net
+# ============================================================
 networks:
   beenest-net:
     external: true
-
-volumes:
-  postgres-data:
-  redis-data:
-  rabbitmq-data:
-  minio-data:
-  nacos-data:
-  beenest-cas-logs:
-  beenest-payment-logs:

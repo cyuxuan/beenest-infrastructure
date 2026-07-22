@@ -197,6 +197,15 @@ public class InternalApiFilter extends OncePerRequestFilter {
         String data = method + "|" + path + "|" + timestamp + "|" + nonce + "|" + body;
         String expected = computeHmac(data, appSecret);
 
+        // 签名不匹配时打印详情，便于排查客户端签名差异（不打印密钥）
+        if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8))) {
+            log.warn("签名不匹配详情: method={}, path={}, timestamp={}, nonce={}, bodyLength={}, "
+                     + "clientSignature={}, expectedSignature={}, dataToSign={}",
+                     method, path, timestamp, nonce, body.length(),
+                     signature, expected,
+                     data.length() > 500 ? data.substring(0, 500) + "..." : data);
+        }
+
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8));
     }
 
