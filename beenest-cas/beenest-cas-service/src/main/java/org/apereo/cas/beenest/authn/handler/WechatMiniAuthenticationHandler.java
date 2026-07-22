@@ -141,6 +141,10 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
         if (StringUtils.isNotBlank(user.getEmail())) {
             attrs.put("email", List.of(user.getEmail()));
         }
+        // 租户ID（注册来源的 appid）
+        if (StringUtils.isNotBlank(user.getTenantId())) {
+            attrs.put("tenantId", List.of(user.getTenantId()));
+        }
         // 合并 memberOf 属性（基础角色 + 应用角色）
         attrs.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
         return attrs;

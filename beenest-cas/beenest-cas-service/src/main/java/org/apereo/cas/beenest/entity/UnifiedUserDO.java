@@ -19,6 +19,8 @@ public class UnifiedUserDO {
     /** 用户应用角色（逗号分隔），如 "ROLE_DRONE_SYSTEM,ROLE_PAYMENT" */
     private String roles;
     private String source;
+    /** 租户ID，存储注册来源的appid */
+    private String tenantId;
     private String loginType;
 
     // 微信

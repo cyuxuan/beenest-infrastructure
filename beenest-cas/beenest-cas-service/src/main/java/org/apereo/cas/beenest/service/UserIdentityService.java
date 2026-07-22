@@ -4,6 +4,7 @@ import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.common.util.UserTypeUtils;
 import org.apereo.cas.beenest.config.AutoGrantProperties;
+import org.apereo.cas.beenest.config.MiniAppProperties;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +55,7 @@ public class UserIdentityService {
 
     private final UnifiedUserMapper userMapper;
     private final AutoGrantProperties autoGrantProperties;
+    private final MiniAppProperties miniAppProperties;
     /**
      * 微信渠道：查找或注册用户
      */
@@ -389,6 +391,7 @@ public class UserIdentityService {
         user.setLoginType("WECHAT");
         user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("MINIAPP");
+        user.setTenantId(miniAppProperties.getWechat().getAppid());
         user.setNickname(nickname);
         if (StringUtils.isNotBlank(phone)) {
             user.setPhone(phone);
@@ -409,6 +412,7 @@ public class UserIdentityService {
         user.setLoginType("DOUYIN_MINI");
         user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("MINIAPP");
+        user.setTenantId(miniAppProperties.getDouyin().getAppid());
         user.setNickname(nickname);
         user.setStatus(CasConstant.USER_STATUS_ACTIVE);
         user.setFailedLoginCount(0);
@@ -423,6 +427,7 @@ public class UserIdentityService {
         user.setLoginType("ALIPAY_MINI");
         user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("MINIAPP");
+        user.setTenantId(miniAppProperties.getAlipay().getAppid());
         user.setNickname(nickname);
         user.setStatus(CasConstant.USER_STATUS_ACTIVE);
         user.setFailedLoginCount(0);

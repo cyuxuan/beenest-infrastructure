@@ -3,7 +3,7 @@
 <mapper namespace="org.apereo.cas.beenest.mapper.UnifiedUserMapper">
 
     <sql id="columns">
-        id, user_id, user_type, identity, source, login_type,
+        id, user_id, user_type, identity, source, tenant_id, login_type,
         openid, unionid, douyin_openid, douyin_unionid, alipay_uid, alipay_openid,
         username, nickname, avatar_url, phone, email, password_hash,
         phone_verified, email_verified, mfa_enabled,
@@ -51,13 +51,13 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO cas_user (
-            user_id, user_type, identity, source, login_type,
+            user_id, user_type, identity, source, tenant_id, login_type,
             openid, unionid, douyin_openid, douyin_unionid, alipay_uid, alipay_openid,
             username, nickname, avatar_url, phone, email, password_hash,
             phone_verified, email_verified, mfa_enabled,
             status, failed_login_count, lock_until_time, token_version
         ) VALUES (
-            #{userId}, #{userType}, #{identity}, #{source}, #{loginType},
+            #{userId}, #{userType}, #{identity}, #{source}, #{tenantId}, #{loginType},
             #{openid}, #{unionid}, #{douyinOpenid}, #{douyinUnionid}, #{alipayUid}, #{alipayOpenid},
             #{username}, #{nickname}, #{avatarUrl}, #{phone}, #{email}, #{passwordHash},
             #{phoneVerified}, #{emailVerified}, #{mfaEnabled},

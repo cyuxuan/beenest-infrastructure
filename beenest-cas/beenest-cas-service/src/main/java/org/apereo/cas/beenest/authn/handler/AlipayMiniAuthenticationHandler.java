@@ -228,6 +228,10 @@ public class AlipayMiniAuthenticationHandler implements AuthenticationHandler {
         if (StringUtils.isNotBlank(user.getEmail())) {
             attributes.put("email", List.of(user.getEmail()));
         }
+        // 租户ID（注册来源的 appid）
+        if (StringUtils.isNotBlank(user.getTenantId())) {
+            attributes.put("tenantId", List.of(user.getTenantId()));
+        }
         // 合并 memberOf 属性（基础角色 + 应用角色）
         attributes.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
 
