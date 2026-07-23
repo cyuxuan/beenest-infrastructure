@@ -12,19 +12,14 @@ spring:
     name: beenest-payment
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-    include:
-      - secret
-  main:
-    allow-bean-definition-overriding: true
-  lifecycle:
-    timeout-per-shutdown-phase: 30s
+  config:
+    import:
+      - optional:classpath:application-secret.yml
+      - optional:nacos:beenest-payment.yml?refreshEnabled=true&group=DEFAULT_GROUP
+      - optional:nacos:beenest-payment-${spring.profiles.active}.yml?refreshEnabled=true&group=DEFAULT_GROUP
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
-  config:
-    import:
-      - optional:nacos:beenest-payment.yml?refreshEnabled=true&group=DEFAULT_GROUP
-      - optional:nacos:beenest-payment-${spring.profiles.active}.yml?refreshEnabled=true&group=DEFAULT_GROUP
   cloud:
     nacos:
       config:
