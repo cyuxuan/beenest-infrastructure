@@ -104,6 +104,11 @@ public class Refund {
      */
     private String customerNo;
 
+    /**
+     * 多租户应用ID
+     */
+    private String appId;
+
     public RefundStatus getStatusEnum() {
         return RefundStatus.getByCode(status);
     }

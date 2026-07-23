@@ -19,5 +19,4 @@ public class TransactionParam {
     private String referenceNo;
     private String referenceType;
     private String status;
-    private String bizType;
 }

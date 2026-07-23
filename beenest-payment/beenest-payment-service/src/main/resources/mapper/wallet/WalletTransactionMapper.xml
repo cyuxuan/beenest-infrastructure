@@ -10,7 +10,7 @@
         <result column="customer_no" property="customerNo" jdbcType="VARCHAR"/>
         <result column="customerName" property="customerName" jdbcType="VARCHAR"/>
         <result column="customerPhone" property="customerPhone" jdbcType="VARCHAR"/>
-        <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="transaction_type" property="transactionType" jdbcType="VARCHAR"/>
         <result column="amount" property="amount" jdbcType="BIGINT"/>
         <result column="before_balance" property="beforeBalance" jdbcType="BIGINT"/>
@@ -25,7 +25,7 @@
 
     <!-- Base Column List -->
     <sql id="Base_Column_List">
-        id, transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+        id, transaction_no, wallet_no, customer_no, app_id, transaction_type, amount,
         before_balance, after_balance, description, reference_no, reference_type,
         status, remark, create_time
     </sql>
@@ -47,11 +47,11 @@
     <!-- 插入交易流水记录 -->
     <insert id="insert" parameterType="club.beenest.payment.wallet.domain.entity.WalletTransaction" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ds_wallet_transaction (
-            transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+            transaction_no, wallet_no, customer_no, app_id, transaction_type, amount,
             before_balance, after_balance, description, reference_no, reference_type,
             status, remark, create_time
         ) VALUES (
-            #{transactionNo}, #{walletNo}, #{customerNo}, #{bizType}, #{transactionType}, #{amount},
+            #{transactionNo}, #{walletNo}, #{customerNo}, #{appId}, #{transactionType}, #{amount},
             #{beforeBalance}, #{afterBalance}, #{description}, #{referenceNo}, #{referenceType},
             #{status}, #{remark}, #{createTime}
         )
@@ -60,13 +60,13 @@
     <!-- 批量插入交易流水记录 -->
     <insert id="batchInsert" parameterType="java.util.List">
         INSERT INTO ds_wallet_transaction (
-            transaction_no, wallet_no, customer_no, biz_type, transaction_type, amount,
+            transaction_no, wallet_no, customer_no, app_id, transaction_type, amount,
             before_balance, after_balance, description, reference_no, reference_type,
             status, remark, create_time
         ) VALUES
         <foreach collection="transactions" item="item" separator=",">
             (
-                #{item.transactionNo}, #{item.walletNo}, #{item.customerNo}, #{item.bizType},
+                #{item.transactionNo}, #{item.walletNo}, #{item.customerNo}, #{item.appId},
                 #{item.transactionType}, #{item.amount}, #{item.beforeBalance},
                 #{item.afterBalance}, #{item.description}, #{item.referenceNo},
                 #{item.referenceType}, #{item.status}, #{item.remark}, #{item.createTime}
@@ -80,9 +80,7 @@
         FROM ds_wallet_transaction
         WHERE customer_no = #{customerNo}
           AND status = 'SUCCESS'
-        <if test="bizType != null and bizType != ''">
-          AND biz_type = #{bizType}
-        </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
         <if test="transactionType != null and transactionType != ''">
           AND transaction_type = #{transactionType}
         </if>
@@ -94,9 +92,7 @@
         SELECT <include refid="Base_Column_List"/>
         FROM ds_wallet_transaction
         WHERE wallet_no = #{walletNo}
-        <if test="bizType != null and bizType != ''">
-          AND biz_type = #{bizType}
-        </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
         <if test="transactionType != null and transactionType != ''">
           AND transaction_type = #{transactionType}
         </if>
@@ -114,9 +110,7 @@
         <if test="customerNo != null and customerNo != ''">
           AND customer_no = #{customerNo}
         </if>
-        <if test="bizType != null and bizType != ''">
-          AND biz_type = #{bizType}
-        </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
         <if test="transactionType != null and transactionType != ''">
           AND transaction_type = #{transactionType}
         </if>
@@ -139,16 +133,14 @@
 
     <!-- 统计用户交易金额 -->
     <select id="statisticsByCustomerNo" resultMap="BaseResultMap">
-        SELECT 
+        SELECT
             transaction_type,
             SUM(amount) as amount,
             COUNT(*) as id
         FROM ds_wallet_transaction
         WHERE customer_no = #{customerNo}
           AND status = 'SUCCESS'
-        <if test="bizType != null and bizType != ''">
-          AND biz_type = #{bizType}
-        </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
         <if test="startTime != null">
           AND create_time &gt;= #{startTime}
         </if>
@@ -196,9 +188,7 @@
             <if test="type != null and type != ''">
                 AND t.transaction_type = #{type}
             </if>
-            <if test="bizType != null and bizType != ''">
-                AND t.biz_type = #{bizType}
-            </if>
+            <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
             <if test="startTime != null and startTime != ''">
                 AND t.create_time &gt;= #{startTime}
             </if>

@@ -10,7 +10,7 @@
         <result column="customerName" property="customerName" jdbcType="VARCHAR"/>
         <result column="customerPhone" property="customerPhone" jdbcType="VARCHAR"/>
         <result column="wallet_no" property="walletNo" jdbcType="VARCHAR"/>
-        <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="amount" property="amount" jdbcType="BIGINT"/>
         <result column="withdraw_type" property="withdrawType" jdbcType="VARCHAR"/>
         <result column="account_type" property="accountType" jdbcType="VARCHAR"/>
@@ -34,7 +34,7 @@
 
     <!-- Base Column List -->
     <sql id="Base_Column_List">
-        id, request_no, customer_no, wallet_no, biz_type, amount, withdraw_type, account_type,
+        id, request_no, customer_no, wallet_no, app_id, amount, withdraw_type, account_type,
         account_name, account_number, bank_name, bank_branch, fee_amount, actual_amount,
         status, audit_user, audit_time, audit_remark, process_time, process_result,
         third_party_order_no, remark, create_time, update_time
@@ -57,12 +57,12 @@
     <!-- 插入提现申请记录 -->
     <insert id="insert" parameterType="club.beenest.payment.withdraw.domain.entity.WithdrawRequest" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ds_withdraw_request (
-            request_no, customer_no, wallet_no, biz_type, amount, withdraw_type, account_type,
+            request_no, customer_no, wallet_no, app_id, amount, withdraw_type, account_type,
             account_name, account_number, bank_name, bank_branch, fee_amount, actual_amount,
             status, audit_user, audit_time, audit_remark, process_time, process_result,
             third_party_order_no, remark, create_time, update_time
         ) VALUES (
-            #{requestNo}, #{customerNo}, #{walletNo}, #{bizType}, #{amount}, #{withdrawType}, #{accountType},
+            #{requestNo}, #{customerNo}, #{walletNo}, #{appId}, #{amount}, #{withdrawType}, #{accountType},
             #{accountName}, #{accountNumber}, #{bankName}, #{bankBranch}, #{feeAmount}, #{actualAmount},
             #{status}, #{auditUser}, #{auditTime}, #{auditRemark}, #{processTime}, #{processResult},
             #{thirdPartyOrderNo}, #{remark}, #{createTime}, #{updateTime}
@@ -126,9 +126,6 @@
         SELECT <include refid="Base_Column_List"/>
         FROM ds_withdraw_request
         WHERE customer_no = #{customerNo}
-        <if test="bizType != null and bizType != ''">
-          AND biz_type = #{bizType}
-        </if>
         <if test="status != null and status != ''">
           AND status = #{status}
         </if>
@@ -162,9 +159,7 @@
         <if test="customerNo != null and customerNo != ''">
           AND customer_no = #{customerNo}
         </if>
-        <if test="bizType != null and bizType != ''">
-          AND biz_type = #{bizType}
-        </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
         <if test="status != null and status != ''">
           AND status = #{status}
         </if>
@@ -192,9 +187,6 @@
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
                 </if>
-                <if test="bizType != null and bizType != ''">
-                  AND biz_type = #{bizType}
-                </if>
                 GROUP BY status
                 ORDER BY status
             </when>
@@ -213,9 +205,6 @@
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
                 </if>
-                <if test="bizType != null and bizType != ''">
-                  AND biz_type = #{bizType}
-                </if>
                 GROUP BY withdraw_type
                 ORDER BY withdraw_type
             </when>
@@ -233,9 +222,6 @@
                 </if>
                 <if test="customerNo != null and customerNo != ''">
                   AND customer_no = #{customerNo}
-                </if>
-                <if test="bizType != null and bizType != ''">
-                  AND biz_type = #{bizType}
                 </if>
                 GROUP BY status
                 ORDER BY status
@@ -287,9 +273,7 @@
             <if test="withdrawType != null and withdrawType != ''">
                 AND t.withdraw_type = #{withdrawType}
             </if>
-            <if test="bizType != null and bizType != ''">
-                AND t.biz_type = #{bizType}
-            </if>
+            <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
             <if test="startTime != null">
                 AND t.create_time &gt;= #{startTime}
             </if>

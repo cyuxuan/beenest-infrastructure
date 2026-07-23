@@ -43,6 +43,19 @@ import java.util.Map;
 @Slf4j
 public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
 
+    /** 微信支付分API参数：商户服务订单号 */
+    private static final String PARAM_OUT_ORDER_NO = "out_order_no";
+    /** 微信支付分API参数：支付分服务ID */
+    private static final String PARAM_SERVICE_ID = "service_id";
+    /** 微信支付分API参数：小程序AppID */
+    private static final String PARAM_APPID = "appid";
+    /** 微信支付分API参数：回调通知地址 */
+    private static final String PARAM_NOTIFY_URL = "notify_url";
+    /** 微信支付分API参数：金额 */
+    private static final String PARAM_AMOUNT = "amount";
+    /** 微信支付分回调参数：授权状态 */
+    private static final String PARAM_STATE = "state";
+
     @Autowired(required = false)
     private Config wechatPaySdkConfig;
 
@@ -119,9 +132,9 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
 
         // 1. 构建请求体
         ObjectNode body = objectMapper.createObjectNode();
-        body.put("out_order_no", serviceOrder.getOrderNo());
-        body.put("service_id", wechatConfig.getServiceId());
-        body.put("appid", wechatConfig.getAppId());
+        body.put(PARAM_OUT_ORDER_NO, serviceOrder.getOrderNo());
+        body.put(PARAM_SERVICE_ID, wechatConfig.getServiceId());
+        body.put(PARAM_APPID, wechatConfig.getAppId());
         body.put("mchid", wechatConfig.getMchId());
 
         // 服务说明
@@ -132,11 +145,11 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
         // 风险金（冻结金额=保证金金额）
         ObjectNode riskFund = objectMapper.createObjectNode();
         riskFund.put("name", "DEPOSIT");
-        riskFund.put("amount", serviceOrder.getDepositAmount());
+        riskFund.put(PARAM_AMOUNT, serviceOrder.getDepositAmount());
         body.set("risk_fund", riskFund);
 
         // 回调地址
-        body.put("notify_url", serviceOrder.getNotifyUrl());
+        body.put(PARAM_NOTIFY_URL, serviceOrder.getNotifyUrl());
 
         // 时间信息
         body.put("create_time", serviceOrder.getCreateTime().toString());
@@ -205,13 +218,13 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
 
         // 1. 构建完结请求体
         ObjectNode body = objectMapper.createObjectNode();
-        body.put("service_id", wechatConfig.getServiceId());
-        body.put("appid", wechatConfig.getAppId());
-        body.put("out_order_no", serviceOrder.getOrderNo());
+        body.put(PARAM_SERVICE_ID, wechatConfig.getServiceId());
+        body.put(PARAM_APPID, wechatConfig.getAppId());
+        body.put(PARAM_OUT_ORDER_NO, serviceOrder.getOrderNo());
 
         // 设置实际扣款金额
         ObjectNode realServiceFee = objectMapper.createObjectNode();
-        realServiceFee.put("amount", actualAmount);
+        realServiceFee.put(PARAM_AMOUNT, actualAmount);
         body.set("real_service_fee", realServiceFee);
 
         // 完结回调地址
@@ -219,7 +232,7 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
         if (!StringUtils.hasText(completeNotifyUrl)) {
             completeNotifyUrl = wechatConfig.getNotifyUrl();
         }
-        body.put("notify_url", completeNotifyUrl);
+        body.put(PARAM_NOTIFY_URL, completeNotifyUrl);
 
         String requestBody = body.toString();
         log.info("微信支付分完结服务订单请求体 - orderNo: {}, body: {}", serviceOrder.getOrderNo(), requestBody);
@@ -249,8 +262,8 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
 
         // 构建取消请求体
         ObjectNode body = objectMapper.createObjectNode();
-        body.put("service_id", wechatConfig.getServiceId());
-        body.put("out_order_no", serviceOrder.getOrderNo());
+        body.put(PARAM_SERVICE_ID, wechatConfig.getServiceId());
+        body.put(PARAM_OUT_ORDER_NO, serviceOrder.getOrderNo());
         body.put("reason", StringUtils.hasText(reason) ? reason : "商户取消授权");
 
         String cancelUrl = String.format(
@@ -278,16 +291,16 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
 
         // 构建修改请求体
         ObjectNode body = objectMapper.createObjectNode();
-        body.put("service_id", wechatConfig.getServiceId());
-        body.put("appid", wechatConfig.getAppId());
-        body.put("out_order_no", serviceOrder.getOrderNo());
+        body.put(PARAM_SERVICE_ID, wechatConfig.getServiceId());
+        body.put(PARAM_APPID, wechatConfig.getAppId());
+        body.put(PARAM_OUT_ORDER_NO, serviceOrder.getOrderNo());
 
         ObjectNode riskFund = objectMapper.createObjectNode();
         riskFund.put("name", "DEPOSIT");
-        riskFund.put("amount", newAmount);
+        riskFund.put(PARAM_AMOUNT, newAmount);
         body.set("risk_fund", riskFund);
         body.put("reason", "调整冻结金额");
-        body.put("notify_url", wechatConfig.getNotifyUrl());
+        body.put(PARAM_NOTIFY_URL, wechatConfig.getNotifyUrl());
 
         String modifyUrl = String.format(
                 "/v3/payscore/serviceorder/%s/modify",
@@ -317,14 +330,14 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
         log.info("解析微信支付分授权回调数据");
         Map<String, Object> parsedData = new HashMap<>();
 
-        String orderNo = callbackData.getOrDefault("out_order_no", callbackData.get("out_order_no"));
+        String orderNo = callbackData.getOrDefault(PARAM_OUT_ORDER_NO, callbackData.get(PARAM_OUT_ORDER_NO));
         parsedData.put("orderNo", orderNo);
 
         String thirdPartyOrderNo = callbackData.getOrDefault("order_id", callbackData.get("order_id"));
         parsedData.put("thirdPartyOrderNo", thirdPartyOrderNo);
 
-        String state = callbackData.getOrDefault("state", callbackData.get("state"));
-        parsedData.put("state", state);
+        String state = callbackData.getOrDefault(PARAM_STATE, callbackData.get(PARAM_STATE));
+        parsedData.put(PARAM_STATE, state);
 
         // 解析冻结金额
         String frozenAmount = callbackData.getOrDefault("frozen_amount", callbackData.get("frozen_amount"));
@@ -356,11 +369,11 @@ public class WechatPayScoreStrategy extends AbstractPayScoreStrategy {
         log.info("解析微信支付分完结回调数据");
         Map<String, Object> parsedData = new HashMap<>();
 
-        String orderNo = callbackData.getOrDefault("out_order_no", callbackData.get("out_order_no"));
+        String orderNo = callbackData.getOrDefault(PARAM_OUT_ORDER_NO, callbackData.get(PARAM_OUT_ORDER_NO));
         parsedData.put("orderNo", orderNo);
 
-        String state = callbackData.getOrDefault("state", callbackData.get("state"));
-        parsedData.put("state", state);
+        String state = callbackData.getOrDefault(PARAM_STATE, callbackData.get(PARAM_STATE));
+        parsedData.put(PARAM_STATE, state);
 
         // 解析实际扣款金额
         String actualAmount = callbackData.getOrDefault("actual_amount", callbackData.get("actual_amount"));

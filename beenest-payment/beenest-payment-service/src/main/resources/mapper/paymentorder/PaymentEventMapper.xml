@@ -11,15 +11,16 @@
         <result column="status" property="status" />
         <result column="request_content" property="requestContent" />
         <result column="response_content" property="responseContent" />
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="create_time" property="createTime" />
         <result column="update_time" property="updateTime" />
     </resultMap>
 
     <insert id="insert" parameterType="club.beenest.payment.paymentorder.domain.entity.PaymentEvent" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ds_payment_event (
-            event_no, order_no, event_type, channel, status, request_content, response_content, create_time, update_time
+            event_no, order_no, event_type, channel, status, app_id, request_content, response_content, create_time, update_time
         ) VALUES (
-            #{eventNo}, #{orderNo}, #{eventType}, #{channel}, #{status}, #{requestContent}, #{responseContent}, NOW(), NOW()
+            #{eventNo}, #{orderNo}, #{eventType}, #{channel}, #{status}, #{appId}, #{requestContent}, #{responseContent}, NOW(), NOW()
         )
     </insert>
 

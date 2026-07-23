@@ -16,6 +16,7 @@
         <result column="auth_time" property="authTime"/>
         <result column="expire_time" property="expireTime"/>
         <result column="third_party_auth_no" property="thirdPartyAuthNo"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
@@ -23,7 +24,7 @@
     <sql id="Base_Column_List">
         id, auth_no, order_no, customer_no, platform, credit_score,
         deposit_amount, exemption_result, frozen_amount, auth_status,
-        auth_time, expire_time, third_party_auth_no, create_time, update_time
+        auth_time, expire_time, third_party_auth_no, app_id, create_time, update_time
     </sql>
 
     <insert id="insert" parameterType="club.beenest.payment.payscore.domain.entity.CreditAuthorization"
@@ -31,11 +32,11 @@
         INSERT INTO ds_credit_authorization (
             auth_no, order_no, customer_no, platform, credit_score,
             deposit_amount, exemption_result, frozen_amount, auth_status,
-            auth_time, expire_time, third_party_auth_no, create_time, update_time
+            auth_time, expire_time, third_party_auth_no, app_id, create_time, update_time
         ) VALUES (
             #{authNo}, #{orderNo}, #{customerNo}, #{platform}, #{creditScore},
             #{depositAmount}, #{exemptionResult}, #{frozenAmount}, #{authStatus},
-            #{authTime}, #{expireTime}, #{thirdPartyAuthNo}, #{createTime}, #{updateTime}
+            #{authTime}, #{expireTime}, #{thirdPartyAuthNo}, #{appId}, #{createTime}, #{updateTime}
         )
     </insert>
 

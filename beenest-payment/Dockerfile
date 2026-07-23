@@ -1,5 +1,6 @@
 # ============================================
 # 多阶段构建 - beenest-payment 支付微服务
+# 运行时基于阿里云 Linux 3（Dragonwell 21 JDK）
 # ============================================
 
 # ---- 阶段1: 构建依赖缓存层 ----
@@ -27,8 +28,8 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     mvn clean package -pl beenest-payment-service -am -DskipTests -B \
     -Dmaven.compiler.release=21
 
-# ---- 阶段3: 运行时镜像 ----
-FROM eclipse-temurin:21-jre-jammy
+# ---- 阶段3: 运行时镜像（阿里云 Linux 3 + Dragonwell 21） ----
+FROM registry.cn-hangzhou.aliyuncs.com/dragonwell/dragonwell:21-anolis
 
 LABEL maintainer="beenest"
 LABEL description="Beenest Payment Service - 支付微服务"

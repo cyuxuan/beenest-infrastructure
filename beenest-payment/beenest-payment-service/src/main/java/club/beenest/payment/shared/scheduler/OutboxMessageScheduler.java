@@ -3,11 +3,14 @@ package club.beenest.payment.shared.scheduler;
 import club.beenest.payment.shared.mapper.OutboxMessageMapper;
 import club.beenest.payment.shared.domain.entity.OutboxMessage;
 import club.beenest.payment.shared.mq.MessageSignUtil;
+import club.beenest.payment.shared.mq.PaymentMqConstants;
+import club.beenest.payment.shared.service.AppCredentialService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,7 +25,9 @@ import java.util.List;
  * <p>安全设计：</p>
  * <ul>
  *   <li>重发前基于 payload 关键字段重新计算 HMAC 签名，防止 payload 被篡改后发出伪造消息</li>
- *   <li>如果签名重算失败（字段缺失等），标记消息为 FAILED，要求人工介入</li>
+ *   <li>签名使用 per-app MQ 密钥（从 appId 字段路由到对应密钥）</li>
+ *   <li>如果签名重算失败（字段缺失、密钥不可用等），标记消息为 FAILED，要求人工介入</li>
+ *   <li>路由键从 payload 中提取 appId 拼接租户后缀，确保消息路由到正确租户队列</li>
  * </ul>
  */
 @Slf4j
@@ -33,8 +38,16 @@ public class OutboxMessageScheduler {
     private final OutboxMessageMapper outboxMessageMapper;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final AppCredentialService appCredentialService;
 
     private static final int BATCH_SIZE = 50;
+
+    /** 消息体中 appId 字段名 */
+    private static final String FIELD_APP_ID = "appId";
+    /** 消息体中 customerNo 字段名 */
+    private static final String FIELD_CUSTOMER_NO = "customerNo";
+    /** 消息体中 bizType 字段名 */
+    private static final String FIELD_BIZ_TYPE = "bizType";
 
     @Scheduled(fixedDelay = 30_000, initialDelay = 60_000)
     public void retryPendingMessages() {
@@ -65,13 +78,20 @@ public class OutboxMessageScheduler {
                     continue;
                 }
 
+                // 从 payload 中提取 appId，拼接租户路由键
+                String appId = extractAppIdFromPayload(msg.getPayload());
+                String tenantRoutingKey = StringUtils.isNotBlank(appId)
+                        ? PaymentMqConstants.tenantRoutingKey(msg.getRoutingKey(), appId)
+                        : msg.getRoutingKey();
+
                 rabbitTemplate.convertAndSend(
-                        msg.getExchange() != null ? msg.getExchange() : "payment.exchange",
-                        msg.getRoutingKey(),
+                        msg.getExchange() != null ? msg.getExchange() : PaymentMqConstants.PAYMENT_EXCHANGE,
+                        tenantRoutingKey,
                         safePayload);
 
                 outboxMessageMapper.updateStatus(msg.getMessageId(), "SENT", null);
-                log.info("Outbox 消息补偿发送成功: messageId={}, retryCount={}", msg.getMessageId(), msg.getRetryCount());
+                log.info("Outbox 消息补偿发送成功: messageId={}, routingKey={}, retryCount={}",
+                        msg.getMessageId(), tenantRoutingKey, msg.getRetryCount());
             } catch (Exception e) {
                 int nextRetry = msg.getRetryCount() + 1;
                 if (nextRetry >= msg.getMaxRetry()) {
@@ -94,7 +114,8 @@ public class OutboxMessageScheduler {
 
     /**
      * 基于 payload 重新计算 HMAC 签名。
-     * 反序列化 JSON，根据 routingKey 判断消息类型，调用对应的签名方法，更新 sign 字段。
+     * 反序列化 JSON，根据 routingKey 判断消息类型，从 appId 路由到 per-app 密钥，
+     * 调用对应的签名方法，更新 sign 字段。
      *
      * @return 更新签名后的 JSON payload；如果签名重算失败返回 null
      */
@@ -108,42 +129,42 @@ public class OutboxMessageScheduler {
                 return null;
             }
 
+            // 从 payload 中获取 appId，路由到 per-app 密钥
+            String appId = textVal(root, FIELD_APP_ID);
+            String mqSecret = resolveMqSecret(appId, root);
+
             String newSign;
             if (routingKey.contains("order.completed") || routingKey.contains("order.cancelled")) {
-                newSign = MessageSignUtil.signOrderMessage(
-                        messageId,
-                        textVal(root, "orderNo"),
-                        textVal(root, "businessOrderNo"),
-                        textVal(root, "customerNo"),
-                        longVal(root, "amountFen"),
-                        textVal(root, "platform"),
-                        textVal(root, "bizType"));
+                newSign = MessageSignUtil.signOrderMessage(mqSecret,
+                        new MessageSignUtil.OrderSignParams(messageId,
+                                textVal(root, "orderNo"), textVal(root, "businessOrderNo"),
+                                textVal(root, FIELD_CUSTOMER_NO), longVal(root, "amountFen"),
+                                textVal(root, "platform"), textVal(root, FIELD_BIZ_TYPE)));
             } else if (routingKey.contains("refund.completed")) {
-                newSign = MessageSignUtil.signRefundMessage(
-                        messageId,
-                        textVal(root, "refundNo"),
-                        textVal(root, "orderNo"),
-                        textVal(root, "businessOrderNo"),
-                        textVal(root, "status"),
-                        textVal(root, "bizType"));
+                newSign = MessageSignUtil.signRefundMessage(mqSecret,
+                        new MessageSignUtil.RefundSignParams(messageId,
+                                textVal(root, "refundNo"), textVal(root, "orderNo"),
+                                textVal(root, "businessOrderNo"), textVal(root, "status"),
+                                textVal(root, FIELD_BIZ_TYPE)));
             } else if (routingKey.contains("withdraw.completed")) {
-                newSign = MessageSignUtil.signWithdrawMessage(
-                        messageId,
-                        textVal(root, "requestNo"),
-                        textVal(root, "customerNo"),
-                        longVal(root, "actualAmountFen"),
-                        textVal(root, "status"),
-                        textVal(root, "bizType"));
+                newSign = MessageSignUtil.signWithdrawMessage(mqSecret,
+                        new MessageSignUtil.WithdrawSignParams(messageId,
+                                textVal(root, "requestNo"), textVal(root, FIELD_CUSTOMER_NO),
+                                longVal(root, "actualAmountFen"), textVal(root, "status"),
+                                textVal(root, FIELD_APP_ID)));
             } else if (routingKey.contains("balance.changed")) {
-                newSign = MessageSignUtil.signBalanceMessage(
-                        messageId,
-                        textVal(root, "customerNo"),
-                        textVal(root, "walletNo"),
-                        longVal(root, "beforeBalanceFen"),
-                        longVal(root, "afterBalanceFen"),
-                        longVal(root, "changeAmountFen"),
-                        textVal(root, "transactionType"),
-                        textVal(root, "bizType"));
+                newSign = MessageSignUtil.signBalanceMessage(mqSecret,
+                        new MessageSignUtil.BalanceSignParams(messageId,
+                                textVal(root, FIELD_CUSTOMER_NO), textVal(root, "walletNo"),
+                                longVal(root, "beforeBalanceFen"), longVal(root, "afterBalanceFen"),
+                                longVal(root, "changeAmountFen"), textVal(root, "transactionType"),
+                                textVal(root, FIELD_APP_ID)));
+            } else if (routingKey.contains("wallet.credit")) {
+                newSign = MessageSignUtil.signWalletCreditMessage(mqSecret,
+                        new MessageSignUtil.WalletCreditSignParams(messageId,
+                                textVal(root, FIELD_CUSTOMER_NO), textVal(root, FIELD_APP_ID),
+                                longVal(root, "amountFen"), textVal(root, "transactionType"),
+                                textVal(root, "referenceNo")));
             } else {
                 log.warn("未知的 outbox 消息 routingKey，跳过签名重算: {}", routingKey);
                 return msg.getPayload();
@@ -159,6 +180,47 @@ public class OutboxMessageScheduler {
             log.error("Outbox 消息签名重算异常: messageId={}, error={}", msg.getMessageId(), e.getMessage(), e);
             return null;
         }
+    }
+
+    /**
+     * 从 payload 中提取 appId
+     */
+    private String extractAppIdFromPayload(String payload) {
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            return textVal(root, FIELD_APP_ID);
+        } catch (Exception e) {
+            log.warn("从 payload 提取 appId 失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 解析 MQ 签名密钥：优先从 appId 路由，回退到 bizType 推导
+     *
+     * @param appId 消息中的 appId 字段
+     * @param root  JSON 消息体（用于提取 bizType 兜底）
+     * @return MQ 明文密钥
+     */
+    private String resolveMqSecret(String appId, JsonNode root) {
+        // 1. 优先从 appId 获取密钥
+        if (StringUtils.isNotBlank(appId)) {
+            String secret = appCredentialService.getMqSecret(appId);
+            if (StringUtils.isNotBlank(secret)) {
+                return secret;
+            }
+        }
+        // 2. 回退到 bizType 推导
+        String bizType = textVal(root, FIELD_BIZ_TYPE);
+        if (StringUtils.isNotBlank(bizType)) {
+            String secret = appCredentialService.getMqSecretByBizType(bizType);
+            if (StringUtils.isNotBlank(secret)) {
+                return secret;
+            }
+        }
+        throw new IllegalStateException("无法获取 MQ 签名密钥: appId=" + appId
+                + ", bizType=" + bizType
+                + "，请检查 ds_app_credential 表配置");
     }
 
     private static String textVal(JsonNode node, String field) {

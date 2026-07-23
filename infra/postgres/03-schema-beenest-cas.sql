@@ -178,5 +178,65 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_user ON cas_auth_audit_log(user_id, cre
 CREATE INDEX IF NOT EXISTS idx_audit_log_time ON cas_auth_audit_log(created_time DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_result ON cas_auth_audit_log(auth_result, created_time DESC);
 
-insert into beenest_cas.cas_service_credential (id, service_id, secret_hash, secret_salt, secret_version, state, created_time, updated_time) values (1, 10001, '9zl7BTJTXZGhG7JWSo/+CxlKbJ8Qj+UWxMmwX6t1h0chCtzzRtpeFlLMpUZJ4D1nPEQ1FGciSueRuNT0+dmhnqTqEad7AWfgzXeVsWILFhNwYoJuTKCK3xQohI4=', 'fffdfee46e26bb86845c88ebc41fdf2f', 1, 'ACTIVE', '2026-04-17 09:45:54.342680', '2026-04-17 09:45:54.342680');
+-- ============================================================
+-- 6. 服务凭证表（CAS JPA Service Registry 自动创建的表）
+-- 初始化时预置 seed data，避免 CAS 首次启动无凭证可用
+-- ============================================================
+CREATE TABLE IF NOT EXISTS cas_service_credential (
+    id              BIGSERIAL       PRIMARY KEY,
+    service_id      BIGINT          NOT NULL,
+    secret_hash     VARCHAR(256)    NOT NULL,
+    secret_salt     VARCHAR(128)    NOT NULL,
+    secret_version  INT             NOT NULL DEFAULT 1,
+    state           VARCHAR(32)     NOT NULL DEFAULT 'ACTIVE',
+    created_time    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_time    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE cas_service_credential IS '服务凭证表，CAS Service Registry 使用';
+COMMENT ON COLUMN cas_service_credential.service_id IS '服务ID（与 CAS registered_service 对应）';
+COMMENT ON COLUMN cas_service_credential.secret_hash IS '密钥哈希值';
+COMMENT ON COLUMN cas_service_credential.secret_salt IS '密钥盐值';
+COMMENT ON COLUMN cas_service_credential.secret_version IS '密钥版本号';
+COMMENT ON COLUMN cas_service_credential.state IS '状态: ACTIVE(正常), DISABLED(停用)';
+
+INSERT INTO cas_service_credential (id, service_id, secret_hash, secret_salt, secret_version, state, created_time, updated_time)
+VALUES (1, 10001, '9zl7BTJTXZGhG7JWSo/+CxlKbJ8Qj+UWxMmwX6t1h0chCtzzRtpeFlLMpUZJ4D1nPEQ1FGciSueRuNT0+dmhnqTqEad7AWfgzXeVsWILFhNwYoJuTKCK3xQohI4=', 'fffdfee46e26bb86845c88ebc41fdf2f', 1, 'ACTIVE', '2026-04-17 09:45:54.342680', '2026-04-17 09:45:54.342680');
+
+-- ============================================================
+-- 7. CAS 注册服务 seed data
+-- JPA Service Registry 的 registered_services 表由 CAS 自动创建，
+-- 但初始数据需要手动插入，否则 CAS 拒绝所有未注册服务的 SSO 访问。
+-- 本地开发环境需包含 localhost / host.docker.internal 匹配规则。
+-- ============================================================
+
+-- Palantir 监控面板（仅 ROLE_ADMIN）
+INSERT INTO registered_services (id, service_id, name, evaluation_order, evaluation_priority, body)
+VALUES (10000, '^https://sso\.beenest\.club/cas/.*', 'beenest-palantir', 1, 0,
+'{"@class":"org.apereo.cas.services.CasRegisteredService","serviceId":"^https://sso\\.beenest\\.club/cas/.*","name":"beenest-palantir","id":10000,"description":"Palantir 监控面板","evaluationOrder":1,"attributeReleasePolicy":{"@class":"org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy","allowedAttributes":["java.util.ArrayList",["userId","username","userType"]]},"accessStrategy":{"@class":"org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy","enabled":true,"ssoEnabled":true,"requiredAttributes":{"@class":"java.util.TreeMap","memberOf":["java.util.HashSet",["ROLE_ADMIN"]]}}}')
+ON CONFLICT (id) DO NOTHING;
+
+-- 支付微服务（生产，仅 ROLE_PAYMENT）
+INSERT INTO registered_services (id, service_id, name, evaluation_order, evaluation_priority, body)
+VALUES (10003, '^https://payment\.beenest\.club/.*', 'beenest-payment', 20, 0,
+'{"@class":"org.apereo.cas.services.CasRegisteredService","serviceId":"^https://payment\\.beenest\\.club/.*","name":"beenest-payment","id":10003,"description":"支付微服务","evaluationOrder":20,"attributeReleasePolicy":{"@class":"org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy","allowedAttributes":["java.util.ArrayList",["userId","username","userType","phone","email","nickname"]]},"accessStrategy":{"@class":"org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy","enabled":true,"ssoEnabled":true,"requiredAttributes":{"@class":"java.util.TreeMap","memberOf":["java.util.HashSet",["ROLE_PAYMENT"]]}}}')
+ON CONFLICT (id) DO NOTHING;
+
+-- 支付微服务本地开发（无角色限制，匹配 localhost/host.docker.internal/beenest-payment）
+INSERT INTO registered_services (id, service_id, name, evaluation_order, evaluation_priority, body)
+VALUES (10005, '^https?://(localhost:8082|host\.docker\.internal:8082|beenest-payment:8082)(/.*)?$', 'beenest-payment-local', 25, 0,
+'{"@class":"org.apereo.cas.services.CasRegisteredService","serviceId":"^https?://(localhost:8082|host\\.docker\\.internal:8082|beenest-payment:8082)(/.*)?$","name":"beenest-payment-local","id":10005,"description":"支付微服务本地开发（无角色限制）","evaluationOrder":25,"attributeReleasePolicy":{"@class":"org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy","allowedAttributes":["java.util.ArrayList",["userId","username","userType","phone","email","nickname","loginType","memberOf","tokenVersion"]]},"accessStrategy":{"@class":"org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy","enabled":true,"ssoEnabled":true}}')
+ON CONFLICT (id) DO NOTHING;
+
+-- 无人机管理系统本地开发（无角色限制，匹配 localhost/host.docker.internal）
+INSERT INTO registered_services (id, service_id, name, evaluation_order, evaluation_priority, body)
+VALUES (10004, '^https?://(localhost(:[0-9]+)?|10\.88\.9\.9(:[0-9]+)?|host\.docker\.internal(:[0-9]+)?|drone\.beenest\.club)(/.*)?$', 'drone-system-local', 30, 0,
+'{"@class":"org.apereo.cas.services.CasRegisteredService","serviceId":"^https?://(localhost(:[0-9]+)?|10\\.88\\.9\\.9(:[0-9]+)?|host\\.docker\\.internal(:[0-9]+)?|drone\\.beenest\\.club)(/.*)?$","name":"drone-system-local","id":10004,"description":"飞鸽无人机管理系统本地开发（无角色限制）","evaluationOrder":30,"attributeReleasePolicy":{"@class":"org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy","allowedAttributes":["java.util.ArrayList",["userId","username","userType","phone","email","nickname","loginType","memberOf","tokenVersion"]]},"accessStrategy":{"@class":"org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy","enabled":true,"ssoEnabled":true}}')
+ON CONFLICT (id) DO NOTHING;
+
+-- 无人机管理系统（生产，仅 ROLE_DRONE_SYSTEM）
+INSERT INTO registered_services (id, service_id, name, evaluation_order, evaluation_priority, body)
+VALUES (10001, '^https?://drone\.beenest\.club(/.*)?$', 'drone-system', 100, 0,
+'{"@class":"org.apereo.cas.services.CasRegisteredService","serviceId":"^https?://drone\\.beenest\\.club(/.*)?$","name":"drone-system","id":10001,"description":"飞鸽无人机管理系统","evaluationOrder":100,"attributeReleasePolicy":{"@class":"org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy","allowedAttributes":["java.util.ArrayList",["userId","username","userType","phone","email","nickname","loginType","memberOf","tokenVersion"]]},"logoutType":"BACK_CHANNEL","logoutUrl":"https://drone.beenest.club/cas/callback","accessStrategy":{"@class":"org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy","enabled":true,"ssoEnabled":true,"unauthorizedRedirectUrl":"https://sso.beenest.club/cas/login","requiredAttributes":{"@class":"java.util.TreeMap","memberOf":["java.util.HashSet",["ROLE_DRONE_SYSTEM"]]}}}')
+ON CONFLICT (id) DO NOTHING;
 

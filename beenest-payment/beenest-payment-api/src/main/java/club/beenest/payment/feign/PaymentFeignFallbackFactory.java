@@ -31,8 +31,12 @@ import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
 import club.beenest.payment.reconciliation.dto.ReconciliationQueryDTO;
 import club.beenest.payment.reconciliation.entity.ReconciliationTask;
+import club.beenest.payment.shared.dto.CreateAppCredentialDTO;
+import club.beenest.payment.shared.dto.UpdateAppCredentialDTO;
+import club.beenest.payment.shared.entity.AppCredential;
 import club.beenest.payment.shared.entity.PaymentChannelConfig;
 import club.beenest.payment.shared.entity.RiskRule;
+import club.beenest.payment.shared.vo.AppCredentialVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -50,6 +54,11 @@ import java.util.List;
 @Component
 public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeignClient> {
 
+    /** 支付服务降级提示 */
+    private static final String PAYMENT_UNAVAILABLE_MSG = "支付服务暂不可用，请稍后重试";
+    /** 支付分服务降级提示 */
+    private static final String PAYSCORE_UNAVAILABLE_MSG = "支付分服务暂不可用，请稍后重试";
+
     @Override
     public PaymentFeignClient create(Throwable cause) {
         log.error("支付服务调用降级 - {}", cause.getMessage(), cause);
@@ -59,329 +68,371 @@ public class PaymentFeignFallbackFactory implements FallbackFactory<PaymentFeign
             // ==================== 钱包操作 ====================
 
             @Override
-            public Response<BigDecimal> getBalance(String customerNo, String bizType) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            public Response<BigDecimal> getBalance(String customerNo) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<WalletBalanceDTO> getWalletBalance(String customerNo, String bizType) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            public Response<WalletBalanceDTO> getWalletBalance(String customerNo) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<Wallet> getWallet(String customerNo, String bizType) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            public Response<Wallet> getWallet(String customerNo) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<Wallet> createWallet(String customerNo, String bizType) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+            public Response<Wallet> createWallet(String customerNo) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(String customerNo, String bizType,
+            public Response<AdminPageResult<TransactionHistoryDTO>> getTransactionHistory(String customerNo,
                                                                         Integer pageNum, Integer pageSize,
                                                                         String transactionType) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<Void> addBalance(String customerNo, String bizType, BigDecimal amount,
+            public Response<Void> addBalance(String customerNo, BigDecimal amount,
                                               String description, String transactionType, String referenceNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<Boolean> deductBalance(String customerNo, String bizType, BigDecimal amount,
+            public Response<Boolean> deductBalance(String customerNo, BigDecimal amount,
                                                     String description, String transactionType, String referenceNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<Boolean> freezeBalance(String customerNo, String bizType, Long amount,
+            public Response<Boolean> freezeBalance(String customerNo, Long amount,
                                                     String description, String referenceNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
-            public Response<Boolean> unfreezeBalance(String customerNo, String bizType, Long amount,
+            public Response<Boolean> unfreezeBalance(String customerNo, Long amount,
                                                       String description, String referenceNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             // ==================== 充值 / 支付 ====================
 
             @Override
             public Response<OrderPaymentResultDTO> createRechargeOrder(String customerNo, RechargeRequestDTO request) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<OrderPaymentResultDTO> createOrderPayment(String customerNo, OrderPaymentRequestDTO request) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<PaymentStatusDTO> queryPaymentStatus(String customerNo, String orderNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<PaymentStatusDTO> queryPaymentStatusForAdmin(String orderNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Boolean> cancelRechargeOrder(String customerNo, String orderNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<PaymentOrder>> queryOrders(PaymentOrderQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             // ==================== 退款 ====================
 
             @Override
             public Response<Refund> applyRefund(String orderNo, Long amount, String reason) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Refund> requestRefundReview(String orderNo, Long amount, String reason) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<Refund>> queryRefunds(RefundQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<RefundSyncResultDTO> syncRefundStatus(String refundNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<BatchSyncResultDTO> syncProcessingRefunds(int limit) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> auditRefund(Long id, String status, String remark) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             // ==================== 提现 ====================
 
             @Override
             public Response<WithdrawResultDTO> createWithdrawRequest(String customerNo, WithdrawRequestDTO request) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<WithdrawResultDTO> getWithdrawRequestStatus(String customerNo, String requestNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> auditWithdrawRequest(String requestNo, boolean approved, String auditUser, String auditRemark) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Boolean> processWithdrawRequest(String requestNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Boolean> cancelWithdrawRequest(String customerNo, String requestNo, String cancelReason) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<WithdrawRequest>> queryWithdrawRequests(WithdrawRequestQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             // ==================== 内部查询 ====================
 
             @Override
             public Response<PaymentOrder> getLatestPaymentOrderByBizNo(String bizNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<List<Refund>> getRefundsByOrderNo(String orderNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Refund> getLatestPendingRefundByOrderNo(String orderNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<WalletTransaction>> getTransactionsByCustomerNo(String customerNo, String transactionType,
                                                                               Integer pageNum, Integer pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<List<WalletTransaction>> getIncomeStatistics(String customerNo, String startTime, String endTime) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             // ==================== 管理端 ====================
 
             @Override
             public Response<AdminPageResult<Wallet>> queryWallets(WalletAdminQueryDTO query, Integer pageNum, Integer pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<TransactionHistoryDTO>> queryTransactions(TransactionQueryDTO query, Integer pageNum, Integer pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<ReconciliationTask>> queryReconciliationTasks(ReconciliationQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> createReconciliationTask(String date, String channel) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             // ==================== 支付分 - 信用免押 ====================
 
             @Override
             public Response<CreditCheckResultDTO> checkCreditEligibility(String customerNo, String platform, Long depositAmount) {
-                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYSCORE_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<ServiceOrderResultDTO> createServiceOrder(String customerNo, ServiceOrderCreateDTO request) {
-                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYSCORE_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<ServiceOrderResultDTO> completeServiceOrder(String orderNo, Long actualAmount) {
-                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYSCORE_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Boolean> cancelServiceOrder(String orderNo) {
-                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYSCORE_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<ServiceOrderResultDTO> queryServiceOrderStatus(String orderNo) {
-                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYSCORE_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<ServiceOrderResultDTO> getLatestServiceOrderByBizNo(String bizNo) {
-                return Response.fail(503, "支付分服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYSCORE_UNAVAILABLE_MSG);
             }
 
             // ==================== 管理端（BFF 代理使用，强类型返回） ====================
 
             @Override
             public Response<AdminPageResult<PaymentOrder>> adminQueryOrders(PaymentOrderQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<PaymentStatusDTO> adminSyncOrder(String orderNo) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Refund> adminApplyRefund(RefundApplyDTO params) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<Refund>> adminQueryRefunds(RefundQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminAuditRefund(Long id, String status, String remark) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<Wallet>> adminQueryWallets(WalletAdminQueryDTO query, Integer pageNum, Integer pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<TransactionHistoryDTO>> adminQueryTransactions(TransactionQueryDTO query, Integer pageNum, Integer pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<WithdrawRequest>> adminQueryWithdraws(WithdrawRequestQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminAuditWithdraw(WithdrawAuditDTO audit) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<ReconciliationTask>> adminQueryReconciliation(ReconciliationQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminCreateReconciliationTask(String date, String channel) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<AdminPageResult<PaymentEvent>> adminQueryEvents(PaymentEventQueryDTO query, int pageNum, int pageSize) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminReplayEvent(Long id) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<List<RiskRule>> adminGetRiskRules() {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminCreateRiskRule(RiskRule rule) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminUpdateRiskRule(RiskRule rule) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminDeleteRiskRule(Long id) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<List<PaymentChannelConfig>> adminGetConfigs() {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
 
             @Override
             public Response<Void> adminUpdateConfig(PaymentChannelConfig config) {
-                return Response.fail(503, "支付服务暂不可用，请稍后重试");
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            // ==================== 应用凭证管理 ====================
+
+            @Override
+            public Response<List<AppCredentialVO>> listAppCredentials() {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            @Override
+            public Response<AppCredentialVO> getAppCredential(String appId) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            @Override
+            public Response<AppCredential> createAppCredential(CreateAppCredentialDTO dto) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            @Override
+            public Response<Void> updateAppCredential(UpdateAppCredentialDTO dto) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            @Override
+            public Response<String> rotateAppSecret(String appId) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            @Override
+            public Response<String> rotateMqSecret(String appId) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            @Override
+            public Response<Void> enableAppCredential(String appId) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
+            }
+
+            @Override
+            public Response<Void> disableAppCredential(String appId) {
+                return Response.fail(503, PAYMENT_UNAVAILABLE_MSG);
             }
         };
     }

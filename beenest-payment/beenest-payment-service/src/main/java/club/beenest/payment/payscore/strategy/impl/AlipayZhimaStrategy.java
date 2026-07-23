@@ -61,6 +61,11 @@ import java.util.Map;
 @Slf4j
 public class AlipayZhimaStrategy extends AbstractPayScoreStrategy {
 
+    /** 查询结果中平台状态的 Map 键 */
+    private static final String KEY_PLATFORM_STATUS = "platformStatus";
+    /** 操作结果中成功标志的 Map 键 */
+    private static final String KEY_SUCCESS = "success";
+
     private AlipayClient alipayClient;
 
     public AlipayZhimaStrategy(PaymentConfig paymentConfig) {
@@ -228,10 +233,10 @@ public class AlipayZhimaStrategy extends AbstractPayScoreStrategy {
 
         Map<String, Object> result = new HashMap<>();
         if (response.isSuccess()) {
-            result.put("platformStatus", response.getOrderStatus());
+            result.put(KEY_PLATFORM_STATUS, response.getOrderStatus());
             result.put("thirdPartyOrderNo", response.getCreditBizOrderId());
         } else {
-            result.put("platformStatus", "QUERY_FAILED");
+            result.put(KEY_PLATFORM_STATUS, "QUERY_FAILED");
             result.put("message", response.getSubMsg());
         }
 
@@ -258,8 +263,8 @@ public class AlipayZhimaStrategy extends AbstractPayScoreStrategy {
 
         Map<String, Object> result = new HashMap<>();
         if (response.isSuccess()) {
-            result.put("platformStatus", "COMPLETED");
-            result.put("success", true);
+            result.put(KEY_PLATFORM_STATUS, "COMPLETED");
+            result.put(KEY_SUCCESS, true);
             log.info("完结支付宝芝麻信用订单成功 - orderNo: {}", serviceOrder.getOrderNo());
         } else {
             log.error("完结支付宝芝麻信用订单失败 - code: {}, subMsg: {}",
@@ -291,7 +296,7 @@ public class AlipayZhimaStrategy extends AbstractPayScoreStrategy {
 
         Map<String, Object> result = new HashMap<>();
         if (response.isSuccess()) {
-            result.put("success", true);
+            result.put(KEY_SUCCESS, true);
             result.put("message", "取消成功");
             log.info("取消支付宝芝麻信用订单成功 - orderNo: {}", serviceOrder.getOrderNo());
         } else {
@@ -360,7 +365,7 @@ public class AlipayZhimaStrategy extends AbstractPayScoreStrategy {
 
     @Override
     public String getSuccessResponse() {
-        return "success";
+        return KEY_SUCCESS;
     }
 
     @Override

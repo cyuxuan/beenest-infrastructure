@@ -7,6 +7,7 @@ import club.beenest.payment.paymentorder.domain.entity.PaymentOrder;
 import club.beenest.payment.paymentorder.domain.enums.PaymentOrderStatus;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategy;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategyFactory;
+import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -74,11 +75,10 @@ public class PaymentOrderExpireScheduler {
                 // 第三方未扣款，加入待过期列表
                 toExpire.add(order.getOrderNo());
             } catch (Exception e) {
-                // 查询失败时保守处理：加入待过期列表
-                // 但记录告警，因为可能误把已扣款订单标过期
-                log.warn("过期处理：查询第三方状态失败，保守标记过期 - orderNo: {}, error: {}",
+                // 【安全修复】查询第三方状态失败时不标记过期，等下一轮重试
+                // 避免用户已付款但第三方查询超时导致订单被误标为EXPIRED
+                log.warn("过期处理：查询第三方状态失败，跳过过期标记 - orderNo: {}, error: {}",
                         order.getOrderNo(), e.getMessage());
-                toExpire.add(order.getOrderNo());
             }
         }
 
@@ -149,6 +149,7 @@ public class PaymentOrderExpireScheduler {
                     msg.setAmountFen(order.getAmount());
                     msg.setPlatform(order.getPlatform());
                     msg.setBizType(order.getBizType());
+                    msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
                     msg.setPaidAt(LocalDateTime.now().toString());
                     paymentEventProducer.sendOrderCompletedToOutbox(msg);
                     log.info("过期处理：补偿PAID后Outbox已写入 - orderNo: {}, bizNo: {}", order.getOrderNo(), bizNo);
@@ -198,6 +199,7 @@ public class PaymentOrderExpireScheduler {
                 msg.setAmountFen(order.getAmount());
                 msg.setPlatform(order.getPlatform());
                 msg.setBizType(order.getBizType());
+                msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
                 msg.setPaidAt(null);
                 paymentEventProducer.sendOrderCancelledToOutbox(msg);
                 log.info("过期订单取消消息已写入Outbox - orderNo: {}, bizNo: {}", order.getOrderNo(), bizNo);

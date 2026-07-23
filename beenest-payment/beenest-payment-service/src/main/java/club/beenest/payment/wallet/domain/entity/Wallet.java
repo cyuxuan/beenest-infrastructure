@@ -68,12 +68,8 @@ public class Wallet {
     @Schema(description = "客户手机号")
     private String customerPhone;
 
-    /**
-     * 业务类型
-     * 用于多租户隔离，同一用户不同业务类型拥有独立钱包
-     */
-    @Schema(description = "业务类型", example = "DRONE_ORDER")
-    private String bizType;
+    @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
+    private String appId;
 
     /**
      * 可用余额

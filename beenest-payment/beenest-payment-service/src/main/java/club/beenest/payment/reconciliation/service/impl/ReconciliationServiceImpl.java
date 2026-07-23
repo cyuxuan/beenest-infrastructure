@@ -13,7 +13,7 @@ import club.beenest.payment.reconciliation.service.IReconciliationService;
 import club.beenest.payment.reconciliation.service.IReconciliationStrategyService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.page.PageMethod;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -52,7 +52,7 @@ public class ReconciliationServiceImpl implements IReconciliationService {
 
     @Override
     public Page<ReconciliationTask> queryTasks(ReconciliationQueryDTO query, int pageNum, int pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<ReconciliationTask>) reconciliationTaskMapper.selectByQuery(
                 query.getDate(), query.getChannel(), query.getStatus());
     }

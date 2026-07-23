@@ -90,36 +90,37 @@ public class WechatReconciliationStrategyService implements IReconciliationStrat
         // 注意：这里使用简化方式，生产环境建议通过 SDK 的 BillService 调用
         // 此处通过逐笔查询作为主要降级路径，账单 API 需要额外 SDK 配置
 
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Accept", "application/json")
-                .GET()
-                .build();
+        try (HttpClient httpClient = HttpClient.newHttpClient()) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Accept", "application/json")
+                    .GET()
+                    .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("微信账单API返回非200状态: " + response.statusCode());
+            if (response.statusCode() != 200) {
+                throw new RuntimeException("微信账单API返回非200状态: " + response.statusCode());
+            }
+
+            // 微信 V3 账单 API 返回下载链接
+            String body = response.body();
+            var jsonNode = objectMapper.readTree(body);
+            String downloadUrl = jsonNode.path("download_url").asText(null);
+
+            if (downloadUrl == null || downloadUrl.isEmpty()) {
+                throw new RuntimeException("微信账单下载链接为空");
+            }
+
+            // 下载账单 CSV（gzip 压缩）
+            HttpRequest downloadRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(downloadUrl))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> csvResponse = httpClient.send(downloadRequest, HttpResponse.BodyHandlers.ofString());
+            return parseWechatBillCsv(csvResponse.body());
         }
-
-        // 微信 V3 账单 API 返回下载链接
-        String body = response.body();
-        var jsonNode = objectMapper.readTree(body);
-        String downloadUrl = jsonNode.path("download_url").asText(null);
-
-        if (downloadUrl == null || downloadUrl.isEmpty()) {
-            throw new RuntimeException("微信账单下载链接为空");
-        }
-
-        // 下载账单 CSV（gzip 压缩）
-        HttpRequest downloadRequest = HttpRequest.newBuilder()
-                .uri(URI.create(downloadUrl))
-                .GET()
-                .build();
-
-        HttpResponse<String> csvResponse = httpClient.send(downloadRequest, HttpResponse.BodyHandlers.ofString());
-        return parseWechatBillCsv(csvResponse.body());
     }
 
     /**
@@ -153,21 +154,14 @@ public class WechatReconciliationStrategyService implements IReconciliationStrat
                 // 金额字段：元转分
                 String amountStr = fields[9].replace("`", "");
                 if (!amountStr.isEmpty()) {
-                    try {
-                        item.setAmount(Math.round(Double.parseDouble(amountStr) * 100));
-                    } catch (NumberFormatException ignored) {
-                    }
+                    item.setAmount(parseAmountFen(amountStr));
                 }
 
                 item.setStatus(fields.length > 13 ? fields[13].replace("`", "") : "");
 
                 // 交易时间
                 String timeStr = fields[0].replace("`", "");
-                try {
-                    item.setPaidTime(LocalDateTime.parse(timeStr,
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-                } catch (Exception ignored) {
-                }
+                item.setPaidTime(parseDateTime(timeStr));
 
                 item.setRawData(line);
                 items.add(item);
@@ -249,5 +243,27 @@ public class WechatReconciliationStrategyService implements IReconciliationStrat
         }
         fields.add(current.toString().trim());
         return fields.toArray(new String[0]);
+    }
+
+    /**
+     * 解析金额字符串（元→分），格式错误返回 null
+     */
+    private Long parseAmountFen(String amountStr) {
+        try {
+            return Math.round(Double.parseDouble(amountStr) * 100);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 解析日期时间字符串，格式错误返回 null
+     */
+    private LocalDateTime parseDateTime(String timeStr) {
+        try {
+            return LocalDateTime.parse(timeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

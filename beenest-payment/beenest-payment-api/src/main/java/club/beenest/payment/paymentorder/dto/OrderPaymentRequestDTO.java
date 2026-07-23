@@ -79,10 +79,16 @@ public class OrderPaymentRequestDTO {
 
     /**
      * 业务类型（可选，由调用方传入）
-     * 如 DRONE_ORDER, SHOP_ORDER 等
+     * 如 DRONE_ORDER, SHOP_ORDER 等，必须属于当前 appId
      */
     @Schema(description = "业务类型", example = "DRONE_ORDER")
     private String bizType;
+
+    /**
+     * 业务系统标识（由 Feign 拦截器自动注入，无需客户端手动设置）
+     */
+    @Schema(description = "业务系统标识，由拦截器自动注入", example = "DRONE", hidden = true)
+    private String appId;
 
     /**
      * 原始金额（分，可选，用于前端展示优惠信息）

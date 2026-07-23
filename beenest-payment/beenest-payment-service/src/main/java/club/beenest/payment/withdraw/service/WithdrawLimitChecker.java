@@ -7,9 +7,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Objects;
@@ -26,6 +27,9 @@ import java.util.Objects;
 @Service
 @Slf4j
 public class WithdrawLimitChecker {
+
+    /** 业务时区（中国标准时间），确保跨时区部署时日期计算一致 */
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     /**
      * StringRedisTemplate 用于执行 Lua 脚本
@@ -255,12 +259,12 @@ public class WithdrawLimitChecker {
     }
     
     private String getDailyTotalRedisKey(String platform) {
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String today = LocalDate.now(BUSINESS_ZONE).format(DateTimeFormatter.BASIC_ISO_DATE);
         return PaymentRedisKeyConstants.buildWithdrawDailyTotalKey(platform, today);
     }
 
     private String getDailyUserRedisKey(String platform, String customerNo) {
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String today = LocalDate.now(BUSINESS_ZONE).format(DateTimeFormatter.BASIC_ISO_DATE);
         return PaymentRedisKeyConstants.buildWithdrawDailyUserKey(platform, customerNo, today);
     }
 
@@ -277,9 +281,9 @@ public class WithdrawLimitChecker {
     }
 
     private int secondsUntilEndOfDay() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime end = LocalDateTime.of(now.toLocalDate().plusDays(1), LocalTime.MIDNIGHT);
-        long seconds = java.time.Duration.between(now, end).getSeconds();
+        ZonedDateTime now = ZonedDateTime.now(BUSINESS_ZONE);
+        ZonedDateTime end = now.toLocalDate().plusDays(1).atStartOfDay(BUSINESS_ZONE);
+        long seconds = Duration.between(now, end).getSeconds();
         if (seconds <= 0) {
             return 60;
         }

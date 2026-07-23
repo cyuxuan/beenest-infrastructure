@@ -161,9 +161,17 @@ Two-module Maven project: API contract module (`beenest-payment-api`) and servic
 
 **Wallet integrity**: Every wallet row stores a `balance_hash` (HMAC-SHA256 over balance fields). All mutations compute hash atomically with optimistic locking (`version`). `WalletIntegrityScheduler` verifies periodically.
 
-**MQ reliability** (Outbox pattern): `PaymentEventProducer` writes to `ds_payment_outbox` table on RabbitMQ failure. `OutboxMessageScheduler` retries with exponential backoff. All messages signed with HMAC-SHA256.
+**MQ reliability** (Outbox pattern): `PaymentEventProducer` writes to `ds_payment_outbox` table on RabbitMQ failure. `OutboxMessageScheduler` retries with exponential backoff. All messages signed with HMAC-SHA256. **All** outbound messages (payment completed, refund completed, order cancelled, balance changed) use Outbox direct-write within the same transaction, guaranteeing no message loss even if RabbitMQ is unavailable.
 
-**Schedulers**: `PaymentOrderExpireScheduler`, `RefundStatusSyncScheduler`, `OutboxMessageScheduler`, `WalletIntegrityScheduler`.
+**Payment safety (down机 recovery)**:
+- **Payment callback**: Verification + parsing runs outside transaction (avoids holding DB connections during network calls); only DB operations run in `@Transactional`, ensuring "order status update + wallet credit / Outbox write" are atomic.
+- **Recharge refund**: Uses freeze-deduct-unfreeze pattern — `freezeBalance` → call third-party refund → `deductFrozenBalance` (success) / `unfreezeBalance` (failure) / keep frozen (PROCESSING, await callback or scheduler). If down after freeze, balance is frozen but not lost; `RefundStatusSyncScheduler` compensates on recovery.
+- **Refund callback**: Signature verification failure returns `false` (Controller returns FAILURE to third-party, they retry safely due to idempotency). Refund record queried with `FOR UPDATE` row lock to prevent concurrent callback conflicts.
+- **Order expiry**: When third-party status query fails, order is NOT marked expired (conservative strategy, aligned with `PaymentOrderExpireListener`). Only confirmed-unpaid orders are expired.
+- **Compensation sync**: `syncPaymentOrderFromQuery()` runs with `@Transactional`, ensuring "order status update + wallet credit" are atomic.
+- **PENDING refund recovery**: `RefundStatusSyncScheduler` scans both PENDING and PROCESSING refunds. PENDING refunds are resubmitted to third-party; PROCESSING refunds have their status queried and updated.
+
+**Schedulers**: `PaymentOrderExpireScheduler`, `RefundStatusSyncScheduler` (PENDING + PROCESSING), `PaymentStatusCompensationScheduler`, `OutboxMessageScheduler`, `DlqRetryScheduler`, `WalletIntegrityScheduler`.
 
 **Database**: PostgreSQL schema `beenest_payment`. Tables prefixed `ds_`. Flyway migrations `V1_0_0` through `V1_0_8`. MyBatis mapper XMLs in `resources/mapper/payment/` and `resources/mapper/payscore/`.
 

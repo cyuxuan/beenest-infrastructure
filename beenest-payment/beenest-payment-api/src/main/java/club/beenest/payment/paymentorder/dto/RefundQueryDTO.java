@@ -1,5 +1,6 @@
 package club.beenest.payment.paymentorder.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 @Data
@@ -14,6 +15,10 @@ public class RefundQueryDTO {
     private String startTime;
     private String endTime;
 
-    /** 业务类型标识，用于多租户隔离 */
+    /** 业务类型标识，用于多租户隔离，必须属于当前 appId */
     private String bizType;
+
+    /** 业务系统标识，由拦截器自动注入 */
+    @Schema(description = "业务系统标识，由拦截器自动注入", hidden = true)
+    private String appId;
 }

@@ -24,6 +24,7 @@
         <result column="remark" property="remark" jdbcType="VARCHAR"/>
         <result column="biz_no" property="bizNo" jdbcType="VARCHAR"/>
         <result column="biz_type" property="bizType" jdbcType="VARCHAR"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
         <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
     </resultMap>
@@ -41,7 +42,7 @@
     <sql id="Base_Column_List">
         id, order_no, customer_no, wallet_no, amount, platform, payment_method,
         third_party_order_no, third_party_transaction_no, payment_params, callback_data,
-        status, paid_time, expire_time, notify_url, return_url, ext, remark, biz_no, biz_type, create_time, update_time
+        status, paid_time, expire_time, notify_url, return_url, ext, remark, biz_no, biz_type, app_id, create_time, update_time
     </sql>
 
     <!-- 根据主键ID查询 -->
@@ -91,11 +92,11 @@
         INSERT INTO ds_payment_order (
             order_no, customer_no, wallet_no, amount, platform, payment_method,
             third_party_order_no, third_party_transaction_no, payment_params,
-            callback_data, status, paid_time, expire_time, notify_url, return_url, ext, remark, biz_no, biz_type, create_time, update_time
+            callback_data, status, paid_time, expire_time, notify_url, return_url, ext, remark, biz_no, biz_type, app_id, create_time, update_time
         ) VALUES (
             #{orderNo}, #{customerNo}, #{walletNo}, #{amount}, #{platform}, #{paymentMethod},
             #{thirdPartyOrderNo}, #{thirdPartyTransactionNo}, #{paymentParams},
-            #{callbackData}, #{status}, #{paidTime}, #{expireTime}, #{notifyUrl}, #{returnUrl}, #{ext}, #{remark}, #{bizNo}, #{bizType}, #{createTime}, #{updateTime}
+            #{callbackData}, #{status}, #{paidTime}, #{expireTime}, #{notifyUrl}, #{returnUrl}, #{ext}, #{remark}, #{bizNo}, #{bizType}, #{appId}, #{createTime}, #{updateTime}
         )
     </insert>
 
@@ -180,6 +181,7 @@
         <if test="bizType != null and bizType != ''">
           AND biz_type = #{bizType}
         </if>
+        <!-- app_id 条件由 TenantAppIdInterceptor 自动追加，无需手动编写 -->
         ORDER BY create_time DESC, id DESC
     </select>
 
@@ -203,6 +205,7 @@
                 <if test="bizType != null and bizType != ''">
                   AND biz_type = #{bizType}
                 </if>
+                <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
                 GROUP BY status
                 ORDER BY status
             </when>
@@ -223,6 +226,7 @@
                 <if test="bizType != null and bizType != ''">
                   AND biz_type = #{bizType}
                 </if>
+                <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
                 GROUP BY platform
                 ORDER BY platform
             </when>
@@ -243,6 +247,7 @@
                 <if test="bizType != null and bizType != ''">
                   AND biz_type = #{bizType}
                 </if>
+                <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
                 GROUP BY status
                 ORDER BY status
             </otherwise>
@@ -288,6 +293,7 @@
             <if test="bizType != null and bizType != ''">
                 AND t.biz_type = #{bizType}
             </if>
+            <!-- app_id 条件由 TenantAppIdInterceptor 自动追加 -->
             <if test="startTime != null">
                 AND t.create_time &gt;= #{startTime}
             </if>

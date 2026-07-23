@@ -3,7 +3,7 @@ package club.beenest.payment.wallet.service.impl;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.exception.BusinessException;
 import club.beenest.payment.common.utils.MoneyUtil;
-import club.beenest.payment.common.utils.TransactionSynchronizationUtils;
+import club.beenest.payment.security.AppContext;
 import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.wallet.event.WalletBalanceChangedEvent;
 import club.beenest.payment.wallet.mapper.WalletMapper;
@@ -24,10 +24,11 @@ import club.beenest.payment.wallet.domain.enums.WalletTransactionType;
 import club.beenest.payment.wallet.security.BalanceHashCalculator;
 import club.beenest.payment.wallet.service.IWalletService;
 import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.page.PageMethod;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +56,15 @@ public class WalletServiceImpl implements IWalletService {
 
     @Autowired
     private PaymentEventProducer paymentEventProducer;
+
+    /**
+     * 自注入代理引用，用于调用本类的 @Transactional 方法。
+     * Spring AOP 代理模式下，同一 Bean 内 this.xxx() 调用绕过代理，
+     * 导致 @Transactional 注解不生效。通过 @Lazy 自注入获取代理对象解决此问题。
+     */
+    @Autowired
+    @Lazy
+    private WalletServiceImpl self;
 
     // ==================== 钱包基础操作 ====================
 
@@ -122,7 +132,6 @@ public class WalletServiceImpl implements IWalletService {
             Wallet wallet = new Wallet();
             wallet.setWalletNo(walletNo);
             wallet.setCustomerNo(customerNo);
-            wallet.setBizType(resolvedBizType);
             wallet.setBalance(0L);
             wallet.setFrozenBalance(0L);
             wallet.setTotalRecharge(0L);
@@ -143,9 +152,9 @@ public class WalletServiceImpl implements IWalletService {
             return wallet;
 
         } catch (org.springframework.dao.DuplicateKeyException e) {
-            // 并发场景下，UNIQUE(customer_no, biz_type) 约束命中，直接返回已有钱包
+            // 并发场景下，UNIQUE(customer_no, app_id) 约束命中，直接返回已有钱包
             log.warn("钱包已存在，返回已有钱包：用户={}, bizType={}", customerNo, resolvedBizType);
-            return walletMapper.selectByCustomerNoAndBizType(customerNo, resolvedBizType);
+            return walletMapper.selectByCustomerNo(customerNo);
         } catch (Exception e) {
             log.error("创建用户钱包失败：用户={}, 错误={}", customerNo, e.getMessage(), e);
             throw new BusinessException("创建钱包失败：" + e.getMessage(), e);
@@ -162,7 +171,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         try {
-            Wallet wallet = walletMapper.selectByCustomerNoAndBizType(customerNo, resolvedBizType);
+            Wallet wallet = walletMapper.selectByCustomerNo(customerNo);
             if (wallet == null) {
                 log.warn("用户钱包不存在：用户={}, bizType={}", customerNo, resolvedBizType);
                 return null;
@@ -184,18 +193,18 @@ public class WalletServiceImpl implements IWalletService {
         log.info("获取或创建用户钱包：用户={}, bizType={}", customerNo, resolvedBizType);
 
         // 先查询，快速路径
-        Wallet wallet = getWallet(customerNo, resolvedBizType);
+        Wallet wallet = self.getWallet(customerNo, resolvedBizType);
         if (wallet != null) {
             return wallet;
         }
 
         // 尝试创建，利用数据库 UNIQUE 约束防并发重复
         try {
-            return createWallet(customerNo, resolvedBizType);
+            return self.createWallet(customerNo, resolvedBizType);
         } catch (org.springframework.dao.DuplicateKeyException e) {
             // 并发创建冲突，重新查询
             log.warn("并发创建钱包冲突，重新查询：用户={}, bizType={}", customerNo, resolvedBizType);
-            return walletMapper.selectByCustomerNoAndBizType(customerNo, resolvedBizType);
+            return walletMapper.selectByCustomerNo(customerNo);
         }
     }
 
@@ -236,7 +245,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         // 记录交易流水
-        recordFreezeTransaction(wallet, customerNo, resolvedBizType, amountInCents, description, referenceNo, "FREEZE");
+        recordFreezeTransaction(wallet, customerNo, amountInCents, description, referenceNo, "FREEZE");
 
         log.info("冻结余额成功：用户={}, 金额={}分", customerNo, amountInCents);
         return true;
@@ -271,7 +280,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         // 记录交易流水
-        recordFreezeTransaction(wallet, customerNo, resolvedBizType, amountInCents, description, referenceNo, "UNFREEZE");
+        recordFreezeTransaction(wallet, customerNo, amountInCents, description, referenceNo, "UNFREEZE");
 
         log.info("解冻余额成功：用户={}, 金额={}分", customerNo, amountInCents);
         return true;
@@ -341,7 +350,7 @@ public class WalletServiceImpl implements IWalletService {
                 balanceDTO.setTotalWithdraw(wallet.getTotalWithdraw());
                 balanceDTO.setTotalConsume(wallet.getTotalConsume());
             }
-            // TODO: 红包和优惠券功能迁移后对接
+            // 红包和优惠券功能尚未迁移，暂返回零值
             balanceDTO.setRedPacketBalance(0L);
             balanceDTO.setCouponCount(0);
 
@@ -374,7 +383,7 @@ public class WalletServiceImpl implements IWalletService {
         }
 
         try {
-            PageHelper.startPage(pageNum, pageSize);
+            PageMethod.startPage(pageNum, pageSize);
             Page<WalletTransaction> transactionPage = walletTransactionMapper.selectByCustomerNo(customerNo, transactionType);
 
             Page<TransactionHistoryDTO> resultPage = new Page<>();
@@ -409,7 +418,7 @@ public class WalletServiceImpl implements IWalletService {
             pageSize = 20;
         }
 
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         Page<WalletTransaction> transactionPage = walletTransactionMapper.selectByQuery(query);
 
         Page<TransactionHistoryDTO> resultPage = new Page<>();
@@ -438,9 +447,9 @@ public class WalletServiceImpl implements IWalletService {
             pageSize = 20;
         }
 
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<Wallet>) walletMapper.selectAllWithConditions(
-                query.getCustomerNo(), query.getWalletNo(), query.getStatus(), query.getBizType());
+                query.getCustomerNo(), query.getWalletNo(), query.getStatus());
     }
 
     // ==================== 内部查询（供 drone-system Feign 调用） ====================
@@ -455,7 +464,7 @@ public class WalletServiceImpl implements IWalletService {
         if (pageSize == null || pageSize < 1 || pageSize > 100) {
             pageSize = 20;
         }
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return walletTransactionMapper.selectByCustomerNo(customerNo, transactionType);
     }
 
@@ -479,10 +488,14 @@ public class WalletServiceImpl implements IWalletService {
     // ==================== 私有辅助方法 ====================
 
     /**
-     * 解析 bizType，为空时使用默认值
+     * 解析 bizType，为空时使用默认值。
+     * bizType 由客户端传入，支付中台不关心具体含义，只做存储和透传。
      */
     private String resolveBizType(String bizType) {
-        return StringUtils.hasText(bizType) ? bizType : BizTypeConstants.DEFAULT;
+        if (StringUtils.hasText(bizType)) {
+            return bizType;
+        }
+        return BizTypeConstants.DEFAULT;
     }
 
     private WalletTransaction createTransactionRecord(TransactionParam param) {
@@ -490,7 +503,6 @@ public class WalletServiceImpl implements IWalletService {
         transaction.setTransactionNo(param.getTransactionNo());
         transaction.setWalletNo(param.getWalletNo());
         transaction.setCustomerNo(param.getCustomerNo());
-        transaction.setBizType(param.getBizType());
         transaction.setTransactionType(param.getTransactionType());
         transaction.setAmount(param.getAmount());
         transaction.setBeforeBalance(param.getBeforeBalance());
@@ -560,7 +572,7 @@ public class WalletServiceImpl implements IWalletService {
         }
     }
 
-    private void recordFreezeTransaction(Wallet wallet, String customerNo, String bizType,
+    private void recordFreezeTransaction(Wallet wallet, String customerNo,
                                           Long amountInCents, String description, String referenceNo,
                                           String transactionType) {
         String transactionNo = generateTransactionNo();
@@ -568,7 +580,6 @@ public class WalletServiceImpl implements IWalletService {
         param.setTransactionNo(transactionNo);
         param.setWalletNo(wallet.getWalletNo());
         param.setCustomerNo(customerNo);
-        param.setBizType(bizType);
         param.setTransactionType(transactionType);
         param.setAmount(amountInCents);
         param.setBeforeBalance(wallet.getBalance());
@@ -594,7 +605,7 @@ public class WalletServiceImpl implements IWalletService {
 
         validateTransactionParams(customerNo, amount, description, transactionType);
 
-        Wallet wallet = getOrCreateWallet(customerNo, bizType);
+        Wallet wallet = self.getOrCreateWallet(customerNo, bizType);
 
         if (!wallet.isActive()) {
             if (opType == BalanceOperationType.ADD) {
@@ -660,7 +671,6 @@ public class WalletServiceImpl implements IWalletService {
                     param.setTransactionNo(transactionNo);
                     param.setWalletNo(wallet.getWalletNo());
                     param.setCustomerNo(customerNo);
-                    param.setBizType(bizType);
                     param.setTransactionType(transactionType);
                     param.setAmount(opType == BalanceOperationType.ADD ? amountInCents : -amountInCents);
                     param.setBeforeBalance(beforeBalance);
@@ -690,17 +700,18 @@ public class WalletServiceImpl implements IWalletService {
                             opType == BalanceOperationType.ADD ? amountInCents : -amountInCents,
                             transactionType));
 
-                    // 发送余额变动MQ消息到业务系统 — 在事务提交后发送，防止脏消息
+                    // [P1 #8] 余额变动MQ改用 Outbox 模式，保证消息不丢失
+                    // 原方案用 afterCommit + MQ 直发，MQ 不可用时消息丢失
                     final BalanceChangedMessage mqMsg = new BalanceChangedMessage();
                     mqMsg.setCustomerNo(customerNo);
                     mqMsg.setWalletNo(wallet.getWalletNo());
-                    mqMsg.setBizType(bizType);
+                    mqMsg.setAppId(AppContext.getAppId() != null ? AppContext.getAppId() : BizTypeConstants.deriveAppId(bizType));
                     mqMsg.setBeforeBalanceFen(beforeBalance);
                     mqMsg.setAfterBalanceFen(afterBalance);
                     mqMsg.setChangeAmountFen(opType == BalanceOperationType.ADD ? amountInCents : -amountInCents);
                     mqMsg.setTransactionType(transactionType);
 
-                    TransactionSynchronizationUtils.afterCommit(() -> paymentEventProducer.sendBalanceChanged(mqMsg));
+                    paymentEventProducer.sendBalanceChangedToOutbox(mqMsg);
 
                     return opType == BalanceOperationType.ADD ? null : true;
                 }

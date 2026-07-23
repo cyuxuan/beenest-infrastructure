@@ -183,10 +183,13 @@ public class PaymentOrder {
 
     /**
      * 业务类型
-     * 用于多租户隔离，标识该订单属于哪个业务系统
+     * 同一 appId 下的业务类型细分（如 DRONE_ORDER、CHANNEL_ORDER），由客户端透传
      */
     @Schema(description = "业务类型", example = "DRONE_ORDER")
     private String bizType;
+
+    @Schema(description = "业务系统标识（DRONE/SHOP），用于多租户隔离", example = "DRONE")
+    private String appId;
 
     /**
      * 创建时间

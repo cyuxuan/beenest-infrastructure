@@ -88,7 +88,7 @@ public class WalletIntegrityServiceImpl implements IWalletIntegrityService {
         log.info("开始批量钱包完整性校验");
 
         // 查询所有钱包（不分页，全量扫描）
-        List<Wallet> wallets = walletMapper.selectAllWithConditions(null, null, null, null);
+        List<Wallet> wallets = walletMapper.selectAllWithConditions(null, null, null);
 
         int total = wallets.size();
         int passCount = 0;

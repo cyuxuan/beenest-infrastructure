@@ -3,6 +3,7 @@ package club.beenest.payment.paymentorder.service.impl;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.constant.PaymentRedisKeyConstants;
 import club.beenest.payment.common.utils.AuthUtils;
+import club.beenest.payment.shared.scheduler.OutboxMessageScheduler;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
@@ -46,10 +47,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.page.PageMethod;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -57,9 +59,6 @@ import org.springframework.util.StringUtils;
 import java.io.BufferedReader;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +67,7 @@ import java.util.stream.Collectors;
 /**
  * 支付服务实现类（重构版）
  * 使用策略模式和工厂模式实现支付功能
- * 
+ *
  * <p>
  * 设计模式：
  * </p>
@@ -77,7 +76,7 @@ import java.util.stream.Collectors;
  * <li>工厂模式 - 通过工厂获取支付策略</li>
  * <li>模板方法模式 - 定义支付流程骨架</li>
  * </ul>
- * 
+ *
  * <h3>优势：</h3>
  * <ul>
  * <li>易扩展 - 新增支付平台只需实现PaymentStrategy接口</li>
@@ -85,7 +84,7 @@ import java.util.stream.Collectors;
  * <li>符合开闭原则 - 对扩展开放，对修改关闭</li>
  * <li>符合单一职责原则 - 每个类只负责一个支付平台</li>
  * </ul>
- * 
+ *
  * @author System
  * @since 2026-01-26
  */
@@ -98,7 +97,6 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Autowired
     private PaymentEventMapper paymentEventMapper;
-
 
     @Autowired
     private RefundMapper refundMapper;
@@ -122,38 +120,28 @@ public class PaymentServiceImpl implements IPaymentService {
     private PaymentEventProducer paymentEventProducer;
 
     /**
-     * 专用定时线程池，用于退款状态补偿查询
-     * 替代 CompletableFuture.delayedExecutor，避免使用 ForkJoinPool
+     * 自注入代理引用，用于调用本类的 @Transactional 方法。
+     * Spring AOP 代理模式下，同一 Bean 内 this.xxx() 调用绕过代理，
+     * 导致 @Transactional 注解不生效。通过 @Lazy 自注入获取代理对象解决此问题。
      */
-    private final ScheduledExecutorService paymentAsyncExecutor =
-            Executors.newScheduledThreadPool(4, r -> {
-                Thread t = new Thread(r, "payment-refund-sync");
-                t.setDaemon(true);
-                return t;
-            });
+    @Autowired
+    @Lazy
+    private PaymentServiceImpl self;
 
-    @jakarta.annotation.PreDestroy
-    public void shutdownExecutor() {
-        log.info("正在关闭退款状态同步线程池...");
-        paymentAsyncExecutor.shutdown();
-        try {
-            if (!paymentAsyncExecutor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)) {
-                paymentAsyncExecutor.shutdownNow();
-                log.warn("退款状态同步线程池强制关闭");
-            }
-        } catch (InterruptedException e) {
-            paymentAsyncExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
+    /** 回调/查询结果中平台状态的 Map 键 */
+    private static final String KEY_PLATFORM_STATUS = "platformStatus";
+    /** 回调/查询结果中金额的 Map 键 */
+    private static final String KEY_AMOUNT = "amount";
+    /** 回调/查询结果中状态的 Map 键 */
+    private static final String KEY_STATUS = "status";
 
     /**
      * 创建充值订单
-     * 
+     *
      * <p>
      * 使用策略模式，根据支付平台选择对应的支付策略。
      * </p>
-     * 
+     *
      * <h4>流程：</h4>
      * <ol>
      * <li>验证参数</li>
@@ -233,38 +221,33 @@ public class PaymentServiceImpl implements IPaymentService {
 
     /**
      * 处理支付回调
-     * 
-     * <p>
-     * 使用策略模式，根据支付平台选择对应的支付策略处理回调。
-     * </p>
-     * 
+     *
+     * <p>使用策略模式，根据支付平台选择对应的支付策略处理回调。</p>
+     *
+     * <p><b>安全设计</b>：验签和网络调用在事务外执行，避免长时间持有数据库连接和行锁。
+     * 只有数据库操作在事务内执行，保证"更新订单状态 + 入钱包/写Outbox"的原子性。</p>
+     *
      * <h4>流程：</h4>
      * <ol>
-     * <li>解析回调数据</li>
-     * <li>获取支付策略</li>
-     * <li>验证回调签名</li>
-     * <li>解析回调数据</li>
-     * <li>查询订单</li>
-     * <li>幂等性检查</li>
-     * <li>校验金额</li>
-     * <li>更新订单状态</li>
-     * <li>增加用户余额</li>
+     * <li>解析回调数据（事务外）</li>
+     * <li>获取支付策略、验证回调签名（事务外，含网络调用）</li>
+     * <li>解析回调数据（事务外）</li>
+     * <li>事务内：查询订单（加行锁）→ 幂等性检查 → 校验金额 → 更新订单状态 → 入钱包/写Outbox</li>
      * </ol>
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
     @LogAudit(module = "支付管理", operation = "处理支付回调")
     public boolean handlePaymentCallback(String platform, HttpServletRequest request) {
         log.info("收到支付回调 - platform: {}", platform);
 
         PaymentEvent event = new PaymentEvent();
         try {
-            // 1. 解析回调数据
+            // ====== 事务外：验签 + 解析（可能包含网络调用，不持有数据库连接） ======
             Map<String, String> callbackData = parseCallbackData(request);
             log.debug("回调原始数据 - platform: {}, data: {}", platform, callbackData);
             log.info("收到支付回调 - platform: {}", platform);
 
-            // 记录支付事件
+            // 记录支付事件（事务外写入，不影响后续事务回滚）
             event.setEventNo(TradeNoGenerator.generateTransactionNo());
             event.setEventTypeEnum(PaymentEventType.CALLBACK);
             event.setChannel(platform);
@@ -272,10 +255,8 @@ public class PaymentServiceImpl implements IPaymentService {
             event.setRequestContent(objectMapper.writeValueAsString(callbackData));
             paymentEventMapper.insert(event);
 
-            // 2. 获取支付策略
+            // 获取支付策略并验证回调签名（可能包含网络调用，如微信SDK验签+解密）
             PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(platform);
-
-            // 3. 验证回调签名
             if (!paymentStrategy.verifyCallback(callbackData)) {
                 log.error("回调签名验证失败 - platform: {}", platform);
                 event.setStatusEnum(PaymentEventStatus.FAILED);
@@ -284,12 +265,12 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 4. 解析回调数据
+            // 解析回调数据
             Map<String, Object> parsedData = paymentStrategy.parseCallback(callbackData);
             String orderNo = (String) parsedData.get("orderNo");
             String transactionNo = (String) parsedData.get("transactionNo");
-            Long paidAmount = (Long) parsedData.get("amount");
-            String paidStatus = MapValueUtils.stringValue(parsedData.get("status"));
+            Long paidAmount = (Long) parsedData.get(KEY_AMOUNT);
+            String paidStatus = MapValueUtils.stringValue(parsedData.get(KEY_STATUS));
 
             event.setOrderNo(orderNo);
 
@@ -301,7 +282,28 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 5. 查询订单（加行锁防止并发回调重复处理）
+            // ====== 事务内：数据库操作（保证原子性） ======
+            return self.handlePaymentCallbackInTransaction(platform, event, orderNo, transactionNo, paidAmount, paidStatus, callbackData);
+
+        } catch (Exception e) {
+            log.error("处理支付回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
+            safeMarkPaymentEventFailed(event, e);
+            throw new BusinessException("处理支付回调失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 支付回调的数据库操作（事务内执行）
+     *
+     * <p><b>安全关键</b>：将验签和网络调用移到事务外后，此方法只包含数据库操作。
+     * 保证"更新订单状态 + 入钱包/写Outbox"在同一事务内原子提交。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean handlePaymentCallbackInTransaction(String platform, PaymentEvent event,
+            String orderNo, String transactionNo, Long paidAmount, String paidStatus,
+            Map<String, String> callbackData) {
+        try {
+            // 查询订单（加行锁防止并发回调重复处理）
             PaymentOrder paymentOrder = paymentOrderMapper.selectByOrderNoForUpdate(orderNo);
             if (paymentOrder == null) {
                 log.error("订单不存在 - orderNo: {}", orderNo);
@@ -311,7 +313,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 6. 幂等性检查
+            // 幂等性检查
             if (paymentOrder.isPaid()) {
                 log.info("订单已支付，跳过处理 - orderNo: {}", orderNo);
                 event.setStatusEnum(PaymentEventStatus.SUCCESS);
@@ -328,7 +330,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 7. 校验金额（金额为空同样拒绝，防止构造缺失 amount 字段的伪造回调）
+            // 校验金额（金额为空同样拒绝，防止构造缺失 amount 字段的伪造回调）
             if (paidAmount == null || !paidAmount.equals(paymentOrder.getAmount())) {
                 log.error("支付金额校验失败 - orderNo: {}, expected: {}, actual: {}",
                         orderNo, paymentOrder.getAmount(), paidAmount);
@@ -346,7 +348,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 return false;
             }
 
-            // 8. 更新订单状态
+            // 更新订单状态
             String callbackDataJson = objectMapper.writeValueAsString(callbackData);
             int updateResult = paymentOrderMapper.updateStatusIfCurrentStatus(
                     orderNo,
@@ -368,7 +370,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 throw new BusinessException("更新订单状态失败");
             }
 
-            // 9. 按订单类型做后续处理（充值订单入钱包；计划订单更新计划状态）
+            // 按订单类型做后续处理（充值订单入钱包；计划订单更新计划状态）
             if (isOrderPlanPayment(paymentOrder)) {
                 markBizOrderPaymentSuccess(paymentOrder);
             } else {
@@ -390,7 +392,7 @@ public class PaymentServiceImpl implements IPaymentService {
             return true;
 
         } catch (Exception e) {
-            log.error("处理支付回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
+            log.error("处理支付回调事务内操作失败 - orderNo: {}, error: {}", orderNo, e.getMessage(), e);
             safeMarkPaymentEventFailed(event, e);
             // 【安全关键】必须重新抛出异常以触发@Transactional回滚
             // 如果订单状态已更新为PAID但addBalance失败，吞掉异常会导致事务提交，
@@ -400,18 +402,20 @@ public class PaymentServiceImpl implements IPaymentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @LogAudit(module = "支付管理", operation = "处理退款回调")
     public boolean handleRefundCallback(String platform, HttpServletRequest request) {
         log.info("收到退款回调 - platform: {}", platform);
 
         try {
+            // ====== 事务外：验签 + 解析（可能包含网络调用，不持有数据库连接） ======
             Map<String, String> callbackData = parseCallbackData(request);
             PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(platform);
             if (!paymentStrategy.verifyRefundCallback(callbackData)) {
-                // 【安全关键】签名验证失败时记录告警，但返回 true 让 Controller 返回 SUCCESS 给第三方
-                // 避免 微信/支付宝 因收到非 SUCCESS 响应而无限重试造成大量无效请求
-                log.error("【安全告警】退款回调签名验证失败，已忽略并返回SUCCESS - platform: {}", platform);
-                return true;
+                // 【安全关键】签名验证失败时返回 false，让 Controller 返回 FAILURE 给第三方
+                // 第三方会重试回调，重试是安全的（有幂等检查）。
+                // 不应返回 true/SUCCESS，否则伪造的退款回调会被静默忽略。
+                log.error("【安全告警】退款回调签名验证失败 - platform: {}", platform);
+                return false;
             }
 
             Map<String, Object> parsedData = paymentStrategy.parseRefundCallback(callbackData);
@@ -421,34 +425,74 @@ public class PaymentServiceImpl implements IPaymentService {
                 log.warn("退款回调缺少退款单号，尝试按第三方退款单号匹配 - platform: {}, refundId: {}", platform, refundId);
             }
 
-            Refund refund = StringUtils.hasText(refundNo) ? refundMapper.selectByRefundNo(refundNo) : null;
-            if (refund == null && StringUtils.hasText(refundId)) {
-                refund = refundMapper.selectByThirdPartyRefundNo(refundId);
-            }
-            if (refund == null) {
-                log.error("退款单不存在 - refundNo: {}, refundId: {}", refundNo, refundId);
-                return false;
-            }
-            if (refund.getStatusEnum() == RefundStatus.SUCCESS || refund.getStatusEnum() == RefundStatus.REJECTED) {
-                log.info("退款单已到终态，忽略重复回调 - refundNo: {}, status: {}", refundNo, refund.getStatus());
-                return true;
-            }
+            // ====== 事务内：数据库操作（保证原子性） ======
+            return self.handleRefundCallbackInTransaction(refundNo, refundId, parsedData);
 
-            // 加行锁防止退款回调与主动同步并发冲突
-            PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(refund.getOrderNo());
-            if (order == null) {
-                log.error("退款原支付订单不存在 - refundNo: {}, orderNo: {}", refundNo, refund.getOrderNo());
-                return false;
-            }
-
-            applyRefundSyncResult(order, refund, parsedData, PaymentConstants.CALLBACK_SOURCE);
-            refund.setAuditRemark(MapValueUtils.firstNonBlank(refund.getAuditRemark(), "渠道退款回调更新"));
-            refundMapper.update(refund);
-            return true;
         } catch (Exception e) {
             log.error("处理退款回调失败 - platform: {}, error: {}", platform, e.getMessage(), e);
             throw new BusinessException("处理退款回调失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 退款回调的数据库操作（事务内执行）
+     *
+     * <p><b>安全设计</b>：验签和网络调用移到事务外，此方法只包含数据库操作。
+     * 保证退款状态更新与订单状态更新、冻结余额处理的原子性。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean handleRefundCallbackInTransaction(String refundNo, String refundId,
+            Map<String, Object> parsedData) {
+        // 加行锁防止退款回调与主动同步并发冲突
+        Refund refund = StringUtils.hasText(refundNo) ? refundMapper.selectByRefundNoForUpdate(refundNo) : null;
+        if (refund == null && StringUtils.hasText(refundId)) {
+            // 按第三方退款单号查询时也加行锁，防止并发回调和同步冲突
+            refund = refundMapper.selectByThirdPartyRefundNoForUpdate(refundId);
+        }
+        if (refund == null) {
+            log.error("退款单不存在 - refundNo: {}, refundId: {}", refundNo, refundId);
+            return false;
+        }
+        if (refund.getStatusEnum() == RefundStatus.SUCCESS || refund.getStatusEnum() == RefundStatus.REJECTED) {
+            log.info("退款单已到终态，忽略重复回调 - refundNo: {}, status: {}", refundNo, refund.getStatus());
+            return true;
+        }
+
+        // 加行锁防止退款回调与主动同步并发冲突
+        PaymentOrder order = paymentOrderMapper.selectByOrderNoForUpdate(refund.getOrderNo());
+        if (order == null) {
+            log.error("退款原支付订单不存在 - refundNo: {}, orderNo: {}", refundNo, refund.getOrderNo());
+            return false;
+        }
+
+        applyRefundSyncResult(order, refund, parsedData, PaymentConstants.CALLBACK_SOURCE);
+
+        // 充值退款：根据退款结果处理冻结余额
+        if (!isOrderPlanPayment(order)) {
+            if (refund.getStatusEnum() == RefundStatus.SUCCESS) {
+                // 第三方退款成功 → 扣减冻结余额
+                boolean deducted = walletService.deductFrozenBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        false, false);
+                if (!deducted) {
+                    log.error("退款回调：退款成功但扣减冻结余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            } else if (refund.getStatusEnum() == RefundStatus.FAILED) {
+                // 第三方退款失败 → 解冻余额
+                boolean unfreezed = walletService.unfreezeBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        "退款失败解冻 - 退款单号：" + refund.getRefundNo(),
+                        refund.getRefundNo());
+                if (!unfreezed) {
+                    log.error("退款回调：退款失败但解冻余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            }
+            // PROCESSING 状态：保持冻结，等待下次回调或 Scheduler 补偿
+        }
+
+        refund.setAuditRemark(MapValueUtils.firstNonBlank(refund.getAuditRemark(), "渠道退款回调更新"));
+        refundMapper.update(refund);
+        return true;
     }
 
     /**
@@ -492,18 +536,10 @@ public class PaymentServiceImpl implements IPaymentService {
             // 4. 对待支付订单主动向支付渠道补偿查询，兜住回调丢失场景
             //    第三方网络调用在事务外执行，避免长时间持有数据库连接
             if (paymentOrder.isPending()) {
-                try {
-                    PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
-                    Map<String, Object> platformStatus = paymentStrategy.queryPayment(paymentOrder);
-                    if (platformStatus != null) {
-                        syncPaymentOrderFromQuerySafe(paymentOrder, platformStatus);
-                        paymentOrder = paymentOrderMapper.selectByOrderNo(orderNo);
-                        result.setStatus(paymentOrder.getStatus());
-                        result.setPaidTime(paymentOrder.getPaidTime());
-                    }
-                } catch (Exception e) {
-                    log.warn("查询支付平台状态失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
-                }
+                queryPlatformStatusSafely(paymentOrder);
+                paymentOrder = paymentOrderMapper.selectByOrderNo(orderNo);
+                result.setStatus(paymentOrder.getStatus());
+                result.setPaidTime(paymentOrder.getPaidTime());
             }
 
             log.info("查询订单支付状态成功 - orderNo: {}, status: {}", orderNo, paymentOrder.getStatus());
@@ -518,6 +554,37 @@ public class PaymentServiceImpl implements IPaymentService {
         }
     }
 
+    /**
+     * 安全查询支付平台状态，失败仅记录日志不影响主流程
+     *
+     * @param paymentOrder 待查询的支付订单
+     */
+    private void queryPlatformStatusSafely(PaymentOrder paymentOrder) {
+        try {
+            PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
+            Map<String, Object> platformStatus = paymentStrategy.queryPayment(paymentOrder);
+            if (platformStatus != null) {
+                syncPaymentOrderFromQuerySafe(paymentOrder, platformStatus);
+            }
+        } catch (Exception e) {
+            log.warn("查询支付平台状态失败 - orderNo: {}, error: {}", paymentOrder.getOrderNo(), e.getMessage());
+        }
+    }
+
+    /**
+     * 安全调用支付平台取消订单，失败仅记录日志不影响本地状态更新
+     *
+     * @param paymentOrder 待取消的支付订单
+     */
+    private void cancelPaymentOnPlatformSafely(PaymentOrder paymentOrder) {
+        try {
+            PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
+            paymentStrategy.cancelPayment(paymentOrder);
+        } catch (Exception e) {
+            log.warn("调用支付平台取消订单失败 - orderNo: {}, error: {}", paymentOrder.getOrderNo(), e.getMessage());
+        }
+    }
+
     @Override
     public PaymentStatusDTO queryPaymentStatusForAdmin(String orderNo) {
         return queryPaymentStatus(null, orderNo);
@@ -525,7 +592,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     /**
      * 取消充值订单
-     * 
+     *
      * <p>
      * 使用策略模式，根据支付平台选择对应的支付策略取消订单。
      * </p>
@@ -561,13 +628,8 @@ public class PaymentServiceImpl implements IPaymentService {
                 throw new IllegalArgumentException("订单状态不允许取消");
             }
 
-            // 5. 调用支付平台取消订单（如果支持）
-            try {
-                PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(paymentOrder.getPlatform());
-                paymentStrategy.cancelPayment(paymentOrder);
-            } catch (Exception e) {
-                log.warn("调用支付平台取消订单失败 - orderNo: {}, error: {}", orderNo, e.getMessage());
-            }
+            // 5. 调用支付平台取消订单（失败仅记录日志，不影响本地状态更新）
+            cancelPaymentOnPlatformSafely(paymentOrder);
 
             // 6. 更新订单状态
             int updateResult = paymentOrderMapper.updateStatus(orderNo, PaymentOrderStatus.CANCELLED.getCode(), null,
@@ -620,7 +682,7 @@ public class PaymentServiceImpl implements IPaymentService {
             Long discountAmount = request.getDiscountAmount() != null ? request.getDiscountAmount() : 0L;
 
             // 如果有优惠券，计算折扣
-            CouponDiscountResult discountResult = calculateCouponDiscount(customerNo, request, baseAmount);
+            CouponDiscountResult discountResult = calculateCouponDiscount(request);
             if (discountResult.discountAmount() > 0) {
                 discountAmount = discountResult.discountAmount();
                 finalAmount = Math.max(baseAmount - discountAmount, 0L);
@@ -632,11 +694,11 @@ public class PaymentServiceImpl implements IPaymentService {
             PaymentOrder latestPending = paymentOrderMapper.selectLatestPendingByBizNoForUpdate(bizNo);
             if (latestPending != null && latestPending.canPay()) {
                 return handleExistingPendingOrder(latestPending, backendPlatform, paymentMethod,
-                        finalAmount, baseAmount, discountAmount, discountResult.userCouponNo(), bizNo);
+                        finalAmount, baseAmount, discountAmount, bizNo);
             }
 
-            return createNewOrderPayment(customerNo, bizNo, request.getBizType(), backendPlatform, paymentMethod,
-                    finalAmount, baseAmount, discountAmount, discountResult.userCouponNo(), openid);
+            return createNewOrderPayment(new NewOrderParams(customerNo, bizNo, request.getBizType(), backendPlatform, paymentMethod,
+                    finalAmount, baseAmount, discountAmount, discountResult.userCouponNo(), openid));
 
         } catch (IllegalArgumentException e) {
             log.warn("创建订单支付参数错误 - customerNo: {}, error: {}", customerNo, e.getMessage());
@@ -664,8 +726,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
     }
 
-    private CouponDiscountResult calculateCouponDiscount(String customerNo, OrderPaymentRequestDTO request,
-            Long baseAmountFen) {
+    private CouponDiscountResult calculateCouponDiscount(OrderPaymentRequestDTO request) {
         // 优惠券逻辑已迁出支付中台，由调用方直接传入优惠金额
         Long discountAmount = request.getDiscountAmount() != null ? request.getDiscountAmount() : 0L;
         return new CouponDiscountResult(discountAmount, null);
@@ -723,7 +784,7 @@ public class PaymentServiceImpl implements IPaymentService {
     }
 
     private OrderPaymentResultDTO handleExistingPendingOrder(PaymentOrder existingOrder, String backendPlatform,
-            String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount, String usedCouponNo, String bizNo) {
+            String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount, String bizNo) {
         String existingPlatform = existingOrder.getPlatform();
 
         if (!backendPlatform.equalsIgnoreCase(existingPlatform)) {
@@ -741,7 +802,7 @@ public class PaymentServiceImpl implements IPaymentService {
             PaymentStrategy preCheckStrategy = paymentStrategyFactory.getStrategy(existingPlatform);
             Map<String, Object> platformStatus = preCheckStrategy.queryPayment(existingOrder);
             if (platformStatus != null && isPlatformPaid(
-                    platformStatus.get("platformStatus") == null ? null : platformStatus.get("platformStatus").toString())) {
+                    platformStatus.get(KEY_PLATFORM_STATUS) == null ? null : platformStatus.get(KEY_PLATFORM_STATUS).toString())) {
                 // 第三方已支付成功，走补偿同步路径
                 log.warn("复用待支付订单时发现第三方已支付，走补偿路径 - orderNo: {}", existingOrder.getOrderNo());
                 syncPaymentOrderFromQuerySafe(existingOrder, platformStatus);
@@ -760,9 +821,9 @@ public class PaymentServiceImpl implements IPaymentService {
         Map<String, Object> paymentParams = getOrCreatePaymentParams(existingOrder, paymentStrategy);
 
         log.info("复用待支付订单 - orderNo: {}, bizNo: {}", existingOrder.getOrderNo(), bizNo);
-        return buildOrderPaymentResult(existingOrder.getOrderNo(), bizNo, finalAmount, baseAmount, discountAmount,
+        return buildOrderPaymentResult(new OrderPaymentResultParams(existingOrder.getOrderNo(), bizNo, finalAmount, baseAmount, discountAmount,
                 backendPlatform, existingOrder.getPaymentMethod(), paymentStrategy.getPlatformName(),
-                existingOrder.getExpireTime(), paymentParams);
+                existingOrder.getExpireTime(), paymentParams));
     }
 
     private Map<String, Object> getOrCreatePaymentParams(PaymentOrder order, PaymentStrategy strategy) {
@@ -784,9 +845,21 @@ public class PaymentServiceImpl implements IPaymentService {
         return paymentParams;
     }
 
-    private OrderPaymentResultDTO createNewOrderPayment(String customerNo, String bizNo, String bizType,
-            String backendPlatform, String paymentMethod, Long finalAmount, Long baseAmount, Long discountAmount,
-            String usedCouponNo, String openid) {
+    /** 创建新订单的参数封装 */
+    private record NewOrderParams(String customerNo, String bizNo, String bizType,
+                                   String backendPlatform, String paymentMethod, Long finalAmount,
+                                   Long baseAmount, Long discountAmount, String usedCouponNo, String openid) {}
+
+    private OrderPaymentResultDTO createNewOrderPayment(NewOrderParams p) {
+        String customerNo = p.customerNo();
+        String bizNo = p.bizNo();
+        String bizType = p.bizType();
+        String backendPlatform = p.backendPlatform();
+        String paymentMethod = p.paymentMethod();
+        Long finalAmount = p.finalAmount();
+        Long baseAmount = p.baseAmount();
+        Long discountAmount = p.discountAmount();
+        String openid = p.openid();
         String walletBizType = bizType != null ? bizType : BizTypeConstants.DRONE_ORDER;
         Wallet wallet = walletService.getWallet(customerNo, walletBizType);
         String walletNo = wallet != null ? wallet.getWalletNo() : "";
@@ -808,8 +881,9 @@ public class PaymentServiceImpl implements IPaymentService {
         paymentOrder.setNotifyUrl(getNotifyUrl(backendPlatform));
         paymentOrder.setBizNo(bizNo);
         paymentOrder.setBizType(walletBizType);
+        paymentOrder.setAppId(BizTypeConstants.deriveAppId(walletBizType));
         paymentOrder.setExt(buildPaymentOrderExt(openid));
-        paymentOrder.setRemark(buildBizOrderRemark(bizNo, usedCouponNo));
+        paymentOrder.setRemark(buildBizOrderRemark(bizNo));
         paymentOrder.setCreateTime(now);
         paymentOrder.setUpdateTime(now);
 
@@ -827,9 +901,9 @@ public class PaymentServiceImpl implements IPaymentService {
         savePaymentParamsSafely(paymentOrder, paymentParams);
 
         log.info("订单支付创建完成 - orderNo: {}, bizNo: {}", orderNo, bizNo);
-        return buildOrderPaymentResult(orderNo, bizNo, finalAmount, baseAmount, discountAmount,
+        return buildOrderPaymentResult(new OrderPaymentResultParams(orderNo, bizNo, finalAmount, baseAmount, discountAmount,
                 backendPlatform, paymentOrder.getPaymentMethod(), paymentStrategy.getPlatformName(),
-                paymentOrder.getExpireTime(), paymentParams);
+                paymentOrder.getExpireTime(), paymentParams));
     }
 
     /**
@@ -852,9 +926,6 @@ public class PaymentServiceImpl implements IPaymentService {
 
     private record CouponDiscountResult(Long discountAmount, String userCouponNo) {}
 
-    /**
-     * 验证优惠券并计算折扣（通用化版本，使用金额而非OrderPlan）
-     */
     /**
      * 判断是否为业务订单支付（需要通过 MQ 通知业务系统）
      *
@@ -879,7 +950,7 @@ public class PaymentServiceImpl implements IPaymentService {
         return paymentOrder.getBizNo();
     }
 
-    private String buildBizOrderRemark(String bizNo, String userCouponNo) {
+    private String buildBizOrderRemark(String bizNo) {
         return PaymentConstants.BIZ_ORDER_PREFIX + bizNo;
     }
 
@@ -903,6 +974,7 @@ public class PaymentServiceImpl implements IPaymentService {
             msg.setAmountFen(paymentOrder.getAmount());
             msg.setPlatform(paymentOrder.getPlatform());
             msg.setBizType(paymentOrder.getBizType());
+            msg.setAppId(paymentOrder.getAppId() != null ? paymentOrder.getAppId() : BizTypeConstants.deriveAppId(paymentOrder.getBizType()));
             msg.setPaidAt(paymentOrder.getPaidTime() != null ? paymentOrder.getPaidTime().toString() : LocalDateTime.now().toString());
 
             // 事务内直写 Outbox，与支付状态更新原子提交
@@ -929,6 +1001,7 @@ public class PaymentServiceImpl implements IPaymentService {
         msg.setAmountFen(paymentOrder.getAmount());
         msg.setPlatform(paymentOrder.getPlatform());
         msg.setBizType(paymentOrder.getBizType());
+        msg.setAppId(paymentOrder.getAppId() != null ? paymentOrder.getAppId() : BizTypeConstants.deriveAppId(paymentOrder.getBizType()));
 
         // 事务内直写 Outbox，与订单状态更新原子提交
         paymentEventProducer.sendOrderCancelledToOutbox(msg);
@@ -946,10 +1019,10 @@ public class PaymentServiceImpl implements IPaymentService {
         PaymentValidateUtils.isTrue(rechargeRequest.isValidAmount(), "充值金额不在有效范围内");
         PaymentValidateUtils.isTrue(rechargeRequest.isValidPlatform(), "不支持的支付平台");
         PaymentValidateUtils.isTrue(paymentStrategyFactory.isEnabled(rechargeRequest.getPlatform()), "支付平台未启用");
-        
+
         Long amountFen = rechargeRequest.getAmount();
-        PaymentValidateUtils.inRange(amountFen, 
-                PaymentConstants.MIN_RECHARGE_AMOUNT_FEN, 
+        PaymentValidateUtils.inRange(amountFen,
+                PaymentConstants.MIN_RECHARGE_AMOUNT_FEN,
                 PaymentConstants.MAX_RECHARGE_AMOUNT_FEN,
                 "充值金额需在1元至10万元之间");
     }
@@ -1069,7 +1142,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Override
     public Page<PaymentOrder> queryOrders(PaymentOrderQueryDTO query, int pageNum, int pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<PaymentOrder>) paymentOrderMapper.selectByQuery(query);
     }
 
@@ -1175,7 +1248,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Override
     public Page<Refund> queryRefunds(RefundQueryDTO query, int pageNum, int pageSize) {
-        PageHelper.startPage(pageNum, pageSize);
+        PageMethod.startPage(pageNum, pageSize);
         return (Page<Refund>) refundMapper.selectByQuery(
                 query.getRefundNo(),
                 query.getOrderNo(),
@@ -1218,7 +1291,7 @@ public class PaymentServiceImpl implements IPaymentService {
         try {
             channelResult = strategy.queryRefund(order, refund);
         } catch (Exception e) {
-            if (shouldResubmitRefundAfterQueryFailure(order, refund, e)) {
+            if (shouldResubmitRefundAfterQueryFailure(order, e)) {
                 log.warn("退款查询命中微信历史单，改为按商户退款单号补发 - refundNo: {}, error: {}",
                         refund.getRefundNo(), e.getMessage());
                 refund.setThirdPartyRefundNo(null);
@@ -1241,7 +1314,7 @@ public class PaymentServiceImpl implements IPaymentService {
         int failedCount = 0;
         for (Refund refund : refunds) {
             try {
-                RefundSyncResultDTO result = syncRefundStatus(refund.getRefundNo());
+                RefundSyncResultDTO result = self.syncRefundStatus(refund.getRefundNo());
                 if (RefundStatus.SUCCESS.getCode().equals(result.getStatus())) {
                     successCount++;
                 }
@@ -1303,19 +1376,26 @@ public class PaymentServiceImpl implements IPaymentService {
      */
     private void syncPaymentOrderFromQuerySafe(PaymentOrder paymentOrder, Map<String, Object> platformStatus) {
         try {
-            syncPaymentOrderFromQuery(paymentOrder, platformStatus);
+            self.syncPaymentOrderFromQuery(paymentOrder, platformStatus);
         } catch (Exception e) {
             // CAS 冲突或其他并发异常降级为 warn，不影响用户查询结果
             log.warn("补偿同步支付状态失败（降级） - orderNo: {}, error: {}", paymentOrder.getOrderNo(), e.getMessage());
         }
     }
 
-    private void syncPaymentOrderFromQuery(PaymentOrder paymentOrder, Map<String, Object> platformStatus) throws Exception {
+    /**
+     * 从第三方查询结果同步支付状态
+     *
+     * <p><b>安全关键</b>：使用 @Transactional 保证"更新订单状态 + 入钱包/写Outbox"在同一事务内原子提交。
+     * 防止订单状态更新成功但入钱包失败导致资金不一致。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void syncPaymentOrderFromQuery(PaymentOrder paymentOrder, Map<String, Object> platformStatus) throws Exception {
         if (paymentOrder == null || platformStatus == null || !paymentOrder.isPending()) {
             return;
         }
 
-        Object channelStatus = platformStatus.get("platformStatus");
+        Object channelStatus = platformStatus.get(KEY_PLATFORM_STATUS);
         if (!isPlatformPaid(channelStatus == null ? null : channelStatus.toString())) {
             return;
         }
@@ -1327,7 +1407,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
 
         // 金额校验：paidAmount 为 null 或不匹配时拒绝更新，与回调处理保持一致
-        Long paidAmount = MapValueUtils.longValue(platformStatus.get("amount"));
+        Long paidAmount = MapValueUtils.longValue(platformStatus.get(KEY_AMOUNT));
         if (paidAmount == null || !paidAmount.equals(paymentOrder.getAmount())) {
             log.error("补偿查询金额校验失败 - orderNo: {}, expected: {}, actual: {}",
                     paymentOrder.getOrderNo(), paymentOrder.getAmount(), paidAmount);
@@ -1383,7 +1463,7 @@ public class PaymentServiceImpl implements IPaymentService {
         return refund.getStatusEnum() == RefundStatus.PENDING || refund.getStatusEnum() == RefundStatus.PROCESSING;
     }
 
-    private boolean shouldResubmitRefundAfterQueryFailure(PaymentOrder order, Refund refund, Exception e) {
+    private boolean shouldResubmitRefundAfterQueryFailure(PaymentOrder order, Exception e) {
         if (!PaymentConstants.PLATFORM_WECHAT.equalsIgnoreCase(order.getPlatform())) {
             return false;
         }
@@ -1449,6 +1529,22 @@ public class PaymentServiceImpl implements IPaymentService {
         return refund;
     }
 
+    /**
+     * 执行退款（安全重构版）
+     *
+     * <p><b>安全设计</b>：</p>
+     * <ul>
+     *   <li>充值退款：冻结余额 → 调第三方退款 → 成功扣减冻结 / 失败解冻 / PROCESSING 保持冻结</li>
+     *   <li>业务订单退款：直接调第三方退款 → 更新状态 → 写 Outbox</li>
+     *   <li>第三方网络调用在事务外执行，避免长时间持有数据库连接和行锁</li>
+     * </ul>
+     *
+     * <p><b>down机恢复</b>：</p>
+     * <ul>
+     *   <li>冻结后down机 → 余额冻结不可用，RefundStatusSyncScheduler 扫描 PENDING/PROCESSING 补偿</li>
+     *   <li>第三方退款成功后down机 → 同上，Scheduler 查询第三方结果后扣减冻结或解冻</li>
+     * </ul>
+     */
     private void executeRefund(PaymentOrder order, Refund refund, String auditUser, String auditRemark) {
         if (refund.getStatusEnum() == RefundStatus.SUCCESS) {
             return;
@@ -1458,40 +1554,52 @@ public class PaymentServiceImpl implements IPaymentService {
             return;
         }
 
-        // 充值退款：先调用第三方退款接口，成功后再扣减用户余额
-        // 这样如果第三方退款失败，就不需要回滚本地余额操作
+        // 充值退款：先冻结余额，再调第三方退款
+        // 冻结成功后即使down机，余额也不会丢失（不可用但未扣除），Scheduler会补偿
         if (!isOrderPlanPayment(order)) {
-            // 退款扣减余额
-            BigDecimal refundAmountYuan = MoneyUtil.centsToYuan(refund.getAmount());
-            boolean deductSuccess = walletService.deductBalance(order.getCustomerNo(), order.getBizType(), refundAmountYuan, "充值退款扣减",
-                    WalletTransactionType.REFUND.getCode(), refund.getRefundNo());
-            if (!deductSuccess) {
-                throw new BusinessException("退款失败：用户余额不足或扣款失败");
+            boolean freezeSuccess = walletService.freezeBalance(
+                    order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                    "充值退款冻结 - 退款单号：" + refund.getRefundNo(),
+                    refund.getRefundNo());
+            if (!freezeSuccess) {
+                throw new BusinessException("退款失败：用户余额不足或冻结失败");
             }
         }
 
+        // 调第三方退款接口（网络调用，在当前事务外更安全，但此处保持事务内
+        // 以确保 Refund 状态更新与第三方调用的原子性）
         PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
         Map<String, Object> result = strategy.refund(order, refund.getAmount(), refund.getReason(), refund.getRefundNo());
         applyRefundSyncResult(order, refund, result, auditUser);
 
-        // 第三方退款失败且非计划订单时，回退已扣减的余额
-        // 使用独立的回退 referenceNo，避免与扣减记录冲突
-        if (refund.getStatusEnum() == RefundStatus.FAILED && !isOrderPlanPayment(order)) {
-            walletService.addBalance(
-                    order.getCustomerNo(),
-                    order.getBizType(),
-                    MoneyUtil.centsToYuan(refund.getAmount()),
-                    "退款失败回退 - 退款单号：" + refund.getRefundNo(),
-                    WalletTransactionType.REFUND.getCode(),
-                    refund.getRefundNo() + "_ROLLBACK");
+        // 根据退款结果处理冻结余额
+        if (!isOrderPlanPayment(order)) {
+            if (refund.getStatusEnum() == RefundStatus.SUCCESS) {
+                // 第三方退款成功 → 扣减冻结余额
+                boolean deducted = walletService.deductFrozenBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        false, false);
+                if (!deducted) {
+                    log.error("退款成功但扣减冻结余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            } else if (refund.getStatusEnum() == RefundStatus.FAILED) {
+                // 第三方退款失败 → 解冻余额
+                boolean unfreezed = walletService.unfreezeBalance(
+                        order.getCustomerNo(), order.getBizType(), refund.getAmount(),
+                        "退款失败解冻 - 退款单号：" + refund.getRefundNo(),
+                        refund.getRefundNo());
+                if (!unfreezed) {
+                    log.error("退款失败但解冻余额失败 - refundNo: {}, 可能需要人工介入", refund.getRefundNo());
+                }
+            }
+            // PROCESSING 状态：保持冻结，等待回调或 Scheduler 补偿
         }
+
         refund.setAuditRemark(auditRemark);
         refund.setUpdateTime(LocalDateTime.now());
         refundMapper.update(refund);
 
-        if (refund.getStatusEnum() == RefundStatus.PROCESSING) {
-            scheduleRefundStatusAutoSync(refund.getRefundNo(), 1);
-        }
+        // [P2 #11] 已移除内存 ScheduledExecutorService，退款状态补偿完全依赖 RefundStatusSyncScheduler
     }
 
     private void applyRefundSyncResult(PaymentOrder order, Refund refund, Map<String, Object> result, String auditUser) {
@@ -1501,7 +1609,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 refund.getThirdPartyRefundNo());
         String channelStatus = MapValueUtils.firstNonBlank(
                 MapValueUtils.stringValue(result.get("channelStatus")),
-                MapValueUtils.stringValue(result.get("status")),
+                MapValueUtils.stringValue(result.get(KEY_STATUS)),
                 refund.getChannelStatus());
 
         // 使用领域方法执行状态转换（内含合法性校验）
@@ -1528,14 +1636,15 @@ public class PaymentServiceImpl implements IPaymentService {
                 order.markAsPartialRefunded();
             }
             paymentOrderMapper.updateStatus(order.getOrderNo(), order.getStatus(), null, null);
-            
+
             if (isOrderPlanPayment(order)) {
-                updateBizOrderOnRefundSuccess(order.getBizNo());
+                updateBizOrderOnRefundSuccess(order, refund);
             }
         }
     }
 
-    private void updateBizOrderOnRefundSuccess(String bizNo) {
+    private void updateBizOrderOnRefundSuccess(PaymentOrder order, Refund refund) {
+        String bizNo = order.getBizNo();
         if (!StringUtils.hasText(bizNo)) {
             return;
         }
@@ -1544,9 +1653,13 @@ public class PaymentServiceImpl implements IPaymentService {
             RefundCompletedMessage msg = new RefundCompletedMessage();
             msg.setBusinessOrderNo(bizNo);
             msg.setStatus("SUCCESS");
+            msg.setRefundNo(refund.getRefundNo());
+            msg.setOrderNo(order.getOrderNo());
+            msg.setRefundAmountFen(refund.getAmount());
+            msg.setBizType(order.getBizType());
             // 事务内直写 Outbox，保证消息不丢失
             paymentEventProducer.sendRefundCompletedToOutbox(msg);
-            log.info("退款成功消息已写入Outbox - bizNo: {}", bizNo);
+            log.info("退款成功消息已写入Outbox - bizNo: {}, refundNo: {}", bizNo, refund.getRefundNo());
         } catch (Exception e) {
             log.error("写入退款成功Outbox消息失败 - bizNo: {}, error: {}", bizNo, e.getMessage(), e);
         }
@@ -1580,7 +1693,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
     private String normalizeRefundStatus(String platform, Map<String, Object> result) {
         if (PaymentConstants.PLATFORM_ALIPAY.equalsIgnoreCase(platform)) {
-            String refundStatus = MapValueUtils.stringValue(result.get("status"));
+            String refundStatus = MapValueUtils.stringValue(result.get(KEY_STATUS));
             if (StringUtils.hasText(refundStatus)) {
                 return refundStatus.trim().toUpperCase();
             }
@@ -1597,7 +1710,7 @@ public class PaymentServiceImpl implements IPaymentService {
 
         String channelStatus = MapValueUtils.firstNonBlank(
                 MapValueUtils.stringValue(result.get("channelStatus")),
-                MapValueUtils.stringValue(result.get("status")));
+                MapValueUtils.stringValue(result.get(KEY_STATUS)));
         if (!StringUtils.hasText(channelStatus)) {
             return null;
         }
@@ -1647,40 +1760,28 @@ public class PaymentServiceImpl implements IPaymentService {
     /**
      * 构建订单支付结果 DTO（统一 createRechargeOrder / handleExistingPendingOrder / createNewOrderPayment 的返回结构）
      */
-    private OrderPaymentResultDTO buildOrderPaymentResult(String orderNo, String bizNo, Long amount,
-            Long originalAmount, Long discountAmount, String platform, String paymentMethod,
-            String platformName, LocalDateTime expireTime, Map<String, Object> paymentParams) {
+    /** 订单支付结果构建参数 */
+    private record OrderPaymentResultParams(String orderNo, String bizNo, Long amount,
+                                             Long originalAmount, Long discountAmount, String platform,
+                                             String paymentMethod, String platformName, LocalDateTime expireTime,
+                                             Map<String, Object> paymentParams) {}
+
+    private OrderPaymentResultDTO buildOrderPaymentResult(OrderPaymentResultParams p) {
         return new OrderPaymentResultDTO()
-                .setOrderNo(orderNo)
-                .setBizNo(bizNo)
-                .setAmount(amount)
-                .setOriginalAmount(originalAmount)
-                .setDiscountAmount(discountAmount)
-                .setPlatform(platform)
-                .setPaymentMethod(paymentMethod)
-                .setPlatformName(platformName)
-                .setExpireTime(expireTime)
-                .setPaymentParams(paymentParams);
+                .setOrderNo(p.orderNo())
+                .setBizNo(p.bizNo())
+                .setAmount(p.amount())
+                .setOriginalAmount(p.originalAmount())
+                .setDiscountAmount(p.discountAmount())
+                .setPlatform(p.platform())
+                .setPaymentMethod(p.paymentMethod())
+                .setPlatformName(p.platformName())
+                .setExpireTime(p.expireTime())
+                .setPaymentParams(p.paymentParams());
     }
 
-    private void scheduleRefundStatusAutoSync(String refundNo, int attempt) {
-        if (!StringUtils.hasText(refundNo) || attempt > PaymentRetryConstants.MAX_RETRY_ATTEMPTS) {
-            return;
-        }
-        long delaySeconds = PaymentRetryConstants.getDelaySeconds(attempt);
-        paymentAsyncExecutor.schedule(() -> {
-            try {
-                RefundSyncResultDTO result = syncRefundStatus(refundNo);
-                if (RefundStatus.PROCESSING.getCode().equals(result.getStatus())) {
-                    scheduleRefundStatusAutoSync(refundNo, attempt + 1);
-                }
-            } catch (Exception e) {
-                log.warn("自动同步退款状态失败 - refundNo: {}, attempt: {}, error: {}",
-                        refundNo, attempt, e.getMessage());
-                scheduleRefundStatusAutoSync(refundNo, attempt + 1);
-            }
-        }, delaySeconds, TimeUnit.SECONDS);
-    }
+    // [P2 #11] 已移除 scheduleRefundStatusAutoSync()，退款状态补偿完全依赖
+    // RefundStatusSyncScheduler 的 Spring 定时扫描
 
     private void safeMarkPaymentEventFailed(PaymentEvent event, Exception e) {
         if (event == null || event.getId() == null) {
@@ -1751,7 +1852,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
         result.put("orderNo", orderNo);
         result.put("currentStatus", order.getStatus());
-        result.put("amount", order.getAmount());
+        result.put(KEY_AMOUNT, order.getAmount());
         result.put("platform", order.getPlatform());
         result.put("bizNo", order.getBizNo());
 
@@ -1768,8 +1869,8 @@ public class PaymentServiceImpl implements IPaymentService {
             PaymentStrategy strategy = paymentStrategyFactory.getStrategy(order.getPlatform());
             platformStatus = strategy.queryPayment(order);
             if (platformStatus != null) {
-                String status = platformStatus.get("platformStatus") == null ? null
-                        : platformStatus.get("platformStatus").toString();
+                String status = platformStatus.get(KEY_PLATFORM_STATUS) == null ? null
+                        : platformStatus.get(KEY_PLATFORM_STATUS).toString();
                 thirdPartyPaid = isPlatformPaid(status);
             }
         } catch (Exception e) {
@@ -1816,6 +1917,7 @@ public class PaymentServiceImpl implements IPaymentService {
             msg.setAmountFen(order.getAmount());
             msg.setPlatform(order.getPlatform());
             msg.setBizType(order.getBizType());
+            msg.setAppId(order.getAppId() != null ? order.getAppId() : BizTypeConstants.deriveAppId(order.getBizType()));
             msg.setPaidAt(order.getPaidTime() != null ? order.getPaidTime().toString() : LocalDateTime.now().toString());
             paymentEventProducer.sendOrderCompletedToOutbox(msg);
             result.put("outboxWritten", true);

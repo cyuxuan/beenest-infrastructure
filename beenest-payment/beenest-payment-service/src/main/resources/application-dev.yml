@@ -3,22 +3,25 @@
 # 仅覆盖开发环境差异化项（基础设施地址、环境开关）。
 # 业务配置 → application-secret.yml
 # 框架配置 → application.yml
+#
+# 注意：Docker 容器内运行时，中间件地址由 .env.dev 环境变量覆盖
+# 此处保留 localhost 默认值供本地 IDE 直连开发使用
 # ============================================================
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/beenest?currentSchema=beenest_payment
-    username: postgres
-    password: postgres
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/beenest?currentSchema=beenest_payment}
+    username: ${PAYMENT_DB_USER:postgres}
+    password: ${PAYMENT_DB_PASSWORD:postgres}
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 payment:
   common:

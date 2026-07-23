@@ -1,9 +1,11 @@
 package club.beenest.payment.wallet.mq.consumer;
 
 import club.beenest.payment.common.exception.BusinessException;
+import club.beenest.payment.security.AppContext;
 import club.beenest.payment.shared.mq.MessageSignUtil;
 import club.beenest.payment.shared.mq.PaymentMqConstants;
 import club.beenest.payment.shared.mq.WalletCreditMessage;
+import club.beenest.payment.shared.service.AppCredentialService;
 import club.beenest.payment.wallet.domain.enums.WalletTransactionType;
 import club.beenest.payment.wallet.service.IWalletService;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +23,12 @@ import java.math.BigDecimal;
  * <p>可靠性设计：</p>
  * <ul>
  *   <li>幂等：通过 referenceNo 唯一约束防止重复入账</li>
- *   <li>验签：HMAC-SHA256 防伪造/篡改</li>
+ *   <li>验签：HMAC-SHA256 防伪造/篡改（per-app 密钥，通过 appId 路由到对应密钥）</li>
  *   <li>枚举校验：transactionType 必须是 WalletTransactionType 枚举值</li>
  *   <li>重试：消费失败由 RabbitMQ 重试机制 + 死信队列兜底</li>
  * </ul>
+ *
+ * @author System
  */
 @Slf4j
 @Component
@@ -32,32 +36,36 @@ import java.math.BigDecimal;
 public class WalletCreditConsumer {
 
     private final IWalletService walletService;
+    private final AppCredentialService appCredentialService;
 
-    @RabbitListener(queues = PaymentMqConstants.QUEUE_WALLET_CREDIT)
+    @RabbitListener(queues = "#{@walletCreditQueueNames.toArray(new String[0])}")
     public void onWalletCredit(WalletCreditMessage message) {
-        log.info("收到钱包入账指令: customerNo={}, amountFen={}, transactionType={}, referenceNo={}",
+        log.info("收到钱包入账指令: customerNo={}, amountFen={}, transactionType={}, referenceNo={}, appId={}",
                 message.getCustomerNo(), message.getAmountFen(),
-                message.getTransactionType(), message.getReferenceNo());
+                message.getTransactionType(), message.getReferenceNo(), message.getAppId());
 
-        // 1. 验签
-        if (!MessageSignUtil.verifyWalletCreditMessage(
-                message.getSign(), message.getMessageId(), message.getCustomerNo(),
-                message.getBizType(), message.getAmountFen(),
-                message.getTransactionType(), message.getReferenceNo())) {
-            log.error("【安全告警】钱包入账消息签名验证失败: customerNo={}, referenceNo={}",
-                    message.getCustomerNo(), message.getReferenceNo());
-            throw new IllegalArgumentException("消息签名验证失败");
+        // 1. 设置 AppContext，使多租户拦截器生效
+        if (StringUtils.isNotBlank(message.getAppId())) {
+            AppContext.setAppId(message.getAppId());
         }
 
-        // 2. 参数校验
-        validateMessage(message);
-
         try {
-            // 3. 执行入账（幂等：referenceNo 唯一约束防重复）
+            // 2. 验签（per-app 密钥，通过 appId 路由到对应密钥）
+            boolean signValid = verifySign(message);
+            if (!signValid) {
+                log.error("【安全告警】钱包入账消息签名验证失败: customerNo={}, referenceNo={}, appId={}",
+                        message.getCustomerNo(), message.getReferenceNo(), message.getAppId());
+                throw new IllegalArgumentException("消息签名验证失败");
+            }
+
+            // 3. 参数校验
+            validateMessage(message);
+
+            // 4. 执行入账（幂等：referenceNo 唯一约束防重复）
             BigDecimal amountYuan = new BigDecimal(message.getAmountFen()).divide(new BigDecimal("100"));
             walletService.addBalance(
                     message.getCustomerNo(),
-                    message.getBizType(),
+                    null,
                     amountYuan,
                     message.getDescription(),
                     message.getTransactionType(),
@@ -84,7 +92,35 @@ public class WalletCreditConsumer {
             log.error("钱包入账失败: customerNo={}, referenceNo={}, error={}",
                     message.getCustomerNo(), message.getReferenceNo(), e.getMessage(), e);
             throw e;
+        } finally {
+            // 清理 AppContext，防止线程池中 ThreadLocal 泄漏
+            AppContext.clear();
         }
+    }
+
+    /**
+     * 验签：通过 appId 路由到对应的 per-app 密钥验签
+     *
+     * @param message 钱包入账消息
+     * @return 验签是否通过
+     */
+    private boolean verifySign(WalletCreditMessage message) {
+        // 1. 有 appId → 使用 per-app 密钥验签
+        if (StringUtils.isNotBlank(message.getAppId())) {
+            String mqSecret = appCredentialService.getMqSecret(message.getAppId());
+            if (StringUtils.isNotBlank(mqSecret)) {
+                return MessageSignUtil.verifyWalletCreditMessage(mqSecret,
+                        message.getSign(), new MessageSignUtil.WalletCreditSignParams(message.getMessageId(),
+                                message.getCustomerNo(), message.getAppId(), message.getAmountFen(),
+                                message.getTransactionType(), message.getReferenceNo()));
+            }
+            log.error("appId={} 无 MQ 密钥，验签失败", message.getAppId());
+            return false;
+        }
+
+        // 2. 无 appId → 拒绝
+        log.error("钱包入账消息缺少 appId，拒绝验签");
+        return false;
     }
 
     /**

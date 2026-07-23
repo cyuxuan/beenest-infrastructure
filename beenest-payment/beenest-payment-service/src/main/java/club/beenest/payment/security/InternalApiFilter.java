@@ -1,13 +1,16 @@
 package club.beenest.payment.security;
 
 import club.beenest.payment.shared.codec.CodecUtils;
+import club.beenest.payment.shared.domain.entity.AppCredential;
+import club.beenest.payment.shared.service.AppCredentialService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
@@ -16,8 +19,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
@@ -25,37 +28,40 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 内部 API 安全过滤器
- * /internal/** 路径接受三层校验：
+ *
+ * <p>拦截 /internal/** 路径，强制要求请求携带 {@code X-App-Id} 头，
+ * 基于应用凭证表进行 per-app 身份验证，实现业务系统级密钥隔离。</p>
+ *
+ * <h4>验证流程：</h4>
  * <ol>
- *   <li>内网 IP 白名单</li>
- *   <li>X-Internal-Token 静态令牌</li>
- *   <li>HMAC-SHA256 签名 + 时间戳 + 防重放（可选，配置 sign-secret 后启用）</li>
+ *   <li>检查 X-App-Id 头是否存在，不存在直接 403</li>
+ *   <li>查询应用凭证，校验 app 状态（ACTIVE/DISABLED）</li>
+ *   <li>per-app IP 白名单校验（allowed_networks 非空时生效，支持 CIDR 网段；为空时不做 IP 限制）</li>
+ *   <li>app_secret 验证：常量时间比对 X-Internal-Token + HMAC-SHA256 签名校验（含时间戳 + Nonce 防重放）</li>
+ *   <li>设置 {@link AppContext} 传播 appId</li>
  * </ol>
+ *
+ * <p>密钥体系：app_secret 同时用于令牌认证和 HMAC 签名，无需独立的 sign_secret。</p>
+ *
+ * @author System
+ * @since 2026-02-11
  */
 @Slf4j
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class InternalApiFilter extends OncePerRequestFilter {
 
     private static final String ALGORITHM = "HmacSHA256";
-    private static final long MAX_TIMESTAMP_DRIFT_MS = 5 * 60 * 1000; // 5 分钟
+    private static final long MAX_TIMESTAMP_DRIFT_MS = 5L * 60 * 1000; // 5 分钟
     private static final String NONCE_KEY_PREFIX = "internal:nonce:";
 
-    private final String internalToken;
-    private final List<String> internalNetworks;
-    private final String signSecret;
+    private final AppCredentialService appCredentialService;
     private final StringRedisTemplate redisTemplate;
-    private final boolean trustProxy;
 
     public InternalApiFilter(
-            @Value("${payment.internal.token:}") String internalToken,
-            @Value("${payment.internal.allowed-networks:127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}") List<String> internalNetworks,
-            @Value("${payment.internal.sign-secret:}") String signSecret,
-            @Value("${payment.internal.trust-proxy:false}") boolean trustProxy,
+            AppCredentialService appCredentialService,
             StringRedisTemplate redisTemplate) {
-        this.internalToken = internalToken;
-        this.internalNetworks = internalNetworks;
-        this.signSecret = signSecret;
-        this.trustProxy = trustProxy;
+        this.appCredentialService = appCredentialService;
         this.redisTemplate = redisTemplate;
     }
 
@@ -65,34 +71,62 @@ public class InternalApiFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(request);
         String clientIp = getClientIp(cachedRequest);
+        String appIdHeader = cachedRequest.getHeader("X-App-Id");
 
-        // 1. 检查内网 IP
-        if (!isInternalIp(clientIp)) {
-            log.warn("内部 API 非法访问: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
-            reject(response, "Access denied");
+        // 1. 强制要求 X-App-Id 头
+        if (appIdHeader == null || appIdHeader.isBlank()) {
+            log.warn("内部 API 非法访问: 缺少 X-App-Id 头, uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
+            reject(response, "Missing X-App-Id header");
             return;
         }
 
-        // 2. 静态令牌校验（使用常量时间比较防止时序攻击）
-        if (internalToken != null && !internalToken.isEmpty()) {
-            String requestToken = cachedRequest.getHeader("X-Internal-Token");
-            if (!MessageDigest.isEqual(internalToken.getBytes(StandardCharsets.UTF_8), requestToken.getBytes(StandardCharsets.UTF_8))) {
-                log.warn("内部 API Token 验证失败: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
-                reject(response, "Invalid internal token");
-                return;
-            }
-        } else {
-            log.warn("【安全告警】内部 API 未配置 Token，仅依赖 IP 白名单校验，生产环境请配置 payment.internal.token");
+        String appId = appIdHeader.trim();
+
+        // 2. 查询应用凭证
+        AppCredential credential = appCredentialService.getByAppId(appId);
+        if (credential == null) {
+            log.warn("内部 API 非法访问: app_id={} 不存在, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+            reject(response, "Unknown app");
+            return;
+        }
+        if (!"ACTIVE".equals(credential.getStatus())) {
+            log.warn("内部 API 非法访问: app_id={} 已禁用, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+            reject(response, "App disabled");
+            return;
         }
 
-        // 3. HMAC 签名校验（配置 sign-secret 后启用）
-        if (signSecret != null && !signSecret.isEmpty()) {
-            if (!verifySignature(cachedRequest)) {
-                log.warn("内部 API 签名验证失败: uri={}, clientIp={}", cachedRequest.getRequestURI(), clientIp);
+        // 3. per-app IP 白名单校验（非空时生效，为空时不做 IP 限制）
+        String allowedNetworks = credential.getAllowedNetworks();
+        if (allowedNetworks != null && !allowedNetworks.isBlank()) {
+            List<String> networks = parseNetworks(allowedNetworks);
+            if (!isIpInNetworks(clientIp, networks)) {
+                log.warn("内部 API 非法访问: app_id={} IP 不在白名单, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+                reject(response, "Access denied");
+                return;
+            }
+        }
+        // allowed_networks 为空时不做 IP 限制，所有 IP 可访问
+
+        // 4. app_secret 验证：常量时间比对令牌
+        String requestToken = cachedRequest.getHeader("X-Internal-Token");
+        if (!appCredentialService.verifyAppSecret(appId, requestToken)) {
+            log.warn("内部 API Token 验证失败: app_id={}, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
+            reject(response, "Invalid internal token");
+            return;
+        }
+
+        // 5. app_secret HMAC 签名校验（令牌认证和签名共用同一个密钥）
+        String appSecret = appCredentialService.getAppSecret(appId);
+        if (appSecret != null && !appSecret.isEmpty()) {
+            if (!verifySignature(cachedRequest, appSecret)) {
+                log.warn("内部 API 签名验证失败: app_id={}, uri={}, clientIp={}", appId, cachedRequest.getRequestURI(), clientIp);
                 reject(response, "Invalid signature");
                 return;
             }
         }
+
+        // 6. 设置 AppContext
+        AppContext.setAppId(appId);
 
         filterChain.doFilter(cachedRequest, response);
     }
@@ -103,7 +137,16 @@ public class InternalApiFilter extends OncePerRequestFilter {
         return !path.startsWith("/internal/");
     }
 
-    private boolean verifySignature(HttpServletRequest request) {
+    // ==================== 签名验证 ====================
+
+    /**
+     * HMAC-SHA256 签名验证
+     *
+     * @param request   HTTP 请求
+     * @param appSecret 签名密钥（即 app_secret，令牌认证和签名共用）
+     * @return 验证是否通过
+     */
+    private boolean verifySignature(HttpServletRequest request, String appSecret) {
         String timestampStr = request.getHeader("X-Timestamp");
         String nonce = request.getHeader("X-Nonce");
         String signature = request.getHeader("X-Signature");
@@ -152,16 +195,32 @@ public class InternalApiFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         String path = request.getRequestURI();
         String data = method + "|" + path + "|" + timestamp + "|" + nonce + "|" + body;
-        String expected = computeHmac(data);
+        String expected = computeHmac(data, appSecret);
+
+        // 签名不匹配时打印详情，便于排查客户端签名差异（不打印密钥）
+        if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8))) {
+            log.warn("签名不匹配详情: method={}, path={}, timestamp={}, nonce={}, bodyLength={}, "
+                     + "clientSignature={}, expectedSignature={}, dataToSign={}",
+                     method, path, timestamp, nonce, body.length(),
+                     signature, expected,
+                     data.length() > 500 ? data.substring(0, 500) + "..." : data);
+        }
 
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8));
     }
 
-    private String computeHmac(String data) {
+    /**
+     * 计算 HMAC-SHA256
+     *
+     * @param data 待签名数据
+     * @param secret 签名密钥
+     * @return 十六进制签名字符串
+     */
+    private String computeHmac(String data, String secret) {
         try {
             Mac mac = Mac.getInstance(ALGORITHM);
             SecretKeySpec keySpec = new SecretKeySpec(
-                    signSecret.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+                    secret.getBytes(StandardCharsets.UTF_8), ALGORITHM);
             mac.init(keySpec);
             byte[] hashBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             return CodecUtils.bytesToHex(hashBytes);
@@ -170,40 +229,92 @@ public class InternalApiFilter extends OncePerRequestFilter {
         }
     }
 
+    // ==================== IP 校验 ====================
+
+    /**
+     * 解析逗号分隔的网络列表
+     */
+    private List<String> parseNetworks(String networksStr) {
+        if (networksStr == null || networksStr.isBlank()) {
+            return List.of();
+        }
+        return List.of(networksStr.split(","));
+    }
+
+    /**
+     * 检查 IP 是否在指定网络列表中
+     */
+    private boolean isIpInNetworks(String clientIp, List<String> networks) {
+        if ("127.0.0.1".equals(clientIp) || "0:0:0:0:0:0:0:1".equals(clientIp)) {
+            return true;
+        }
+        for (String network : networks) {
+            String trimmed = network.trim();
+            if (trimmed.contains("/") && matchCidr(clientIp, trimmed)) {
+                return true;
+            }
+            if (trimmed.equals(clientIp)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * CIDR 匹配
+     */
+    private boolean matchCidr(String clientIp, String cidr) {
+        try {
+            String[] parts = cidr.split("/");
+            String networkAddress = parts[0];
+            int prefixLength = Integer.parseInt(parts[1]);
+
+            byte[] clientBytes = java.net.InetAddress.getByName(clientIp).getAddress();
+            byte[] networkBytes = java.net.InetAddress.getByName(networkAddress).getAddress();
+
+            if (clientBytes.length != networkBytes.length) {
+                return false;
+            }
+
+            int fullBytes = prefixLength / 8;
+            int remainingBits = prefixLength % 8;
+
+            for (int i = 0; i < fullBytes; i++) {
+                if (clientBytes[i] != networkBytes[i]) {
+                    return false;
+                }
+            }
+
+            if (remainingBits > 0 && fullBytes < clientBytes.length) {
+                int mask = 0xFF << (8 - remainingBits);
+                if ((clientBytes[fullBytes] & mask) != (networkBytes[fullBytes] & mask)) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 获取客户端 IP（直接取 remoteAddr，内网部署无需代理头解析）
+     */
+    private String getClientIp(HttpServletRequest request) {
+        return request.getRemoteAddr();
+    }
+
+    /**
+     * 拒绝请求
+     */
     private void reject(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write("{\"code\":403,\"message\":\"" + message + "\"}");
     }
 
-    private String getClientIp(HttpServletRequest request) {
-        // 只在明确信任代理头时才读取 X-Forwarded-For / X-Real-IP
-        // 防止客户端伪造代理头绕过 IP 白名单
-        if (trustProxy) {
-            String ip = request.getHeader("X-Forwarded-For");
-            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                int index = ip.indexOf(',');
-                return index > 0 ? ip.substring(0, index).trim() : ip.trim();
-            }
-            ip = request.getHeader("X-Real-IP");
-            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                return ip.trim();
-            }
-        }
-        return request.getRemoteAddr();
-    }
-
-    private boolean isInternalIp(String clientIp) {
-        if ("127.0.0.1".equals(clientIp) || "0:0:0:0:0:0:0:1".equals(clientIp)) {
-            return true;
-        }
-        for (String network : internalNetworks) {
-            if (network.contains("/") && matchCidr(clientIp, network)) {
-                return true;
-            }
-        }
-        return false;
-    }
+    // ==================== 可重复读取请求体 ====================
 
     /**
      * 可重复读取请求体的 HttpServletRequest 包装器。
@@ -258,41 +369,6 @@ public class InternalApiFilter extends OncePerRequestFilter {
                     ? java.nio.charset.Charset.forName(encoding)
                     : StandardCharsets.UTF_8;
             return new BufferedReader(new java.io.InputStreamReader(getInputStream(), charset));
-        }
-    }
-
-    private boolean matchCidr(String clientIp, String cidr) {
-        try {
-            String[] parts = cidr.split("/");
-            String networkAddress = parts[0];
-            int prefixLength = Integer.parseInt(parts[1]);
-
-            byte[] clientBytes = java.net.InetAddress.getByName(clientIp).getAddress();
-            byte[] networkBytes = java.net.InetAddress.getByName(networkAddress).getAddress();
-
-            if (clientBytes.length != networkBytes.length) {
-                return false;
-            }
-
-            int fullBytes = prefixLength / 8;
-            int remainingBits = prefixLength % 8;
-
-            for (int i = 0; i < fullBytes; i++) {
-                if (clientBytes[i] != networkBytes[i]) {
-                    return false;
-                }
-            }
-
-            if (remainingBits > 0 && fullBytes < clientBytes.length) {
-                int mask = 0xFF << (8 - remainingBits);
-                if ((clientBytes[fullBytes] & mask) != (networkBytes[fullBytes] & mask)) {
-                    return false;
-                }
-            }
-
-            return true;
-        } catch (Exception e) {
-            return false;
         }
     }
 }

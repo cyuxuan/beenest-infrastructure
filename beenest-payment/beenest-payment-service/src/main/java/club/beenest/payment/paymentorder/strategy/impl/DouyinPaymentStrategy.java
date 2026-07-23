@@ -46,6 +46,15 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
     private static final String QUERY_ORDER_URL = DOUYIN_API_HOST + "/api/apps/ecpay/v1/query_order";
     private static final String REFUND_ORDER_URL = DOUYIN_API_HOST + "/api/apps/ecpay/v1/create_refund";
 
+    /** 抖音支付API参数：应用ID */
+    private static final String PARAM_APP_ID = "app_id";
+    /** 抖音支付API参数：商户订单号 */
+    private static final String PARAM_OUT_ORDER_NO = "out_order_no";
+    /** 抖音支付API参数：订单总金额 */
+    private static final String PARAM_TOTAL_AMOUNT = "total_amount";
+    /** 抖音支付API参数：抖音侧订单号 */
+    private static final String PARAM_ORDER_ID = "order_id";
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -83,9 +92,9 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
         PaymentConfig.DouyinConfig config = paymentConfig.getDouyin();
         
         Map<String, Object> params = new HashMap<>();
-        params.put("app_id", config.getAppId());
-        params.put("out_order_no", paymentOrder.getOrderNo());
-        params.put("total_amount", paymentOrder.getAmount());
+        params.put(PARAM_APP_ID, config.getAppId());
+        params.put(PARAM_OUT_ORDER_NO, paymentOrder.getOrderNo());
+        params.put(PARAM_TOTAL_AMOUNT, paymentOrder.getAmount());
         params.put("subject", "订单支付-" + paymentOrder.getOrderNo());
         params.put("body", "充值");
         params.put("valid_time", 3600); // 1小时有效
@@ -103,7 +112,7 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
         
         @SuppressWarnings("unchecked")
         Map<String, Object> data = (Map<String, Object>) response.get("data");
-        String orderId = (String) data.get("order_id");
+        String orderId = (String) data.get(PARAM_ORDER_ID);
         String orderToken = (String) data.get("order_token");
         
         Map<String, Object> paymentParams = new HashMap<>();
@@ -166,11 +175,11 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
         parsedData.put("orderNo", orderNo);
         
         // order_id: 抖音侧订单号
-        String transactionNo = callbackData.get("order_id");
+        String transactionNo = callbackData.get(PARAM_ORDER_ID);
         parsedData.put("transactionNo", transactionNo);
         
         // total_amount: 支付金额（分）
-        String totalAmount = callbackData.get("total_amount");
+        String totalAmount = callbackData.get(PARAM_TOTAL_AMOUNT);
         if (totalAmount != null) {
             parsedData.put("amount", Long.parseLong(totalAmount));
         }
@@ -190,8 +199,8 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
         PaymentConfig.DouyinConfig config = paymentConfig.getDouyin();
         
         Map<String, Object> params = new HashMap<>();
-        params.put("app_id", config.getAppId());
-        params.put("out_order_no", paymentOrder.getOrderNo());
+        params.put(PARAM_APP_ID, config.getAppId());
+        params.put(PARAM_OUT_ORDER_NO, paymentOrder.getOrderNo());
         
         String sign = sign(params, config.getPaymentKey());
         params.put("sign", sign);
@@ -208,8 +217,8 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
         if (paymentInfo != null) {
             String orderStatus = (String) paymentInfo.get("order_status");
             result.put("platformStatus", orderStatus);
-            result.put("transactionNo", paymentInfo.get("order_id"));
-            result.put("amount", paymentInfo.get("total_amount"));
+            result.put("transactionNo", paymentInfo.get(PARAM_ORDER_ID));
+            result.put("amount", paymentInfo.get(PARAM_TOTAL_AMOUNT));
             
             String message = PaymentConstants.REFUND_STATUS_SUCCESS.equals(orderStatus) ? "支付成功" : orderStatus;
             result.put("message", message);
@@ -232,8 +241,8 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
             PaymentConfig.DouyinConfig config = paymentConfig.getDouyin();
             
             Map<String, Object> params = new HashMap<>();
-            params.put("app_id", config.getAppId());
-            params.put("out_order_no", paymentOrder.getOrderNo());
+            params.put(PARAM_APP_ID, config.getAppId());
+            params.put(PARAM_OUT_ORDER_NO, paymentOrder.getOrderNo());
             params.put("out_refund_no", refundNo);
             params.put("refund_amount", refundAmount);
             params.put("reason", refundReason);
@@ -313,7 +322,11 @@ public class DouyinPaymentStrategy extends AbstractPaymentStrategy {
      * 4. 拼接成 k1=v1&k2=v2...&key=paymentKey
      * 5. 进行 MD5 运算
      * 6. 转大写（视具体接口要求，通常MD5后转不转大写要看文档，这里假设常规大写）
+     *
+     * <p>此处使用 MD5 是抖音支付 API 规范要求的签名算法，用于消息认证而非数据加密，
+     * 不可替换为其他算法，否则将导致签名验证失败。</p>
      */
+    @SuppressWarnings("squid:S4790")
     private String sign(Map<String, Object> params, String salt) {
         List<String> keys = new ArrayList<>(params.keySet());
         Collections.sort(keys);
