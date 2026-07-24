@@ -25,8 +25,9 @@ public class BeenestServiceConfiguration {
 
     @Bean
     public UserIdentityService userIdentityService(final UnifiedUserMapper userMapper,
-                                                    final AutoGrantProperties autoGrantProperties) {
-        return new UserIdentityService(userMapper, autoGrantProperties);
+                                                    final AutoGrantProperties autoGrantProperties,
+                                                    final MiniAppProperties miniAppProperties) {
+        return new UserIdentityService(userMapper, autoGrantProperties, miniAppProperties);
     }
 
     /**

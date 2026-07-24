@@ -40,29 +40,43 @@ cd beenest-cas
 
 ### beenest-cas 本地快速开发部署（推荐）
 
-根目录 `docker-compose.yml` 使用 volume 挂载 WAR 的方式运行 CAS，无需 Docker 多阶段构建，适合快速迭代开发。
+根目录 `docker-compose.yml` 使用 volume 挂载 WAR/JAR 的方式运行 CAS 和 Payment，无需 Docker 多阶段构建，适合快速迭代开发。
 
 ```bash
 # 从仓库根目录执行
 
-# 1. 离线编译 CAS WAR（跳过测试，约 30 秒）
+# 0. 首次运行需创建 Docker 网络
+docker network create beenest-net
+
+# 1. 启动所有中间件（PostgreSQL, Redis, RabbitMQ, MinIO, Nacos）
+docker compose up -d postgres redis rabbitmq minio nacos
+
+# 2. 编译并启动 CAS
 cd beenest-cas
 ./gradlew :beenest-cas-service:clean :beenest-cas-service:build --offline --no-daemon -x test
-
-# 2. 重启 CAS 容器（必须 up -d 重建，restart 会因 volume 缓存失败）
 cd ..
 docker compose up -d beenest-cas
 
-# 3. 查看启动日志
+# 3. 编译并启动 Payment
+cd beenest-payment
+mvn clean package -DskipTests
+cd ..
+docker compose up -d beenest-payment
+
+# 4. 查看日志
 docker logs beenest-cas --tail 50 -f
+docker logs beenest-payment --tail 50 -f
 ```
 
 **注意事项**：
+- 首次运行前必须创建外部网络：`docker network create beenest-net`
 - 编译产物路径：`beenest-cas/beenest-cas-service/build/libs/cas.war`，通过 volume 挂载到容器的 `/app/app.war`
+- Payment 编译产物路径：`beenest-payment/beenest-payment-service/target/beenest-payment-service-1.0.3.jar`，通过 volume 挂载到容器的 `/app/app.jar`
 - 不要使用 `docker compose restart`，应使用 `docker compose up -d` 重建容器（Docker Desktop 的 volume 路径缓存问题）
-- CAS 依赖 PostgreSQL 和 Redis，中间件会自动等待 healthy 后启动
-- 环境变量（密钥等）配置在根目录 `.env` 文件中
-- CAS 监听端口：`8081`（HTTP），容器内通过 `JAVA_OPTS` 控制 JVM 内存（默认 `-Xms256m -Xmx512m`）
+- CAS 依赖 PostgreSQL 和 Redis，Payment 依赖 PostgreSQL、Redis、RabbitMQ、Nacos，中间件会自动等待 healthy 后启动
+- 环境变量配置：CAS 使用 `beenest-cas/.env.dev`，Payment 使用 `beenest-payment/.env.dev`（Docker Compose 服务名寻址）
+- 本地开发不挂载数据卷，容器删除后数据自动清除；中间件初始化脚本在 `infra/postgres/` 目录
+- CAS 监听端口：`8081`（HTTP），Payment 监听端口：`8082`（HTTP），容器内通过 `JAVA_OPTS` 控制 JVM 内存
 
 ### beenest-payment
 
@@ -173,11 +187,11 @@ Two-module Maven project: API contract module (`beenest-payment-api`) and servic
 
 **Schedulers**: `PaymentOrderExpireScheduler`, `RefundStatusSyncScheduler` (PENDING + PROCESSING), `PaymentStatusCompensationScheduler`, `OutboxMessageScheduler`, `DlqRetryScheduler`, `WalletIntegrityScheduler`.
 
-**Database**: PostgreSQL schema `beenest_payment`. Tables prefixed `ds_`. Flyway migrations `V1_0_0` through `V1_0_8`. MyBatis mapper XMLs in `resources/mapper/payment/` and `resources/mapper/payscore/`.
+**Database**: PostgreSQL schema `beenest_payment`. Tables prefixed `ds_`. Schema initialization via `infra/postgres/02-schema-beenest-payment.sql` (合并了所有历史 Flyway 迁移 V1_0_0 ~ V1_0_13 的最终状态). MyBatis mapper XMLs in `resources/mapper/payment/` and `resources/mapper/payscore/`.
 
 **Key environment variables**: `PAYMENT_DB_URL`, `NACOS_ADDR`, `RABBITMQ_HOST`, `RABBITMQ_PORT`, `WALLET_HASH_SECRET`.
 
-**PayScore (信用免押)**: Credit exemption module for merchant deposit-free scenarios. Supports WeChat PayScore (`WECHAT_PAYSCORE`) and Alipay Zhima Credit (`ALIPAY_ZHIMA`). Strategy pattern: `PayScoreStrategy` interface → `AbstractPayScoreStrategy` (template method) → `WechatPayScoreStrategy` / `AlipayZhimaStrategy`. `PayScoreStrategyFactory` auto-discovers beans. Service order lifecycle: `PENDING_AUTH` → `AUTHORIZED` → `SERVICE_ACTIVE` → `COMPLETING` → `COMPLETED`. Key entities: `ServiceOrder`, `CreditAuthorization`. Flyway: `V1_0_8__payscore_credit_exemption.sql`. Config: `payment.payscore.*`.
+**PayScore (信用免押)**: Credit exemption module for merchant deposit-free scenarios. Supports WeChat PayScore (`WECHAT_PAYSCORE`) and Alipay Zhima Credit (`ALIPAY_ZHIMA`). Strategy pattern: `PayScoreStrategy` interface → `AbstractPayScoreStrategy` (template method) → `WechatPayScoreStrategy` / `AlipayZhimaStrategy`. `PayScoreStrategyFactory` auto-discovers beans. Service order lifecycle: `PENDING_AUTH` → `AUTHORIZED` → `SERVICE_ACTIVE` → `COMPLETING` → `COMPLETED`. Key entities: `ServiceOrder`, `CreditAuthorization`. Config: `payment.payscore.*`.
 
 ## Code Comment Standards
 
