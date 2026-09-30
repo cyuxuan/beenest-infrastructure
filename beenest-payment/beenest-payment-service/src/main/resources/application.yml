@@ -22,8 +22,15 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
   cloud:
     nacos:
+      # 顶层兜底：NacosConfigProperties.overrideFromEnv() 会读取 spring.cloud.nacos.username/password
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
       config:
         server-addr: ${NACOS_ADDR:localhost:8848}
+        # Nacos 开启鉴权时必填：config-import 解析器只从 spring.cloud.nacos.config.* 读取账号密码
+        # （URL 上的 username/password 参数会被忽略）。默认用户 nacos/nacos，生产务必改密。
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         file-extension: yml
@@ -31,6 +38,8 @@ spring:
         refresh-enabled: true
       discovery:
         server-addr: ${NACOS_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         enabled: ${NACOS_ENABLED:true}

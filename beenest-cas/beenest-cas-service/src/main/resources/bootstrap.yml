@@ -13,6 +13,9 @@ spring:
     nacos:
       config:
         server-addr: ${NACOS_ADDR:localhost:8848}
+        # Nacos 开启鉴权时必填（默认用户 nacos/nacos，生产环境务必改密）
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         file-extension: yml
