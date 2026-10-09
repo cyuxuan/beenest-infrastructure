@@ -6,11 +6,15 @@ import org.apereo.cas.beenest.client.cache.BearerTokenRevocationService;
 import org.apereo.cas.beenest.client.config.CasSecurityProperties;
 import org.apereo.cas.beenest.client.details.CasUserDetails;
 import org.apereo.cas.beenest.client.session.CasUserSession;
+import org.apereo.cas.beenest.client.accesscontrol.AccessControlResult;
+import org.apereo.cas.beenest.client.accesscontrol.CasAccessControlManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -162,5 +166,80 @@ class CasBearerTokenAuthenticationProviderTest {
         verify(nativeTicketValidator, times(2)).validate("access-stale");
         verify(userDetailsService, times(2))
                 .loadUserByCasAssertion(org.mockito.ArgumentMatchers.eq("u300"), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldRunAccessControlOnlyOnFreshLoad() {
+        BearerTokenCache realTokenCache = new BearerTokenCache(300, 100);
+        CasAccessControlManager accessControlManager = mock(CasAccessControlManager.class);
+        CasBearerTokenAuthenticationProvider provider = new CasBearerTokenAuthenticationProvider(
+                nativeTicketValidator,
+                properties,
+                realTokenCache,
+                revocationService,
+                userDetailsService,
+                tokenRefresher,
+                authorityVersionService,
+                accessControlManager);
+
+        CasUserSession session = new CasUserSession();
+        session.setUserId("u400");
+        session.setNickname("访问控制用户");
+        session.setAttributes(new HashMap<>(Map.of("memberOf", List.of("ROLE_DRONE_SYSTEM"))));
+        CasUserDetails userDetails = new CasUserDetails(session, List.of());
+
+        when(revocationService.isAccessTokenRevoked("access-ac")).thenReturn(false);
+        when(nativeTicketValidator.validate("access-ac")).thenReturn(session);
+        when(userDetailsService.loadUserByCasAssertion(org.mockito.ArgumentMatchers.eq("u400"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(userDetails);
+        when(accessControlManager.isEnabled()).thenReturn(true);
+        when(accessControlManager.onAuthentication(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap()))
+                .thenReturn(AccessControlResult.granted("u400"));
+
+        // 第一次请求：freshLoad=true，触发访问控制
+        Authentication first = provider.authenticate(new CasBearerTokenAuthenticationToken("access-ac"));
+        org.assertj.core.api.Assertions.assertThat(first.isAuthenticated()).isTrue();
+
+        // 第二次请求：缓存命中（含 cachedUserDetails），freshLoad=false，不再触发访问控制
+        Authentication second = provider.authenticate(new CasBearerTokenAuthenticationToken("access-ac"));
+        org.assertj.core.api.Assertions.assertThat(second.isAuthenticated()).isTrue();
+
+        // 访问控制只在首次构建时执行一次，缓存命中路径不再重复触发
+        verify(accessControlManager, times(1))
+                .onAuthentication(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
+    }
+
+    @Test
+    void shouldDenyAuthenticationWhenAccessControlDenied() {
+        BearerTokenCache realTokenCache = new BearerTokenCache(300, 100);
+        CasAccessControlManager accessControlManager = mock(CasAccessControlManager.class);
+        CasBearerTokenAuthenticationProvider provider = new CasBearerTokenAuthenticationProvider(
+                nativeTicketValidator,
+                properties,
+                realTokenCache,
+                revocationService,
+                userDetailsService,
+                tokenRefresher,
+                authorityVersionService,
+                accessControlManager);
+
+        CasUserSession session = new CasUserSession();
+        session.setUserId("u500");
+        session.setNickname("被拒绝用户");
+        // 访问控制以会话属性为入参，必须设置非空 attributes，否则 anyMap() 无法匹配
+        session.setAttributes(new HashMap<>(Map.of("userId", "u500")));
+        CasUserDetails userDetails = new CasUserDetails(session, List.of());
+
+        when(revocationService.isAccessTokenRevoked("access-denied")).thenReturn(false);
+        when(nativeTicketValidator.validate("access-denied")).thenReturn(session);
+        when(userDetailsService.loadUserByCasAssertion(org.mockito.ArgumentMatchers.eq("u500"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(userDetails);
+        when(accessControlManager.isEnabled()).thenReturn(true);
+        when(accessControlManager.onAuthentication(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap()))
+                .thenReturn(AccessControlResult.denied("CAS 权限已撤销"));
+
+        assertThatThrownBy(() -> provider.authenticate(new CasBearerTokenAuthenticationToken("access-denied")))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessageContaining("CAS 权限已撤销");
     }
 }

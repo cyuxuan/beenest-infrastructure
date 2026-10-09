@@ -108,6 +108,9 @@ public class UserIdentityService {
             LOGGER.info("微信自动注册: userId={}", user.getUserId());
         } else {
             boolean updated = syncWechatIdentity(user, openid, unionid);
+            if (trySyncPhone(user, phone)) {
+                updated = true;
+            }
             if (tryRefreshNickname(user, sanitizedNickname)) {
                 updated = true;
             }
@@ -164,11 +167,17 @@ public class UserIdentityService {
             }
         }
         if (user == null) {
-            user = createDouyinUser(openid, unionid, userType, sanitizedNickname);
+            user = createDouyinUser(openid, unionid, phone, userType, sanitizedNickname);
             firstLogin = true;
             LOGGER.info("抖音自动注册: userId={}", user.getUserId());
-        } else if (tryRefreshNickname(user, sanitizedNickname)) {
-            userMapper.updateByUserId(user);
+        } else {
+            boolean updated = trySyncPhone(user, phone);
+            if (tryRefreshNickname(user, sanitizedNickname)) {
+                updated = true;
+            }
+            if (updated) {
+                userMapper.updateByUserId(user);
+            }
         }
         UnifiedUserDO latestUser = reloadUser(user);
         ensureLoginAllowed(latestUser);
@@ -207,11 +216,17 @@ public class UserIdentityService {
             }
         }
         if (user == null) {
-            user = createAlipayUser(alipayUid, userType, sanitizedNickname);
+            user = createAlipayUser(alipayUid, phone, userType, sanitizedNickname);
             firstLogin = true;
             LOGGER.info("支付宝自动注册: userId={}", user.getUserId());
-        } else if (tryRefreshNickname(user, sanitizedNickname)) {
-            userMapper.updateByUserId(user);
+        } else {
+            boolean updated = trySyncPhone(user, phone);
+            if (tryRefreshNickname(user, sanitizedNickname)) {
+                updated = true;
+            }
+            if (updated) {
+                userMapper.updateByUserId(user);
+            }
         }
         UnifiedUserDO latestUser = reloadUser(user);
         ensureLoginAllowed(latestUser);
@@ -382,6 +397,36 @@ public class UserIdentityService {
         return updated;
     }
 
+    /**
+     * 补全用户手机号。
+     *
+     * <p>渠道登录按 openid/unionid 命中已有用户时，如果本次登录携带了手机号
+     * 且用户行尚无手机号，则补写到用户行上，使后续手机号登录能够命中同一行，
+     * 避免同一自然人在 {@code cas_user} 中产生多行。</p>
+     *
+     * <p>如果手机号已归属另一行（历史碎片数据），跳过补写并输出告警，
+     * 不做破坏性合并（合并方向需要人工/产品决策）。</p>
+     *
+     * @param user  当前用户行
+     * @param phone 本次登录携带的手机号
+     * @return true 表示发生了更新
+     */
+    private boolean trySyncPhone(UnifiedUserDO user, String phone) {
+        if (StringUtils.isBlank(phone) || StringUtils.isNotBlank(user.getPhone())) {
+            return false;
+        }
+        // 手机号已被其他行占用时跳过补写，避免破坏 uk_cas_user_phone 唯一约束
+        UnifiedUserDO holder = userMapper.selectByPhone(phone);
+        if (holder != null) {
+            LOGGER.warn("检测到碎片身份: 手机号已归属其他账号，跳过补写. phone={}, currentUserId={}, holderUserId={}",
+                    phone, user.getUserId(), holder.getUserId());
+            return false;
+        }
+        user.setPhone(phone);
+        user.setPhoneVerified(true);
+        return true;
+    }
+
     private UnifiedUserDO createWechatUser(String openid, String unionid, String phone,
                                             String userType, String nickname) {
         UnifiedUserDO user = new UnifiedUserDO();
@@ -403,7 +448,7 @@ public class UserIdentityService {
         return safeCreate(user);
     }
 
-    private UnifiedUserDO createDouyinUser(String openid, String unionid,
+    private UnifiedUserDO createDouyinUser(String openid, String unionid, String phone,
                                             String userType, String nickname) {
         UnifiedUserDO user = new UnifiedUserDO();
         user.setUserId(generateUserId());
@@ -414,13 +459,17 @@ public class UserIdentityService {
         user.setSource("MINIAPP");
         user.setTenantId(miniAppProperties.getDouyin().getAppid());
         user.setNickname(nickname);
+        if (StringUtils.isNotBlank(phone)) {
+            user.setPhone(phone);
+            user.setPhoneVerified(true);
+        }
         user.setStatus(CasConstant.USER_STATUS_ACTIVE);
         user.setFailedLoginCount(0);
         user.setTokenVersion(1);
         return safeCreate(user);
     }
 
-    private UnifiedUserDO createAlipayUser(String alipayUid, String userType, String nickname) {
+    private UnifiedUserDO createAlipayUser(String alipayUid, String phone, String userType, String nickname) {
         UnifiedUserDO user = new UnifiedUserDO();
         user.setUserId(generateUserId());
         user.setAlipayUid(alipayUid);
@@ -429,6 +478,10 @@ public class UserIdentityService {
         user.setSource("MINIAPP");
         user.setTenantId(miniAppProperties.getAlipay().getAppid());
         user.setNickname(nickname);
+        if (StringUtils.isNotBlank(phone)) {
+            user.setPhone(phone);
+            user.setPhoneVerified(true);
+        }
         user.setStatus(CasConstant.USER_STATUS_ACTIVE);
         user.setFailedLoginCount(0);
         user.setTokenVersion(1);

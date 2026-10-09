@@ -3,6 +3,7 @@ package org.apereo.cas.beenest.service;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.exception.BizException;
 import org.apereo.cas.beenest.config.AutoGrantProperties;
+import org.apereo.cas.beenest.config.MiniAppProperties;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +17,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,6 +26,9 @@ class UserIdentityServiceTest {
 
     @Mock
     private UnifiedUserMapper userMapper;
+
+    @Mock
+    private MiniAppProperties miniAppProperties;
 
     private AutoGrantProperties autoGrantProperties;
 
@@ -47,7 +53,7 @@ class UserIdentityServiceTest {
         when(userMapper.selectByPhone("13800138000")).thenReturn(user);
         when(userMapper.selectByUserId("U10001")).thenReturn(user);
 
-        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties);
+        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties, miniAppProperties);
 
         assertThatThrownBy(() -> service.findOrRegisterByPhoneResult("13800138000", "PILOT"))
                 .isInstanceOf(BizException.class)
@@ -63,7 +69,7 @@ class UserIdentityServiceTest {
         // unlockAccountIfNeeded 返回 0 表示仍在锁定期
         when(userMapper.unlockAccountIfNeeded(user.getId())).thenReturn(0);
 
-        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties);
+        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties, miniAppProperties);
 
         assertThatThrownBy(() -> service.findOrRegisterByWechatResult(
                 "openid-1", "union-1", null, "CUSTOMER", "张三"))
@@ -81,13 +87,75 @@ class UserIdentityServiceTest {
         // unlockAccountIfNeeded 返回 1 表示已成功解锁
         when(userMapper.unlockAccountIfNeeded(user.getId())).thenReturn(1);
 
-        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties);
+        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties, miniAppProperties);
 
         // 解锁后应正常返回，不再抛出 BizException
         UserIdentityService.UserIdentityResult result =
                 service.findOrRegisterByPhoneResult("13800138000", "PILOT");
         assertThat(result.user().getUserId()).isEqualTo("U10003");
         assertThat(result.user().getStatus()).isEqualTo(CasConstant.USER_STATUS_ACTIVE);
+    }
+
+    @Test
+    void backfillsPhoneOnChannelMatchedWechatLogin() {
+        // 渠道匹配命中已有用户，且用户行尚无手机号 → 补写手机号
+        UnifiedUserDO user = user("U10004", CasConstant.USER_STATUS_ACTIVE);
+        user.setOpenid("openid-1");
+        user.setUnionid("union-1");
+        user.setNickname("张三");
+        when(userMapper.selectByUnionid("union-1")).thenReturn(user);
+        when(userMapper.selectByPhone("13800138000")).thenReturn(null);
+
+        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties, miniAppProperties);
+
+        UserIdentityService.UserIdentityResult result = service.findOrRegisterByWechatResult(
+                "openid-1", "union-1", "13800138000", "CUSTOMER", "张三");
+
+        assertThat(result.user().getPhone()).isEqualTo("13800138000");
+        assertThat(result.user().getPhoneVerified()).isTrue();
+        verify(userMapper).updateByUserId(user);
+    }
+
+    @Test
+    void skipsPhoneBackfillWhenPhoneOwnedByAnotherRow() {
+        // 手机号已归属另一行（碎片数据）→ 跳过补写，不做破坏性合并
+        UnifiedUserDO user = user("U10005", CasConstant.USER_STATUS_ACTIVE);
+        user.setOpenid("openid-2");
+        user.setUnionid("union-2");
+        user.setNickname("李四");
+        UnifiedUserDO holder = user("U99999", CasConstant.USER_STATUS_ACTIVE);
+        holder.setPhone("13800138000");
+        when(userMapper.selectByUnionid("union-2")).thenReturn(user);
+        when(userMapper.selectByPhone("13800138000")).thenReturn(holder);
+
+        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties, miniAppProperties);
+
+        UserIdentityService.UserIdentityResult result = service.findOrRegisterByWechatResult(
+                "openid-2", "union-2", "13800138000", "CUSTOMER", "李四");
+
+        assertThat(result.user().getPhone()).isNull();
+        verify(userMapper, never()).updateByUserId(user);
+    }
+
+    @Test
+    void skipsPhoneBackfillWhenUserAlreadyHasPhone() {
+        // 用户行已有手机号 → 不重复补写
+        UnifiedUserDO user = user("U10006", CasConstant.USER_STATUS_ACTIVE);
+        user.setOpenid("openid-3");
+        user.setUnionid("union-3");
+        user.setNickname("王五");
+        user.setPhone("13900139000");
+        user.setPhoneVerified(true);
+        when(userMapper.selectByUnionid("union-3")).thenReturn(user);
+
+        UserIdentityService service = new UserIdentityService(userMapper, autoGrantProperties, miniAppProperties);
+
+        UserIdentityService.UserIdentityResult result = service.findOrRegisterByWechatResult(
+                "openid-3", "union-3", "13800138000", "CUSTOMER", "王五");
+
+        // 保留原手机号，不覆盖为本次登录的手机号
+        assertThat(result.user().getPhone()).isEqualTo("13900139000");
+        verify(userMapper, never()).updateByUserId(user);
     }
 
     private UnifiedUserDO user(String userId, int status) {

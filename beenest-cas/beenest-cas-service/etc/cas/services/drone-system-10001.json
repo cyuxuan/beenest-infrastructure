@@ -9,7 +9,7 @@
     "@class": "org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy",
     "allowedAttributes": [
       "java.util.ArrayList",
-      ["userId", "username", "userType", "phone", "email", "nickname", "loginType", "memberOf", "tokenVersion"]
+      ["userId", "username", "userType", "phone", "email", "nickname", "loginType", "memberOf", "tokenVersion", "openid", "tenantId", "unionid", "source", "avatarUrl"]
     ]
   },
   "logoutType": "BACK_CHANNEL",

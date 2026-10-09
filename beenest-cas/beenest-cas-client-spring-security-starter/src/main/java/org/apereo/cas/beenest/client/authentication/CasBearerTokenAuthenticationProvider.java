@@ -313,7 +313,10 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
                                                    CasUserDetails cachedUserDetails) {
         CasUserDetails casUserDetails = cachedUserDetails;
 
-        if (casUserDetails == null) {
+        // 本次构建是否需要重新加载用户详情（缓存命中时直接复用已有详情，跳过访问控制）
+        boolean freshLoad = cachedUserDetails == null;
+
+        if (freshLoad) {
             // 1. 构建 Assertion（CasUserDetailsService 需要从 Assertion 中获取属性）
             Map<String, Object> attributes = new HashMap<>();
             if (session.getAttributes() != null) {
@@ -331,6 +334,15 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
             } else {
                 casUserDetails = new CasUserDetails(session, new ArrayList<>(userDetails.getAuthorities()));
             }
+
+            // 3.5 身份归一同步：下游应用可能在加载用户详情时将 CAS 传输身份
+            //     解析为本地统一用户身份（如同一手机号多 CAS 账号归一到同一自然人），
+            //     同步到会话对象，保证缓存、权限版本与认证主体使用同一身份
+            if (casUserDetails != null && casUserDetails.getUserId() != null
+                    && !casUserDetails.getUserId().equals(session.getUserId())) {
+                log.debug("[Bearer认证] 身份归一: {} -> {}", session.getUserId(), casUserDetails.getUserId());
+                session.setUserId(casUserDetails.getUserId());
+            }
         }
 
         // 4. 回填本地缓存，后续同 token 请求可直接复用权限
@@ -343,9 +355,11 @@ public class CasBearerTokenAuthenticationProvider implements AuthenticationProvi
         }
 
         // 5. 访问控制 SPI 同步（如果启用）
+        //    仅在本次构建重新加载了用户详情时执行；缓存命中路径直接复用认证结果，
+        //    避免访问控制在同一 token 的每个请求上重复触发。
         //    CAS 服务端 accessStrategy 已完成权限校验，此处只做本地用户状态同步：
         //    有 CAS 角色 → 创建/更新本地用户；无 CAS 角色 → 禁用本地用户。
-        if (accessControlManager != null && accessControlManager.isEnabled() && casUserDetails != null) {
+        if (accessControlManager != null && accessControlManager.isEnabled() && freshLoad && casUserDetails != null) {
             Map<String, Object> casAttributes = casUserDetails.getCasUserSession().getAttributes();
 
             AccessControlResult acResult = accessControlManager.onAuthentication(

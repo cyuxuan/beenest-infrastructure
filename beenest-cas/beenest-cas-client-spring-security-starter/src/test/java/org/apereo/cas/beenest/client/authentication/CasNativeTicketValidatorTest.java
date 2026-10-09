@@ -26,16 +26,18 @@ class CasNativeTicketValidatorTest {
         CasSecurityProperties properties = new CasSecurityProperties();
         properties.setServerUrl("http://localhost:8081/cas");
         properties.setClientHostUrl("http://localhost:8080/drone");
+        // 显式声明验证服务地址含 loginPath 后缀，与 ServiceProperties.service 保持一致
+        properties.setLoginPath("/login/cas");
 
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
         server.expect(requestTo("http://localhost:8081/cas/v1/tickets/TGT-1"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("service=http%3A%2F%2Flocalhost%3A8080%2Fdrone")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("service=http%3A%2F%2Flocalhost%3A8080%2Fdrone%2Flogin%2Fcas")))
                 .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess("ST-1",
                         MediaType.TEXT_PLAIN));
-        server.expect(requestTo("http://localhost:8081/cas/p3/serviceValidate?service=http://localhost:8080/drone&ticket=ST-1"))
+        server.expect(requestTo("http://localhost:8081/cas/p3/serviceValidate?service=http://localhost:8080/drone/login/cas&ticket=ST-1"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
                         <cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas">
