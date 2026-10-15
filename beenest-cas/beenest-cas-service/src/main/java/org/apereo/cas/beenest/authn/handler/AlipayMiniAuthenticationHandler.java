@@ -126,7 +126,8 @@ public class AlipayMiniAuthenticationHandler implements AuthenticationHandler {
         UserIdentityService.UserIdentityResult identityResult = userIdentityService.findOrRegisterByAlipayResult(
                 alipayUserId, phone,
                 alipayCredential.getUserType(),
-                alipayCredential.getNickname());
+                alipayCredential.getNickname(),
+                alipayCredential.getAvatarUrl());
 
         UnifiedUserDO user = identityResult.user();
 
@@ -221,6 +222,9 @@ public class AlipayMiniAuthenticationHandler implements AuthenticationHandler {
         }
         if (StringUtils.isNotBlank(user.getNickname())) {
             attributes.put("nickname", List.of(user.getNickname()));
+        }
+        if (StringUtils.isNotBlank(user.getAvatarUrl())) {
+            attributes.put("avatarUrl", List.of(user.getAvatarUrl()));
         }
         if (StringUtils.isNotBlank(user.getPhone())) {
             attributes.put("phone", List.of(user.getPhone()));

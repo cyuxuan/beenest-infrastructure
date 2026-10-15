@@ -71,7 +71,8 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
         UserIdentityService.UserIdentityResult identityResult = userIdentityService.findOrRegisterByWechatResult(
                 openid, unionid, phone,
                 wechatCredential.getUserType(),
-                wechatCredential.getNickname());
+                wechatCredential.getNickname(),
+                wechatCredential.getAvatarUrl());
 
         UnifiedUserDO user = identityResult.user();
 
@@ -134,6 +135,9 @@ public class WechatMiniAuthenticationHandler implements AuthenticationHandler {
         }
         if (StringUtils.isNotBlank(user.getNickname())) {
             attrs.put("nickname", List.of(user.getNickname()));
+        }
+        if (StringUtils.isNotBlank(user.getAvatarUrl())) {
+            attrs.put("avatarUrl", List.of(user.getAvatarUrl()));
         }
         if (StringUtils.isNotBlank(user.getPhone())) {
             attrs.put("phone", List.of(user.getPhone()));

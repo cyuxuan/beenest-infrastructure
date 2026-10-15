@@ -28,4 +28,7 @@ public final class MiniAppLoginDTO {
 
     /** 昵称 */
     private String nickname;
+
+    /** 头像地址（小程序端通过头像昵称填写能力或平台资料获取） */
+    private String avatarUrl;
 }

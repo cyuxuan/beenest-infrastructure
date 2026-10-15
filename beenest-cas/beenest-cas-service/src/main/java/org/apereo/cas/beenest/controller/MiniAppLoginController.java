@@ -52,6 +52,7 @@ public class MiniAppLoginController {
         credential.setPhoneCode(dto.getPhoneCode());
         credential.setUserType(dto.getUserType());
         credential.setNickname(dto.getNickname());
+        credential.setAvatarUrl(dto.getAvatarUrl());
 
         return executeLogin(credential, "WECHAT", httpRequest);
     }
@@ -73,6 +74,7 @@ public class MiniAppLoginController {
         DouyinMiniCredential credential = new DouyinMiniCredential(dto.getDouyinCode());
         credential.setUserType(dto.getUserType());
         credential.setNickname(dto.getNickname());
+        credential.setAvatarUrl(dto.getAvatarUrl());
 
         return executeLogin(credential, "DOUYIN_MINI", httpRequest);
     }
@@ -95,6 +97,7 @@ public class MiniAppLoginController {
         credential.setPhoneCode(dto.getPhoneCode());
         credential.setUserType(dto.getUserType());
         credential.setNickname(dto.getNickname());
+        credential.setAvatarUrl(dto.getAvatarUrl());
 
         return executeLogin(credential, "ALIPAY_MINI", httpRequest);
     }

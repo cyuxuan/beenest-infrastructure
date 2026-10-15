@@ -157,6 +157,9 @@ public class SmsOtpAuthenticationHandler implements AuthenticationHandler {
         if (StringUtils.isNotBlank(user.getNickname())) {
             attrs.put("nickname", List.of(user.getNickname()));
         }
+        if (StringUtils.isNotBlank(user.getAvatarUrl())) {
+            attrs.put("avatarUrl", List.of(user.getAvatarUrl()));
+        }
         // 合并 memberOf 属性（基础角色 + 应用角色）
         attrs.putAll(BeenestPrincipalAttributesBuilder.buildAttributes(user));
         return attrs;

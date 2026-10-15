@@ -61,15 +61,17 @@ public class UserIdentityService {
      */
     public UnifiedUserDO findOrRegisterByWechat(String openid, String unionid,
                                                  String phone, String userType, String nickname) {
-        return findOrRegisterByWechatResult(openid, unionid, phone, userType, nickname).user();
+        return findOrRegisterByWechatResult(openid, unionid, phone, userType, nickname, null).user();
     }
 
     /**
      * 微信渠道：查找或注册用户，并返回是否首次注册。
      */
     public UserIdentityResult findOrRegisterByWechatResult(String openid, String unionid,
-                                                           String phone, String userType, String nickname) {
+                                                           String phone, String userType, String nickname,
+                                                           String avatarUrl) {
         String sanitizedNickname = sanitizeNickname(nickname);
+        String sanitizedAvatarUrl = sanitizeAvatarUrl(avatarUrl);
 
         // 1. 查找用户（优先级：unionid > openid）
         UnifiedUserDO user = null;
@@ -103,7 +105,7 @@ public class UserIdentityService {
 
         // 3. 自动注册（带并发保护）
         if (user == null) {
-            user = createWechatUser(openid, unionid, phone, userType, sanitizedNickname);
+            user = createWechatUser(openid, unionid, phone, userType, sanitizedNickname, sanitizedAvatarUrl);
             firstLogin = true;
             LOGGER.info("微信自动注册: userId={}", user.getUserId());
         } else {
@@ -112,6 +114,9 @@ public class UserIdentityService {
                 updated = true;
             }
             if (tryRefreshNickname(user, sanitizedNickname)) {
+                updated = true;
+            }
+            if (tryRefreshAvatarUrl(user, sanitizedAvatarUrl)) {
                 updated = true;
             }
             if (updated) {
@@ -129,15 +134,17 @@ public class UserIdentityService {
      */
     public UnifiedUserDO findOrRegisterByDouyin(String openid, String unionid,
                                                  String phone, String userType, String nickname) {
-        return findOrRegisterByDouyinResult(openid, unionid, phone, userType, nickname).user();
+        return findOrRegisterByDouyinResult(openid, unionid, phone, userType, nickname, null).user();
     }
 
     /**
      * 抖音渠道：查找或注册用户，并返回是否首次注册。
      */
     public UserIdentityResult findOrRegisterByDouyinResult(String openid, String unionid,
-                                                           String phone, String userType, String nickname) {
+                                                           String phone, String userType, String nickname,
+                                                           String avatarUrl) {
         String sanitizedNickname = sanitizeNickname(nickname);
+        String sanitizedAvatarUrl = sanitizeAvatarUrl(avatarUrl);
 
         UnifiedUserDO user = null;
         boolean firstLogin = false;
@@ -167,12 +174,15 @@ public class UserIdentityService {
             }
         }
         if (user == null) {
-            user = createDouyinUser(openid, unionid, phone, userType, sanitizedNickname);
+            user = createDouyinUser(openid, unionid, phone, userType, sanitizedNickname, sanitizedAvatarUrl);
             firstLogin = true;
             LOGGER.info("抖音自动注册: userId={}", user.getUserId());
         } else {
             boolean updated = trySyncPhone(user, phone);
             if (tryRefreshNickname(user, sanitizedNickname)) {
+                updated = true;
+            }
+            if (tryRefreshAvatarUrl(user, sanitizedAvatarUrl)) {
                 updated = true;
             }
             if (updated) {
@@ -189,15 +199,17 @@ public class UserIdentityService {
      */
     public UnifiedUserDO findOrRegisterByAlipay(String alipayUid, String phone,
                                                  String userType, String nickname) {
-        return findOrRegisterByAlipayResult(alipayUid, phone, userType, nickname).user();
+        return findOrRegisterByAlipayResult(alipayUid, phone, userType, nickname, null).user();
     }
 
     /**
      * 支付宝渠道：查找或注册用户，并返回是否首次注册。
      */
     public UserIdentityResult findOrRegisterByAlipayResult(String alipayUid, String phone,
-                                                           String userType, String nickname) {
+                                                           String userType, String nickname,
+                                                           String avatarUrl) {
         String sanitizedNickname = sanitizeNickname(nickname);
+        String sanitizedAvatarUrl = sanitizeAvatarUrl(avatarUrl);
 
         UnifiedUserDO user = null;
         boolean firstLogin = false;
@@ -216,12 +228,15 @@ public class UserIdentityService {
             }
         }
         if (user == null) {
-            user = createAlipayUser(alipayUid, phone, userType, sanitizedNickname);
+            user = createAlipayUser(alipayUid, phone, userType, sanitizedNickname, sanitizedAvatarUrl);
             firstLogin = true;
             LOGGER.info("支付宝自动注册: userId={}", user.getUserId());
         } else {
             boolean updated = trySyncPhone(user, phone);
             if (tryRefreshNickname(user, sanitizedNickname)) {
+                updated = true;
+            }
+            if (tryRefreshAvatarUrl(user, sanitizedAvatarUrl)) {
                 updated = true;
             }
             if (updated) {
@@ -374,6 +389,34 @@ public class UserIdentityService {
     }
 
     /**
+     * 清洗客户端上传的头像地址，过滤空值和占位文案。
+     */
+    private String sanitizeAvatarUrl(String avatarUrl) {
+        return StringUtils.trimToNull(avatarUrl);
+    }
+
+    /**
+     * 当库内头像为空时，用本次登录携带的头像地址补写。
+     *
+     * <p>仅在头像为空时补写，避免小程序端每次登录临时拿到的头像
+     * 覆盖用户在业务侧自行上传/修改后的头像。</p>
+     *
+     * @param user             当前用户
+     * @param incomingAvatar   本次登录携带的头像地址
+     * @return true 表示发生了更新
+     */
+    private boolean tryRefreshAvatarUrl(UnifiedUserDO user, String incomingAvatar) {
+        if (user == null || incomingAvatar == null) {
+            return false;
+        }
+        if (StringUtils.isNotBlank(user.getAvatarUrl())) {
+            return false;
+        }
+        user.setAvatarUrl(incomingAvatar);
+        return true;
+    }
+
+    /**
      * 补全微信渠道身份。
      *
      * <p>当账号已经存在时，如果库里还没有 openid / unionid，
@@ -428,7 +471,7 @@ public class UserIdentityService {
     }
 
     private UnifiedUserDO createWechatUser(String openid, String unionid, String phone,
-                                            String userType, String nickname) {
+                                            String userType, String nickname, String avatarUrl) {
         UnifiedUserDO user = new UnifiedUserDO();
         user.setUserId(generateUserId());
         user.setOpenid(openid);
@@ -438,6 +481,7 @@ public class UserIdentityService {
         user.setSource("MINIAPP");
         user.setTenantId(miniAppProperties.getWechat().getAppid());
         user.setNickname(nickname);
+        user.setAvatarUrl(avatarUrl);
         if (StringUtils.isNotBlank(phone)) {
             user.setPhone(phone);
             user.setPhoneVerified(true);
@@ -449,7 +493,7 @@ public class UserIdentityService {
     }
 
     private UnifiedUserDO createDouyinUser(String openid, String unionid, String phone,
-                                            String userType, String nickname) {
+                                            String userType, String nickname, String avatarUrl) {
         UnifiedUserDO user = new UnifiedUserDO();
         user.setUserId(generateUserId());
         user.setDouyinOpenid(openid);
@@ -459,6 +503,7 @@ public class UserIdentityService {
         user.setSource("MINIAPP");
         user.setTenantId(miniAppProperties.getDouyin().getAppid());
         user.setNickname(nickname);
+        user.setAvatarUrl(avatarUrl);
         if (StringUtils.isNotBlank(phone)) {
             user.setPhone(phone);
             user.setPhoneVerified(true);
@@ -469,7 +514,8 @@ public class UserIdentityService {
         return safeCreate(user);
     }
 
-    private UnifiedUserDO createAlipayUser(String alipayUid, String phone, String userType, String nickname) {
+    private UnifiedUserDO createAlipayUser(String alipayUid, String phone, String userType,
+                                            String nickname, String avatarUrl) {
         UnifiedUserDO user = new UnifiedUserDO();
         user.setUserId(generateUserId());
         user.setAlipayUid(alipayUid);
@@ -478,6 +524,7 @@ public class UserIdentityService {
         user.setSource("MINIAPP");
         user.setTenantId(miniAppProperties.getAlipay().getAppid());
         user.setNickname(nickname);
+        user.setAvatarUrl(avatarUrl);
         if (StringUtils.isNotBlank(phone)) {
             user.setPhone(phone);
             user.setPhoneVerified(true);

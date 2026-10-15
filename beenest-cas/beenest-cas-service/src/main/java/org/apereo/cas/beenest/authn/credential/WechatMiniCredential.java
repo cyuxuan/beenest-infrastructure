@@ -28,6 +28,9 @@ public class WechatMiniCredential extends AbstractCredential {
     /** 昵称（可选，注册时使用） */
     private String nickname;
 
+    /** 头像地址（可选，注册时使用） */
+    private String avatarUrl;
+
     public WechatMiniCredential() {}
 
     public WechatMiniCredential(String code) {

@@ -86,7 +86,8 @@ public class DouyinMiniAuthenticationHandler implements AuthenticationHandler {
         UserIdentityService.UserIdentityResult identityResult = userIdentityService.findOrRegisterByDouyinResult(
                 openid, unionid, null,
                 douyinCredential.getUserType(),
-                douyinCredential.getNickname());
+                douyinCredential.getNickname(),
+                douyinCredential.getAvatarUrl());
 
         UnifiedUserDO user = identityResult.user();
 
@@ -130,6 +131,9 @@ public class DouyinMiniAuthenticationHandler implements AuthenticationHandler {
         }
         if (StringUtils.isNotBlank(user.getNickname())) {
             attrs.put("nickname", List.of(user.getNickname()));
+        }
+        if (StringUtils.isNotBlank(user.getAvatarUrl())) {
+            attrs.put("avatarUrl", List.of(user.getAvatarUrl()));
         }
         if (StringUtils.isNotBlank(user.getPhone())) {
             attrs.put("phone", List.of(user.getPhone()));
