@@ -44,15 +44,41 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
      * @param request CAS 原生注册请求
      * @return 注册响应
      */
+    /**
+     * 自助注册渠道开户落库（CAS 原生注册 webflow / 机器通道）。
+     * <p>
+     * 自助渠道不允许创建 ADMIN 账号：userType 走
+     * {@link UserTypeUtils#normalizeSelfRegistration(String)}，非法值统一降级为 CUSTOMER。
+     */
     @Override
     public AccountRegistrationResponse provision(AccountRegistrationRequest request) {
+        return doProvision(request, false);
+    }
+
+    /**
+     * 受信渠道开户落库（管理端点 / 机器通道调用）。
+     * <p>
+     * 与自助注册的差异：userType 走 {@link UserTypeUtils#normalize(String)}（允许 ADMIN）；
+     * 受信渠道创建的 ADMIN 账号额外授予 {@link CasConstant#ROLE_ADMIN}。
+     */
+    public AccountRegistrationResponse provisionAdmin(AccountRegistrationRequest request) {
+        return doProvision(request, true);
+    }
+
+    private AccountRegistrationResponse doProvision(AccountRegistrationRequest request, boolean trusted) {
         try {
             new BeenestAccountRegistrationRequestValidator(userMapper, true).validate(request);
-            UnifiedUserDO user = buildUser(request);
+            UnifiedUserDO user = buildUser(request, trusted);
             userMapper.insert(user);
             // 新注册用户自动赋权（与 UserIdentityService.safeCreate() 行为一致）
             autoGrantRoles(user.getUserId());
-            LOGGER.info("CAS 原生账号注册成功: userId={}, username={}", user.getUserId(), user.getUsername());
+            // 受信渠道创建的 ADMIN 账号额外授予管理角色
+            if (trusted && "ADMIN".equals(user.getUserType())) {
+                userMapper.addRole(user.getUserId(), CasConstant.ROLE_ADMIN);
+                LOGGER.info("受信渠道授予管理角色: userId={}, role={}", user.getUserId(), CasConstant.ROLE_ADMIN);
+            }
+            LOGGER.info("CAS 账号注册成功: userId={}, username={}, userType={}, trusted={}",
+                    user.getUserId(), user.getUsername(), user.getUserType(), trusted);
             return AccountRegistrationResponse.success().putProperty("userId", user.getUserId());
         } catch (DuplicateKeyException e) {
             LOGGER.warn("CAS 原生账号注册唯一键冲突: username={}",
@@ -85,7 +111,7 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
         }
     }
 
-    private UnifiedUserDO buildUser(AccountRegistrationRequest request) {
+    private UnifiedUserDO buildUser(AccountRegistrationRequest request, boolean trusted) {
         String username = BeenestAccountRegistrationRequestValidator.getString(request, "username");
         String password = BeenestAccountRegistrationRequestValidator.getString(request, "password");
         String email = BeenestAccountRegistrationRequestValidator.getString(request, "email");
@@ -99,7 +125,10 @@ public class BeenestAccountRegistrationProvisioner implements AccountRegistratio
         user.setNickname(resolveNickname(request));
         user.setEmail(email);
         user.setPhone(phone);
-        user.setUserType(UserTypeUtils.normalizeSelfRegistration(userType));
+        // 受信渠道允许创建 ADMIN 账号；自助渠道统一降级为自助可注册类型
+        user.setUserType(trusted
+                ? UserTypeUtils.normalize(userType)
+                : UserTypeUtils.normalizeSelfRegistration(userType));
         user.setSource("WEB");
         user.setLoginType("USERNAME_PASSWORD");
         user.setPhoneVerified(Boolean.FALSE);

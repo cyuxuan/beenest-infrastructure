@@ -1,14 +1,13 @@
 package org.apereo.cas.beenest.endpoint;
 
-import org.apereo.cas.acct.AccountRegistrationRequest;
 import org.apereo.cas.acct.AccountRegistrationResponse;
-import org.apereo.cas.acct.provision.AccountRegistrationProvisioner;
 import org.apereo.cas.beenest.common.constant.CasConstant;
 import org.apereo.cas.beenest.common.response.R;
 import org.apereo.cas.beenest.dto.CreateUserRequestDTO;
 import org.apereo.cas.beenest.dto.RoleChangeRequestDTO;
 import org.apereo.cas.beenest.entity.UnifiedUserDO;
 import org.apereo.cas.beenest.mapper.UnifiedUserMapper;
+import org.apereo.cas.beenest.service.BeenestAccountRegistrationProvisioner;
 import org.apereo.cas.beenest.vo.OperationResultVO;
 import org.apereo.cas.beenest.vo.UserDetailVO;
 import org.apereo.cas.beenest.vo.UserDetailVOConverter;
@@ -41,12 +40,12 @@ import java.util.*;
 public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
 
     private final UnifiedUserMapper userMapper;
-    private final AccountRegistrationProvisioner registrationProvisioner;
+    private final BeenestAccountRegistrationProvisioner registrationProvisioner;
 
     public CasUsersEndpoint(final CasConfigurationProperties casProperties,
                             final ConfigurableApplicationContext applicationContext,
                             final UnifiedUserMapper userMapper,
-                            final AccountRegistrationProvisioner registrationProvisioner) {
+                            final BeenestAccountRegistrationProvisioner registrationProvisioner) {
         super(casProperties, applicationContext);
         this.userMapper = userMapper;
         this.registrationProvisioner = registrationProvisioner;
@@ -92,38 +91,21 @@ public class CasUsersEndpoint extends BaseCasRestActuatorEndpoint {
     }
 
     /**
-     * 管理员创建用户。
+     * 管理员创建用户（受信渠道）。
      * <p>
-     * 通过 CAS 原生 AccountRegistrationProvisioner 创建用户，
-     * 自动执行去重校验、密码加密、自动赋权等逻辑。
+     * 通过 {@link BeenestAccountRegistrationProvisioner#provisionAdmin} 创建用户：
+     * 走受信渠道路径，允许创建 ADMIN 账号并自动授予管理角色。
      */
     @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public R<OperationResultVO> createUser(@RequestBody CreateUserRequestDTO request) {
-        // 1. 构造 CAS 原生 AccountRegistrationRequest
-        var regRequest = new AccountRegistrationRequest();
-        regRequest.getProperties().put("username", request.getUsername());
-        regRequest.getProperties().put("password", request.getPassword());
-        if (StringUtils.isNotBlank(request.getEmail())) {
-            regRequest.getProperties().put("email", request.getEmail());
-        }
-        if (StringUtils.isNotBlank(request.getPhone())) {
-            regRequest.getProperties().put("phone", request.getPhone());
-        }
-        if (StringUtils.isNotBlank(request.getFirstName())) {
-            regRequest.getProperties().put("firstName", request.getFirstName());
-        }
-        if (StringUtils.isNotBlank(request.getLastName())) {
-            regRequest.getProperties().put("lastName", request.getLastName());
-        }
-        if (StringUtils.isNotBlank(request.getUserType())) {
-            regRequest.getProperties().put("userType", request.getUserType());
-        }
+        // 1. 构造 CAS 原生 AccountRegistrationRequest（与机器通道共用转换逻辑）
+        var regRequest = request.toRegistrationRequest();
 
-        // 2. 调用原生注册落库器
+        // 2. 调用受信渠道注册落库器（允许 ADMIN，自动授予 ROLE_ADMIN）
         AccountRegistrationResponse response;
         try {
-            response = registrationProvisioner.provision(regRequest);
+            response = registrationProvisioner.provisionAdmin(regRequest);
         } catch (Throwable e) {
             LOGGER.error("管理员创建用户异常: username={}", request.getUsername(), e);
             return R.fail("创建失败：" + e.getMessage());

@@ -20,7 +20,7 @@ import org.apereo.cas.beenest.service.CasNativeLoginService;
 import org.apereo.cas.beenest.service.CasTokenLifecycleService;
 import org.apereo.cas.beenest.service.UserIdentityService;
 import org.apereo.cas.beenest.service.SmsService;
-import org.apereo.cas.acct.provision.AccountRegistrationProvisioner;
+import org.apereo.cas.beenest.service.BeenestAccountRegistrationProvisioner;
 import org.apereo.cas.services.ServicesManager;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
@@ -250,7 +250,7 @@ public class CasOverlayOverrideConfiguration {
 
     @Bean
     public CasUsersEndpoint casUsersEndpoint(final UnifiedUserMapper userMapper,
-                                               final AccountRegistrationProvisioner registrationProvisioner,
+                                               final BeenestAccountRegistrationProvisioner registrationProvisioner,
                                                final CasConfigurationProperties casProperties,
                                                final ConfigurableApplicationContext applicationContext) {
         log.info(">>> CasUsersEndpoint Bean 创建成功");

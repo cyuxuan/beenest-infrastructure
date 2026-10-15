@@ -32,4 +32,17 @@ public class CasAdminSecurityConfig {
         registration.setName("adminApiAuthFilter");
         return registration;
     }
+
+    /**
+     * 注册 /api/admin/** 的 Spring Security 放行配置。
+     * <p>
+     * CAS 的安全链默认拒绝未匹配路径，/api/admin/** 下的机器通道
+     * 需要显式放行；认证由 AdminApiAuthFilter 在安全链之前完成。
+     *
+     * @return CAS 安全配置器
+     */
+    @Bean
+    public BeenestApiSecurityConfigurer beenestApiSecurityConfigurer() {
+        return new BeenestApiSecurityConfigurer();
+    }
 }

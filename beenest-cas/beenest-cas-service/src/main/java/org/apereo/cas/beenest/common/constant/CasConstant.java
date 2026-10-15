@@ -15,6 +15,10 @@ public final class CasConstant {
     public static final int USER_STATUS_DISABLED = 3;
     public static final int USER_STATUS_DELETED = 4;
 
+    // ===== 用户角色（与 cas_user.roles 逗号分隔格式一致） =====
+    /** 管理员角色，仅允许受信渠道（后台管理/机器通道）授予 */
+    public static final String ROLE_ADMIN = "ROLE_ADMIN";
+
     // ===== Redis Key 前缀 =====
     public static final String REDIS_SMS_OTP_PREFIX = "cas:sms:otp:";
     public static final String REDIS_SMS_OTP_FAIL_PREFIX = "cas:sms:otp:fail:";

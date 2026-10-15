@@ -45,17 +45,40 @@ public class BeenestServiceConfiguration {
     }
 
     /**
-     * 注册 CAS 原生账号开户注册落库器配置。
+     * 注册 CAS 原生账号开户注册落库器。
+     * <p>
+     * Bean 名称必须是 "accountMgmtRegistrationProvisioner"：CAS 的
+     * {@code CasAccountManagementProvisioningConfiguration} 在该名称上使用
+     * {@code @ConditionalOnMissingBean}，注册同名 Bean 后 CAS 自动装配会让位，
+     * webflow 与管理端点复用同一实例。
+     * <p>
+     * 返回具体类型 {@link BeenestAccountRegistrationProvisioner}，
+     * 管理端点 /api 机器通道可以确定性地注入 {@code provisionAdmin()} 受信路径。
      *
-     * @param userMapper 统一用户 Mapper
+     * @param userMapper         统一用户 Mapper
      * @param autoGrantProperties 自动赋权配置
+     * @return 原生开户注册落库器
+     */
+    @Bean("accountMgmtRegistrationProvisioner")
+    public BeenestAccountRegistrationProvisioner accountMgmtRegistrationProvisioner(
+            final UnifiedUserMapper userMapper,
+            final AutoGrantProperties autoGrantProperties) {
+        return new BeenestAccountRegistrationProvisioner(userMapper, autoGrantProperties);
+    }
+
+    /**
+     * 注册 CAS 原生账号开户注册落库器配置。
+     * <p>
+     * 引用 {@link #accountMgmtRegistrationProvisioner} 的同一实例，
+     * 避免 CAS 装配出第二个落库器导致 Bean 冲突。
+     *
+     * @param provisioner 原生开户注册落库器
      * @return 原生开户注册器配置
      */
     @Bean
     public AccountRegistrationProvisionerConfigurer beenestAccountRegistrationProvisionerConfigurer(
-            final UnifiedUserMapper userMapper,
-            final AutoGrantProperties autoGrantProperties) {
-        return () -> new BeenestAccountRegistrationProvisioner(userMapper, autoGrantProperties);
+            final BeenestAccountRegistrationProvisioner provisioner) {
+        return () -> provisioner;
     }
 
     @Bean
