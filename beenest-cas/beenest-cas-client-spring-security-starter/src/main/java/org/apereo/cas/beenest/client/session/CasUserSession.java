@@ -6,7 +6,6 @@ import org.apereo.cas.client.authentication.AttributePrincipal;
 import org.apereo.cas.client.validation.Assertion;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
