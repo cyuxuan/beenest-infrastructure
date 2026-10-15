@@ -7,12 +7,10 @@ import club.beenest.payment.shared.scheduler.OutboxMessageScheduler;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import club.beenest.payment.shared.constant.BizTypeConstants;
 import club.beenest.payment.shared.constant.PaymentConstants;
-import club.beenest.payment.shared.constant.PaymentRetryConstants;
 import club.beenest.payment.paymentorder.domain.enums.PaymentEventStatus;
 import club.beenest.payment.paymentorder.domain.enums.PaymentEventType;
 import club.beenest.payment.paymentorder.domain.enums.PaymentOrderStatus;
 import club.beenest.payment.paymentorder.domain.enums.RefundStatus;
-import club.beenest.payment.wallet.domain.enums.WalletTransactionType;
 import club.beenest.payment.util.MapValueUtils;
 import club.beenest.payment.util.PaymentValidateUtils;
 import club.beenest.payment.common.exception.BusinessException;
@@ -41,7 +39,6 @@ import club.beenest.payment.paymentorder.service.IPaymentService;
 import club.beenest.payment.wallet.service.IWalletService;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategy;
 import club.beenest.payment.paymentorder.strategy.PaymentStrategyFactory;
-import club.beenest.payment.common.utils.MoneyUtil;
 import club.beenest.payment.common.utils.TradeNoGenerator;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -58,6 +55,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -893,7 +891,7 @@ public class PaymentServiceImpl implements IPaymentService {
         }
 
         String expireKey = PaymentRedisKeyConstants.buildPaymentOrderExpireKey(orderNo);
-        stringRedisTemplate.opsForValue().set(expireKey, orderNo, java.time.Duration.ofMinutes(expireMinutes));
+        stringRedisTemplate.opsForValue().set(expireKey, orderNo, Duration.ofMinutes(expireMinutes));
         log.info("设置支付订单过期Key - orderNo: {}, expireMinutes: {}", orderNo, expireMinutes);
 
         PaymentStrategy paymentStrategy = paymentStrategyFactory.getStrategy(backendPlatform);

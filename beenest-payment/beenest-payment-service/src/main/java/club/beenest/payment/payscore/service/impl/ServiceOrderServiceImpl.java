@@ -1,15 +1,12 @@
 package club.beenest.payment.payscore.service.impl;
 
 import club.beenest.payment.common.exception.BusinessException;
-import club.beenest.payment.common.utils.AuthUtils;
 import club.beenest.payment.common.utils.TradeNoGenerator;
-import club.beenest.payment.payscore.domain.entity.CreditAuthorization;
 import club.beenest.payment.payscore.domain.entity.ServiceOrder;
 import club.beenest.payment.payscore.domain.enums.ServiceOrderStatus;
 import club.beenest.payment.payscore.dto.CreditCheckResultDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderCreateDTO;
 import club.beenest.payment.payscore.dto.ServiceOrderResultDTO;
-import club.beenest.payment.payscore.mapper.CreditAuthorizationMapper;
 import club.beenest.payment.payscore.mapper.ServiceOrderMapper;
 import club.beenest.payment.payscore.service.IServiceOrderService;
 import club.beenest.payment.payscore.strategy.PayScoreStrategy;
@@ -53,9 +50,6 @@ public class ServiceOrderServiceImpl implements IServiceOrderService {
 
     @Autowired
     private ServiceOrderMapper serviceOrderMapper;
-
-    @Autowired
-    private CreditAuthorizationMapper creditAuthorizationMapper;
 
     @Autowired
     private PayScoreStrategyFactory payScoreStrategyFactory;

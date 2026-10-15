@@ -3,7 +3,6 @@ package club.beenest.payment.wallet.mq.consumer;
 import club.beenest.payment.common.exception.BusinessException;
 import club.beenest.payment.security.AppContext;
 import club.beenest.payment.shared.mq.MessageSignUtil;
-import club.beenest.payment.shared.mq.PaymentMqConstants;
 import club.beenest.payment.shared.mq.WalletCreditMessage;
 import club.beenest.payment.shared.service.AppCredentialService;
 import club.beenest.payment.wallet.domain.enums.WalletTransactionType;
