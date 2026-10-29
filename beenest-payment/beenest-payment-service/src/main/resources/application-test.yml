@@ -20,11 +20,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
-
-cas:
-  client:
-    server-url: ${CAS_SERVER_URL:https://localhost:8443/cas}
-    client-host-url: ${PAYMENT_CLIENT_HOST_URL:http://localhost:8082}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # IAM 身份域 issuer，必须带 /realms/{realmKey} 前缀
+          issuer-uri: ${IAM_ISSUER_URI:https://iam-test.beenest.club/realms/beenest}
 
 payment:
   common:

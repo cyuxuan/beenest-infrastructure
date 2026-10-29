@@ -100,17 +100,69 @@ Response<WalletBalanceDTO> balance = paymentFeignClient.getWalletBalance("C20260
 
 ### 用户编号（customerNo）
 
-`customerNo` 是用户的唯一标识，来源于 CAS 统一认证系统。在 Feign 接口中，几乎所有方法的第一个参数都需要传入 `customerNo`。
+`customerNo` 是用户的唯一标识，取自 IAM（蜂巢统一身份平台）访问令牌中的**已验证手机号 `phone_number`**。在 Feign 接口中，几乎所有方法的第一个参数都需要传入 `customerNo`。
 
 | 要点 | 说明 |
 |------|------|
-| 来源 | CAS 认证通过后分配的用户编号 |
-| 格式 | 以 `C` 开头的字符串，例如 `C202601261234567890123` |
-| 与 userId 关系 | 在当前系统中 `customerNo` 即为 CAS 用户 ID |
-| 获取方式 | 业务服务从 CAS 认证上下文中获取，通过 Feign 参数传递 |
+| 来源 | IAM 访问令牌的 `phone_number` 声明（已验证手机号，未绑定则不存在） |
+| 格式 | 归一化后的纯数字手机号，例如 `15000000000`（去空格/横线/括号，去 `+86`、`0086`、`86` 前缀） |
+| 归并语义 | 同一自然人的微信 / 支付宝 / 后台建号入口都收敛到同一个 `customerNo` → 同一个钱包 |
+| 获取方式 | 业务服务从 IAM 访问令牌解析后通过 Feign 参数传递 |
 | 钱包关联 | 每个用户按 `(customerNo, appId)` 组合拥有独立钱包 |
 
-> 支付中台不负责生成 `customerNo`，仅存储和使用。下游服务需确保传入正确的用户编号。
+> 支付中台不负责生成 `customerNo`，仅存储和使用。下游服务需确保传入**同一个归一化手机号**，
+> 否则会查到另一个钱包。
+>
+> **为什么用手机号**：IAM 文档把 `phone_number` 列为跨渠道归并锚点——渠道标识（openid 等）各不相同，
+> `uid` 只能标识单个 IAM 账号（账号合并后同一自然人可能有多个），`sub` 还会跟随主体策略变化
+> （默认取登录名，改名即变）。只有手机号能把多入口登录收敛到同一个钱包。
+>
+> **代价**：手机号可变更。用户换号后会被视为新用户、拿到新钱包，换号场景需由 IAM 侧做账号合并
+> 或在业务侧做档案迁移。另外**未绑定手机号的账号无法使用支付能力**——令牌缺手机号时直接 401，
+> 不做任何回退，前端需引导用户先完成手机号绑定。
+
+### 认证与鉴权（IAM 资源服务）
+
+支付服务以**标准 OAuth2 资源服务**形态接入 IAM，不依赖任何自研认证客户端：
+
+| 项 | 说明 |
+|------|------|
+| 令牌 | IAM 签发的 RS256 访问令牌（JWT），`Authorization: Bearer <token>` |
+| 端点 | `spring.security.oauth2.resourceserver.jwt.issuer-uri`（或显式 `jwk-set-uri`） |
+| 校验 | 签名 + `iss` + `aud` + `exp/nbf/iat`（允许 60 秒偏差）+ 拒绝 ID Token + 必须有可用手机号 |
+| 权限 | `permissions` 原样作为 authority；`scope` → `SCOPE_*`；`realm_roles`/`client_roles`/`app_roles` → `ROLE_*` |
+| 管理端 | 控制器上的 `@PreAuthorize("hasRole('ADMIN')")` 依赖 IAM 角色码 `ADMIN` |
+| 匿名路径 | 支付回调、`/internal/**`（内部签名过滤器独立鉴权）、Swagger、健康检查 |
+
+```yaml
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://iam.example.com/realms/beenest   # 必须带 /realms/{realmKey}
+iam:
+  resource-server:
+    audience: urn:iam:app:payment          # 与 IAM「应用门户 → 令牌受众」一致
+    require-application-token: false        # 客户端绑定应用后建议开启
+    auto-provision-wallet: true             # 首次访问自动开通钱包
+    wallet-biz-type: DRONE_ORDER
+    reject-inactive-wallet: true            # 钱包非 ACTIVE 时拒绝 C 端访问
+```
+
+> **接入前置**：在 IAM 控制台登记客户端（`client_id` / 回调 / scope）、把客户端绑定到应用门户中的应用，
+> 并把该应用的「令牌受众」登记为 `urn:iam:app:payment`。未绑定应用时令牌为 `PLATFORM` 类型、
+> 不含 `permissions`，支付侧会因受众或令牌类型校验失败而拒绝。
+>
+> **登录流程必须拿到手机号**：`phone_number` 只在用户完成手机号验证后出现。微信小程序等入口
+> 建议走「手机号快捷验证」授权，否则该用户拿到的令牌会被支付侧拒绝。
+>
+> **启动依赖**：`issuer-uri` 会在启动时拉取 IAM 发现文档。若要求 IAM 未启动时支付服务也能启动，
+> 改用 `spring.security.oauth2.resourceserver.jwt.jwk-set-uri` 显式指定 JWKS 地址。
+>
+> **本地准入**：C 端路径（`/api/wallet/**`、`/api/customer/**`）在令牌校验之后还会校验本地钱包档案：
+> 首次访问自动建户并把令牌里的昵称/手机号写入档案，钱包被冻结/关闭直接 403。
+> 这与 IAM 的"能否进入应用"是两层独立判断，缺一不可。
 
 ### 金额单位
 
@@ -266,7 +318,7 @@ Map<String, Object> paymentParams = paymentResult.getPaymentParams();
 // 4. 监听 MQ 消息 payment.order.completed 确认支付结果
 ```
 
-如果是微信小程序场景，则将 `paymentMethod` 设置为 `WECHAT_JSAPI`，并确保用户已完成微信授权，支付中台会从登录态或 CAS 统一用户资料中回查 `openid`。
+如果是微信小程序场景，则将 `paymentMethod` 设置为 `WECHAT_JSAPI`，并确保用户已完成微信授权，支付中台会从当前登录态（IAM 令牌的 `idp_identities`）中回查 `openid`。
 
 ### 充值流程
 
@@ -535,7 +587,8 @@ Feign Client 基路径：`/internal/payment`，所有端点都在此路径下。
 | `originalAmount` | Long | 否 | 原始金额（分，前端展示用） |
 | `discountAmount` | Long | 否 | 优惠金额（分） |
 
-> 微信支付的 `openid` 不再由请求体传入，而是优先从当前 CAS 登录态读取；如果登录态未携带，则按 `customerNo` 回查 CAS 统一用户资料，并写入支付订单扩展字段 `ext.openid`。
+> 微信支付的 `openid` 不再由请求体传入，而是从当前 IAM 登录态读取：先取令牌顶层的 `openid` 类声明，
+> 再取 `idp_identities` 中微信渠道的绑定值，并写入支付订单扩展字段 `ext.openid`。登录态未携带时直接报错，不再回查用户资料。
 
 **createRechargeOrder / createOrderPayment 返回值**（`OrderPaymentResultDTO`）：
 
@@ -970,11 +1023,11 @@ paymentFeignClient.cancelServiceOrder(orderNo);
 
 `{platform}` 为支付分平台标识（`WECHAT_PAYSCORE` / `ALIPAY_ZHIMA`），由 `PayScoreStrategyFactory` 自动路由到对应策略。
 
-> 回调路径已加入 CAS `ignore-pattern`，不触发认证拦截：`/api/payscore/callback/**`
+> 回调路径已加入安全白名单，不触发令牌认证拦截：`/api/payscore/callback/**`
 
 ### 客户端 API
 
-用户前端直接调用的接口（需 CAS 认证）：
+用户前端直接调用的接口（需 IAM 访问令牌）：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|

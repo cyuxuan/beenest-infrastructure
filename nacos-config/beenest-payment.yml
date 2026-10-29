@@ -15,6 +15,13 @@ server:
   port: ${SERVER_PORT:8082}
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # IAM 身份域 issuer，必须带 /realms/{realmKey} 前缀。
+          # 显式配置 jwk-set-uri 可避免启动期强依赖 IAM 发现文档。
+          issuer-uri: ${IAM_ISSUER_URI:http://localhost:8080/realms/beenest}
   cloud:
     nacos:
       discovery:
@@ -86,35 +93,21 @@ pagehelper:
   helper-dialect: postgresql
   reasonable: true
 
-# CAS 资源服务认证配置
-cas:
-  client:
+# IAM 资源服务认证配置（标准 OAuth2 Resource Server，替代原 CAS 客户端）
+iam:
+  resource-server:
     enabled: true
-    mode: resource-server
-    server-url: ${CAS_SERVER_URL:https://localhost:8443/cas}
-    client-host-url: ${PAYMENT_CLIENT_HOST_URL:http://localhost:8082}
-    service-id: ${CAS_CLIENT_SERVICE_ID:10003}
-    sign-key: ENC(gNwU0mF0yWJCcF1c/s6TPMaJwPHogIIP6DN6iuhKapBhdilycQ88WtR0NzrjKWzI27qYBKXqR9tpnNqdehKhYVZpgIjiz3vluFJ50IPwVgB6EB6GrZgy3Xlf2vSCrmtCYG06Vc8Tsiyn5tiL2UEwRQ==)
-    redirect-login: false
-    use-session: false
-    ignore-pattern: /internal/**,/api/wallet/payment/callback/**,/api/wallet/payment/refund/callback/**,/api/payscore/callback/**,/v3/api-docs/**,/v3/api-docs/swagger-config,/swagger-ui/**,/swagger-ui.html,/webjars/**
-    token-auth:
-      enabled: true
-      auto-refresh-enabled: true
-      validate-cache-ttl-seconds: 300
-      validate-cache-max-size: 10000
-      access-token-revocation-ttl-seconds: 604800
-      refresh-token-revocation-ttl-seconds: 31536000
-      authority-version-attribute: permissionVersion
-    access-control:
-      enabled: true
-      auto-create-on-grant: true
-      auto-disable-on-revoke: true
-      force-logout-on-disable: true
-    business-login-proxy:
-      enabled: false
-    slo:
-      enabled: false
+    # 访问令牌受众，与 IAM「应用门户 → 令牌受众」保持一致；
+    # 未登记受众时 IAM 默认签发 urn:iam:app:{appCode}
+    audience: ${IAM_AUDIENCE:urn:iam:app:payment}
+    # 钱包 customer_no 取 IAM 令牌中的手机号 phone_number（跨渠道归并锚点），无配置项
+    # 是否强制 token_kind=APPLICATION（拒绝平台令牌/机器令牌），客户端绑定应用后建议开启
+    require-application-token: ${IAM_REQUIRE_APPLICATION_TOKEN:false}
+    # 首次访问自动开通钱包（替代原 CAS 访问控制的“授权即建户”）
+    auto-provision-wallet: ${IAM_AUTO_PROVISION_WALLET:true}
+    wallet-biz-type: ${IAM_WALLET_BIZ_TYPE:DRONE_ORDER}
+    # 钱包非 ACTIVE 时拒绝 C 端访问
+    reject-inactive-wallet: true
 
 # 支付配置
 payment:

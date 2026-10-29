@@ -97,6 +97,8 @@ Two-module Maven project: API contract module (`beenest-payment-api`) and servic
 
 **Internal API security** (`InternalApiFilter` on `/internal/**`): Three-layer — IP whitelist, static token (`X-Internal-Token`), HMAC-SHA256 signature with nonce anti-replay.
 
+**User authentication (IAM resource server)**: The payment service no longer depends on `club.beenest.cas`. It is a standard Spring Security OAuth2 resource server (`spring-boot-starter-oauth2-resource-server`) validating IAM-issued RS256 JWTs: JWKS + `iss` + `aud` + `token_type` (ID tokens rejected) and a mandatory, normalizable `phone_number` claim. `IamJwtAuthenticationConverter` maps `permissions` → authority, `scope` → `SCOPE_*`, `realm_roles`/`client_roles`/`app_roles` → `ROLE_*`. Wallet `customer_no` is the normalized IAM phone number — the cross-channel merge anchor per IAM docs (`uid` only identifies one IAM account, `sub` follows the realm subject strategy); `PhoneNumbers` normalizes `+86`/`0086`/separators so one user cannot get two wallets. `PaymentUserAdmissionFilter` enforces the local-wallet admission rule (auto-provision + profile sync on the first C-end request, 403 when the wallet is not ACTIVE, phone numbers masked in logs). Configuration: `spring.security.oauth2.resourceserver.jwt.issuer-uri` plus the `iam.resource-server.*` prefix.
+
 **Wallet integrity**: Every wallet row stores a `balance_hash` (HMAC-SHA256 over balance fields). All mutations compute hash atomically with optimistic locking (`version`). `WalletIntegrityScheduler` verifies periodically.
 
 **MQ reliability** (Outbox pattern): `PaymentEventProducer` writes to `ds_payment_outbox` table on RabbitMQ failure. `OutboxMessageScheduler` retries with exponential backoff. All messages signed with HMAC-SHA256.

@@ -203,7 +203,7 @@
           AND version = #{version}
     </update>
 
-    <!-- 批量冻结用户所有钱包（CAS 访问控制撤销时使用） -->
+    <!-- 批量冻结用户所有钱包（风控/注销时使用） -->
     <update id="freezeAllByCustomerNo">
         UPDATE ds_wallet
         SET status = #{status},
@@ -212,7 +212,7 @@
         WHERE customer_no = #{customerNo}
     </update>
 
-    <!-- 更新用户钱包的客户姓名和手机号（CAS 访问控制同步时使用） -->
+    <!-- 更新用户钱包的客户姓名和手机号（身份资料同步时使用） -->
     <update id="updateCustomerProfileByCustomerNo">
         UPDATE ds_wallet
         SET customer_name = #{customerName},

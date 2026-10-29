@@ -3,6 +3,7 @@ package club.beenest.payment.paymentorder.service.impl;
 import club.beenest.payment.common.annotation.LogAudit;
 import club.beenest.payment.common.constant.PaymentRedisKeyConstants;
 import club.beenest.payment.common.utils.AuthUtils;
+import club.beenest.payment.common.utils.PhoneNumbers;
 import club.beenest.payment.shared.scheduler.OutboxMessageScheduler;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import club.beenest.payment.shared.constant.BizTypeConstants;
@@ -740,7 +741,7 @@ public class PaymentServiceImpl implements IPaymentService {
      * 解析微信 JSAPI 支付所需的 openid。
      *
      * <p>仅当支付渠道为微信 JSAPI 时才需要 openid。
-     * 当前实现只信任 TGT 里携带的认证属性，不再回查 CAS 用户资料。
+     * 当前实现只信任 IAM 访问令牌里携带的认证声明，不再回查用户资料。
      * 这样可以保证支付链路完全依赖单一认证源，避免 payment 侧引入额外同步实现。</p>
      *
      * @param customerNo 用户编号
@@ -771,9 +772,10 @@ public class PaymentServiceImpl implements IPaymentService {
         if (!StringUtils.hasText(currentUserId)) {
             throw new IllegalArgumentException("微信 JSAPI 支付需要已登录用户");
         }
-        PaymentValidateUtils.isTrue(customerNo.equals(currentUserId),
+        // 令牌侧已归一化，请求侧可能是 +86/带分隔符的写法，比较前先归一，避免同一用户被判为不一致
+        PaymentValidateUtils.isTrue(
+                java.util.Objects.equals(PhoneNumbers.normalize(customerNo), currentUserId),
                 "登录用户与支付用户不一致，请重新登录后重试");
-
         if (StringUtils.hasText(currentOpenid)) {
             return currentOpenid;
         }

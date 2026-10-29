@@ -21,11 +21,12 @@ spring:
     port: ${RABBITMQ_PORT}
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
-
-cas:
-  client:
-    server-url: ${CAS_SERVER_URL}
-    client-host-url: ${PAYMENT_CLIENT_HOST_URL}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # IAM 身份域 issuer，必须带 /realms/{realmKey} 前缀
+          issuer-uri: ${IAM_ISSUER_URI}
 
 payment:
   common:

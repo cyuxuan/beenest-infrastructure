@@ -22,6 +22,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # 本地 IAM（docker compose 默认监听 8080），必须带 /realms/{realmKey} 前缀
+          issuer-uri: ${IAM_ISSUER_URI:http://localhost:8080/realms/beenest}
 
 payment:
   common:

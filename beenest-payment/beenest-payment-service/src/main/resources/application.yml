@@ -1,6 +1,6 @@
 # ============================================================
 # Payment 主配置 — 框架级基础设施（跨环境不变）
-# 业务配置（cas client / payment / withdraw）→ application-secret.yml
+# 业务配置（IAM 资源服务 / payment / withdraw）→ application-secret.yml 与 Nacos
 # 环境差异化配置 → application-{profile}.yml
 # ============================================================
 
