@@ -6,7 +6,7 @@ FROM eclipse-temurin:21-jre-jammy
 
 LABEL maintainer="beenest"
 LABEL description="Beenest Payment Service - 支付微服务"
-LABEL version="1.0.4"
+LABEL version="2.0.1"
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN groupadd -r appgroup && useradd -r -g appgroup -s /bin/bash -m appuser \
     && mkdir -p /home/appuser/nacos/config && chown -R appuser:appgroup /home/appuser/nacos
 
 # 从本地拷贝 jar 包
-COPY beenest-payment-service/target/beenest-payment-service-1.0.4.jar app.jar
+COPY beenest-payment-service/target/beenest-payment-service-2.0.1.jar app.jar
 
 # 创建日志目录
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app

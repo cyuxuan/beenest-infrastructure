@@ -141,7 +141,7 @@ services:
     ports:
       - "8082:8082"
     volumes:
-      - ./beenest-payment/beenest-payment-service/target/beenest-payment-service-1.0.4.jar:/app/app.jar
+      - ./beenest-payment/beenest-payment-service/target/beenest-payment-service-2.0.1.jar:/app/app.jar
     working_dir: /app
     entrypoint: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
     networks:

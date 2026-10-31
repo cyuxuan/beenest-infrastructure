@@ -85,6 +85,24 @@ spring:
           multiplier: 2
           max-interval: 10000
 
+# ============================================================
+# IAM 资源服务（协议端点见 application-{profile}.yml 的 issuer-uri）
+# ============================================================
+iam:
+  resource-server:
+    # 关闭后不注册安全过滤链，仅用于本地排障；生产必须为 true
+    enabled: ${IAM_RESOURCE_SERVER_ENABLED:true}
+    # 期望的访问令牌受众（aud），对应 IAM 应用门户的「令牌受众」
+    # 留空会跳过 aud 校验并打 warn：同域其他应用的令牌也能调用本服务，生产必须配
+    audience: ${IAM_AUDIENCE:}
+    # 强制 token_kind=APPLICATION，拒绝 PLATFORM（未绑定应用）/ MACHINE（客户端凭证）令牌
+    require-application-token: ${IAM_REQUIRE_APPLICATION_TOKEN:false}
+    # 首次访问自动开通钱包（替代原 CAS 的"授权即建户"）
+    auto-provision-wallet: ${IAM_AUTO_PROVISION_WALLET:true}
+    wallet-biz-type: ${IAM_WALLET_BIZ_TYPE:DRONE_ORDER}
+    # 钱包非 ACTIVE 时直接 403（替代原 CAS 的"本地用户被禁用即拒绝"）
+    reject-inactive-wallet: ${IAM_REJECT_INACTIVE_WALLET:true}
+
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml
   configuration:

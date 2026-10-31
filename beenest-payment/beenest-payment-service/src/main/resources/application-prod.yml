@@ -25,8 +25,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # IAM 身份域 issuer，必须带 /realms/{realmKey} 前缀
-          issuer-uri: ${IAM_ISSUER_URI}
+          # IAM 身份域 issuer，必须带 /realms/{realmKey} 前缀，由部署环境变量注入。
+          # 这里显式留空默认值：缺失时由 PaymentSecurityConfig 抛出可读的
+          # "IAM 资源服务未配置端点" 提示，而不是占位符解析失败的晦涩异常；
+          # 不给真实默认值，避免生产静默连到测试/本地 IAM。
+          issuer-uri: ${IAM_ISSUER_URI:}
 
 payment:
   common:
