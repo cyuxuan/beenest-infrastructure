@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.SamlServiceProviderMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, sp_key, entity_id, display_name, acs_url, slo_url, name_id_format,
+        sign_assertion, require_signed_authn_request, sp_certificate, attribute_mapping,
+        enabled, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByEntityId" resultType="SamlServiceProvider">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_saml_service_provider
+        WHERE realm_id = #{realmId} AND entity_id = #{entityId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByKey" resultType="SamlServiceProvider">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_saml_service_provider
+        WHERE realm_id = #{realmId} AND sp_key = #{spKey} AND deleted = FALSE
+    </select>
+
+    <select id="selectById" resultType="SamlServiceProvider">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_saml_service_provider
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmId" resultType="SamlServiceProvider">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_saml_service_provider
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="SamlServiceProvider" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_saml_service_provider(realm_id, sp_key, entity_id, display_name, acs_url, slo_url,
+                                              name_id_format, sign_assertion, require_signed_authn_request,
+                                              sp_certificate, attribute_mapping, enabled, deleted)
+        VALUES (#{realmId}, #{spKey}, #{entityId}, COALESCE(#{displayName}, ''), #{acsUrl},
+                COALESCE(#{sloUrl}, ''),
+                COALESCE(#{nameIdFormat}, 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified'),
+                COALESCE(#{signAssertion}, TRUE), COALESCE(#{requireSignedAuthnRequest}, FALSE),
+                COALESCE(#{spCertificate}, ''),
+                COALESCE(#{attributeMapping}::jsonb, '{}'::jsonb),
+                COALESCE(#{enabled}, TRUE), FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="SamlServiceProvider">
+        UPDATE iam_saml_service_provider
+        <set>
+            <if test="spKey != null">sp_key = #{spKey},</if>
+            <if test="entityId != null">entity_id = #{entityId},</if>
+            <if test="displayName != null">display_name = #{displayName},</if>
+            <if test="acsUrl != null">acs_url = #{acsUrl},</if>
+            <!-- 登出地址与证书允许清空:改用空串覆盖,与"未修改"用 null 区分 -->
+            <if test="sloUrl != null">slo_url = #{sloUrl},</if>
+            <if test="nameIdFormat != null">name_id_format = #{nameIdFormat},</if>
+            <if test="signAssertion != null">sign_assertion = #{signAssertion},</if>
+            <if test="requireSignedAuthnRequest != null">require_signed_authn_request = #{requireSignedAuthnRequest},</if>
+            <if test="spCertificate != null">sp_certificate = #{spCertificate},</if>
+            <if test="attributeMapping != null">attribute_mapping = #{attributeMapping}::jsonb,</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND realm_id = #{realmId} AND deleted = FALSE
+    </update>
+
+    <update id="softDelete">
+        UPDATE iam_saml_service_provider
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND realm_id = #{realmId} AND deleted = FALSE
+    </update>
+</mapper>

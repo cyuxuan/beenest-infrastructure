@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{page.consent.docTitle(${clientName})}">授权确认 · 蜂巢身份</title>
+    <!-- 设计令牌先于页面样式:主题包改令牌即可换肤,三端共用 -->
+    <link rel="stylesheet" th:href="@{/theme-static/css/tokens.css}">
+    <link rel="stylesheet" th:href="@{/theme-static/css/iam.css}">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12.5 7.2v14.6L16 30 3.5 23.8V9.2z' fill='%23f5b32d'/%3E%3Cpath d='M16 8l6.8 3.9v7.8L16 23.6 9.2 19.7v-7.8z' fill='%230e1626'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="iam-shell">
+
+    <!-- ============ 左侧:品牌叙事区 ============ -->
+    <aside class="iam-aside">
+        <div class="iam-aside-content">
+            <div class="iam-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="lg-gold-consent" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#ffd777"/>
+                            <stop offset="1" stop-color="#e09a12"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="url(#lg-gold-consent)"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#0e1626"/>
+                    <circle cx="16" cy="16" r="2.6" fill="url(#lg-gold-consent)"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+
+            <div class="iam-aside-hero">
+                <h1><span th:text="#{page.consent.hero.line1}">您的授权</span><br><em th:text="#{page.consent.hero.line2}">您来决定</em></h1>
+                <p th:text="#{page.consent.hero.desc}">应用只能获得您明确同意的信息。所有授权记录可追溯,并可随时由管理员撤销。</p>
+            </div>
+
+            <ul class="iam-aside-features">
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.consent.feature1.title}">最小权限</strong>
+                        <span th:text="#{page.consent.feature1.desc}">只授予应用完成其功能所必需的信息范围</span>
+                    </span>
+                </li>
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><path d="M12 8v4M12 16h.01"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.consent.feature2.title}">随时撤销</strong>
+                        <span th:text="#{page.consent.feature2.desc}">授权记录集中留痕,撤销后应用立即失去访问权</span>
+                    </span>
+                </li>
+            </ul>
+
+            <div class="iam-aside-footer" th:text="|© 2026 Beenest IAM · #{page.brand.footer}|">© 2026 Beenest IAM · 统一身份认证中心</div>
+        </div>
+    </aside>
+
+    <!-- ============ 右侧:授权操作区 ============ -->
+    <main class="iam-main">
+        <div class="iam-form-wrap">
+
+            <div class="iam-mobile-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="#f5b32d"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#0e1626"/>
+                </svg>
+                <span th:text="#{page.brand.name}">蜂巢身份</span>
+            </div>
+
+            <header class="iam-form-head">
+                <p class="iam-eyebrow" th:text="#{page.consent.eyebrow}">OAuth2 授权</p>
+                <h2 th:text="#{page.consent.heading}">授权确认</h2>
+                <p>
+                    <strong class="iam-consent-app" th:text="${clientName}">应用名称</strong>
+                    <span th:text="#{page.consent.requestPrefix}">请求访问您的账号,当前登录账号为</span>
+                    <strong th:text="${principalName}">user</strong><span th:text="#{page.consent.requestSuffix}">。</span>
+                </p>
+            </header>
+
+            <form class="iam-form" method="post"
+                  th:action="@{'/realms/' + ${realmKey} + '/oauth2/authorize'}" id="consent-form">
+                <input type="hidden" name="client_id" th:value="${clientId}">
+                <input type="hidden" name="state" th:value="${state}">
+
+                <!-- 申请的权限范围 -->
+                <div class="iam-consent-list">
+                    <div class="iam-consent-item is-required" th:each="item : ${scopes}" th:if="${item.required == 'true'}">
+                        <span class="iam-consent-check is-locked" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                        </span>
+                        <span class="iam-consent-text">
+                            <strong th:text="${item.label}">身份标识</strong>
+                            <span th:text="${item.description}">说明</span>
+                        </span>
+                        <input type="hidden" name="scope" th:value="${item.code}">
+                    </div>
+
+                    <label class="iam-consent-item" th:each="item : ${scopes}" th:if="${item.required != 'true'}">
+                        <input class="iam-consent-input" type="checkbox" name="scope"
+                               th:value="${item.code}" th:id="'scope-' + ${item.code}" checked>
+                        <span class="iam-consent-check" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                        </span>
+                        <span class="iam-consent-text">
+                            <strong th:text="${item.label}">基本资料</strong>
+                            <span th:text="${item.description}">说明</span>
+                        </span>
+                    </label>
+                </div>
+
+                <p class="iam-consent-hint" th:text="#{page.consent.note}">
+                    取消勾选即不授予该项信息;点击"拒绝"将不授权任何范围。
+                </p>
+
+                <div class="iam-consent-actions">
+                    <button class="iam-btn-secondary" type="button" id="deny-btn"
+                            th:text="#{page.consent.deny}">拒 绝</button>
+                    <button class="iam-btn-primary" type="submit" id="approve-btn"
+                            th:text="#{page.consent.approve}">同意并继续</button>
+                </div>
+            </form>
+
+            <footer class="iam-form-foot">
+                <div class="iam-divider" th:text="#{page.consent.divider}">安全提示</div>
+                <p style="margin:14px 0 0" th:text="#{page.consent.warning}">
+                    请在确认应用来源可靠后再授权;如非本人操作,请立即联系企业管理员。
+                </p>
+            </footer>
+
+            <div class="iam-lang-row">
+                <a th:replace="~{(${themeName} + '/fragments/lang-switch') :: switch}"></a>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    (function () {
+        var form = document.getElementById('consent-form');
+        var approveBtn = document.getElementById('approve-btn');
+
+        /* 拒绝:清空所有可选项后提交,授权服务器按"未同意任何范围"处理 */
+        document.getElementById('deny-btn').addEventListener('click', function () {
+            form.querySelectorAll('input[type="checkbox"]').forEach(function (box) {
+                box.checked = false;
+            });
+            submitOnce();
+        });
+
+        /* 提交防重复:授权码只能兑换一次,重复提交会产生无效授权 */
+        function submitOnce() {
+            approveBtn.disabled = true;
+            approveBtn.classList.add('is-loading');
+            form.submit();
+        }
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submitOnce();
+        });
+    })();
+</script>
+</body>
+</html>

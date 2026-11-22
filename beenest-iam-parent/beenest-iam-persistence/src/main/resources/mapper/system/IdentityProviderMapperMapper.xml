@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.IdentityProviderMapperMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, idp_id, mapper_type, source_attribute, target_attribute,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="IdentityProviderMapper">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_identity_provider_mapper
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByIdpId" resultType="IdentityProviderMapper">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_identity_provider_mapper
+        WHERE idp_id = #{idpId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="IdentityProviderMapper" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_identity_provider_mapper(realm_id, idp_id, mapper_type,
+                                                  source_attribute, target_attribute, deleted)
+        VALUES (#{realmId}, #{idpId}, COALESCE(#{mapperType}, 'ATTRIBUTE'),
+                #{sourceAttribute}, #{targetAttribute}, FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="IdentityProviderMapper">
+        UPDATE iam_identity_provider_mapper
+        <set>
+            <if test="mapperType != null">mapper_type = #{mapperType},</if>
+            <if test="sourceAttribute != null">source_attribute = #{sourceAttribute},</if>
+            <if test="targetAttribute != null">target_attribute = #{targetAttribute},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_identity_provider_mapper
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteByIdpId">
+        UPDATE iam_identity_provider_mapper
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE idp_id = #{idpId} AND deleted = FALSE
+    </update>
+</mapper>

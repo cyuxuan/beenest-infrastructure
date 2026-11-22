@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>club.beenest</groupId>
+        <artifactId>beenest-iam-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>beenest-iam-admin</artifactId>
+    <name>beenest-iam-admin</name>
+    <description>管理端 REST API(库模块):Realm/用户/角色/客户端/应用服务/权限管理</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-persistence</artifactId>
+        </dependency>
+        <!-- 联邦运行时:提供方类型元数据由注册表给出 -->
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-federation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-authz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

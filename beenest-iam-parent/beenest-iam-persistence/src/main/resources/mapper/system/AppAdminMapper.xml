@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.AppAdminMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, app_service_id, subject_type, subject_id, granted_by,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="AppAdmin">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_admin
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByAppServiceId" resultType="AppAdmin">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_admin
+        WHERE app_service_id = #{appServiceId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <select id="selectByRealmAndSubject" resultType="AppAdmin">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_admin
+        WHERE realm_id = #{realmId}
+          AND subject_type = #{subjectType}
+          AND deleted = FALSE
+        <choose>
+            <when test="subjectIds != null and subjectIds.size() > 0">
+                AND subject_id IN
+                <foreach collection="subjectIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+        ORDER BY id
+    </select>
+
+    <select id="selectByAppAndSubject" resultType="AppAdmin">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_admin
+        WHERE app_service_id = #{appServiceId}
+          AND subject_type = #{subjectType}
+          AND subject_id = #{subjectId}
+          AND deleted = FALSE
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="AppAdmin" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_app_admin(realm_id, app_service_id, subject_type, subject_id, granted_by, deleted)
+        VALUES (#{realmId}, #{appServiceId}, #{subjectType}, #{subjectId}, #{grantedBy}, FALSE)
+    </insert>
+
+    <update id="softDeleteById">
+        UPDATE iam_app_admin
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteByAppServiceId">
+        UPDATE iam_app_admin
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE app_service_id = #{appServiceId} AND deleted = FALSE
+    </update>
+</mapper>

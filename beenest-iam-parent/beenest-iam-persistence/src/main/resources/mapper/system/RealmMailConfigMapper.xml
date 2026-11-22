@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.RealmMailConfigMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, enabled, host, port, username, password, from_address, from_name,
+        starttls, ssl, timeout_millis, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRealmId" resultType="RealmMailConfig">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm_mail_config
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="RealmMailConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_realm_mail_config(realm_id, enabled, host, port, username, password,
+                                          from_address, from_name, starttls, ssl, timeout_millis, deleted)
+        VALUES (#{realmId}, COALESCE(#{enabled}, FALSE), COALESCE(#{host}, ''),
+                COALESCE(#{port}, 587), #{username}, #{password},
+                #{fromAddress}, COALESCE(#{fromName}, '统一身份认证'),
+                COALESCE(#{starttls}, TRUE), COALESCE(#{ssl}, FALSE),
+                COALESCE(#{timeoutMillis}, 10000), FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="RealmMailConfig">
+        UPDATE iam_realm_mail_config
+        <set>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="host != null">host = #{host},</if>
+            <if test="port != null">port = #{port},</if>
+            <if test="username != null">username = #{username},</if>
+            <!-- password 空串视为"不修改":密文不回显,留空提交即保持原值 -->
+            <if test="password != null and password != ''">password = #{password},</if>
+            <if test="fromAddress != null">from_address = #{fromAddress},</if>
+            <if test="fromName != null">from_name = #{fromName},</if>
+            <if test="starttls != null">starttls = #{starttls},</if>
+            <if test="ssl != null">ssl = #{ssl},</if>
+            <if test="timeoutMillis != null">timeout_millis = #{timeoutMillis},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{page.login.docTitle(${realmKey})}">登录 · 蜂巢身份</title>
+    <!-- 设计令牌先于页面样式:主题包改令牌即可换肤,三端共用 -->
+    <link rel="stylesheet" th:href="@{/theme-static/css/tokens.css}">
+    <link rel="stylesheet" th:href="@{/theme-static/css/iam.css}">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12.5 7.2v14.6L16 30 3.5 23.8V9.2z' fill='%23f5b32d'/%3E%3Cpath d='M16 8l6.8 3.9v7.8L16 23.6 9.2 19.7v-7.8z' fill='%230e1626'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="iam-shell">
+
+    <!-- ============ 左侧:品牌叙事区 ============ -->
+    <aside class="iam-aside">
+        <div class="iam-aside-content">
+            <!-- 品牌标识 -->
+            <div class="iam-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="lg-gold" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#ffd777"/>
+                            <stop offset="1" stop-color="#e09a12"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="url(#lg-gold)"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#0e1626"/>
+                    <circle cx="16" cy="16" r="2.6" fill="url(#lg-gold)"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+
+            <!-- 主标语 -->
+            <div class="iam-aside-hero">
+                <h1><span th:text="#{page.login.hero.line1}">统一身份</span><br><em th:text="#{page.login.hero.line2}">安全通行</em></h1>
+                <p th:text="#{page.login.hero.desc}">为企业提供多域多租户的统一认证、权限治理与审计能力,让每一次访问都可信、可管、可溯。</p>
+            </div>
+
+            <!-- 核心能力 -->
+            <ul class="iam-aside-features">
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.login.feature1.title}">多域多租户</strong>
+                        <span th:text="#{page.login.feature1.desc}">一套平台管理多个身份域,数据与密钥天然隔离</span>
+                    </span>
+                </li>
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.login.feature2.title}">企业级安全</strong>
+                        <span th:text="#{page.login.feature2.desc}">动态口令二次验证、口令策略、失败锁定与登录审计</span>
+                    </span>
+                </li>
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="19" cy="18" r="2.4"/><path d="M7.2 10.8l9.6-3.6M7.2 13.2l9.6 3.6"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.login.feature3.title}">开放协议</strong>
+                        <span th:text="#{page.login.feature3.desc}">OAuth 2.1 / OIDC 标准协议,支持外部身份联邦接入</span>
+                    </span>
+                </li>
+            </ul>
+
+            <div class="iam-aside-footer" th:text="|© 2026 Beenest IAM · #{page.brand.footer}|">© 2026 Beenest IAM · 统一身份认证中心</div>
+        </div>
+    </aside>
+
+    <!-- ============ 右侧:表单操作区 ============ -->
+    <main class="iam-main">
+        <div class="iam-form-wrap">
+
+            <!-- 移动端简化标识 -->
+            <div class="iam-mobile-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="#f5b32d"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#fff"/>
+                    <circle cx="16" cy="16" r="2.6" fill="#e09a12"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+
+            <!-- 标题 -->
+            <header class="iam-form-head">
+                <h2 th:text="#{page.login.welcome}">欢迎登录</h2>
+                <p>
+                    <span th:text="#{page.login.subtitle}">请使用企业账号登录</span>
+                    <span class="iam-realm-tag" th:text="${realmKey}">default</span>
+                </p>
+            </header>
+
+            <!-- 错误提示(失败处理器经会话一次性传递,避免 URL 泄露) -->
+            <div class="iam-alert" th:if="${loginFailed}" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span th:text="${!#strings.isEmpty(errorMessage)} ? ${errorMessage} : ${#messages.msg('page.login.error.default')}">账号或密码错误,请重试</span>
+            </div>
+
+            <!-- 短信登录动态错误提示(前端请求失败时展示,与服务端失败提示同款) -->
+            <div class="iam-alert" id="sms-alert" role="alert" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span id="sms-alert-text"></span>
+            </div>
+
+            <!-- 没有任何可用入口:应用收窄了登录方式且本域做不到,给出明确说明而不是空白页 -->
+            <div class="iam-alert" th:if="${!passwordLoginVisible and !smsLoginEnabled}" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span th:text="#{page.login.methodUnavailable}">当前登录方式不可用,请联系管理员或改用其他方式。</span>
+            </div>
+
+            <!-- 登录方式切换:仅域策略开启短信登录时渲染;口令被客户端收窄掉时只留短信 Tab -->
+            <div class="iam-tabs" th:if="${smsLoginEnabled}" role="tablist"
+                 th:attr="aria-label=#{page.login.tab.method}" aria-label="登录方式">
+                <button class="iam-tab" type="button" role="tab" id="tab-password"
+                        th:if="${passwordLoginVisible}"
+                        th:classappend="${passwordLoginVisible} ? 'is-active' : ''"
+                        th:attr="aria-selected=${passwordLoginVisible}" aria-controls="pane-password"
+                        th:text="#{page.login.tab.password}">密码登录
+                </button>
+                <button class="iam-tab" type="button" role="tab" id="tab-sms"
+                        th:classappend="${passwordLoginVisible} ? '' : 'is-active'"
+                        th:attr="aria-selected=${!passwordLoginVisible}" aria-controls="pane-sms"
+                        th:text="#{page.login.tab.sms}">短信验证码登录
+                </button>
+            </div>
+
+            <!-- 登录表单:客户端不接受口令时隐藏但保留在 DOM 中,既有脚本选择器因此不会失效 -->
+            <form class="iam-form" method="post" th:action="@{/login(realm=${realmKey},return_to=${returnTo})}"
+                  id="login-form" autocomplete="on"
+                  th:style="${passwordLoginVisible} ? '' : 'display:none'">
+                <input type="hidden" name="realm" th:value="${realmKey}">
+                <input type="hidden" name="return_to" th:value="${returnTo}">
+                <input type="hidden" name="client_id" th:value="${clientId}">
+                <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}">
+
+                <!-- 账号 -->
+                <div>
+                    <label class="iam-field-label" for="username" th:text="#{page.login.label.username}">账号</label>
+                    <div class="iam-input-group">
+                        <span class="iam-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+                        </span>
+                        <input class="iam-input" type="text" id="username" name="username"
+                               th:value="${lastUsername}" autocomplete="username"
+                               th:placeholder="#{page.login.placeholder.username}"
+                               placeholder="用户名 / 手机号 / 邮箱" required autofocus>
+                    </div>
+                </div>
+
+                <!-- 密码 -->
+                <div>
+                    <label class="iam-field-label" for="password">
+                        <span th:text="#{page.login.label.password}">密码</span>
+                        <!-- tabindex="-1":口令框的标签与输入框相邻,若这个链接参与 Tab 序列,
+                             用户从账号框按 Tab 会先落在"忘记口令"上而不是密码框。这里只移出
+                             键盘顺序,鼠标点击与读屏软件仍可正常使用 -->
+                        <a th:href="@{/forgot-password(realm=${realmKey})}" tabindex="-1"
+                           style="color:var(--gold-deep);text-decoration:none;font-weight:400"
+                           th:text="#{page.login.forgot}">忘记口令?</a>
+                    </label>
+                    <div class="iam-input-group">
+                        <span class="iam-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 018 0v3.5"/></svg>
+                        </span>
+                        <input class="iam-input" type="password" id="password" name="password"
+                               autocomplete="current-password"
+                               th:placeholder="#{page.login.placeholder.password}" placeholder="请输入密码" required>
+                        <button class="iam-input-action" type="button" id="toggle-password"
+                                th:attr="aria-label=#{page.login.togglePassword},title=#{page.login.togglePassword}"
+                                aria-label="显示或隐藏密码" title="显示 / 隐藏密码">
+                            <svg id="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+                            <svg id="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.7 9.7 0 0112 6c6.4 0 10 6 10 6a17.4 17.4 0 01-3.2 4M6.5 7.6C4 9.3 2 12 2 12s3.6 6.5 10 6.5c1.3 0 2.5-.2 3.6-.6"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/></svg>
+                        </button>
+                    </div>
+                    <p class="iam-capslock" id="capslock-hint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M12 4l8 8h-5v4H9v-4H4z"/><path d="M9 20h6"/></svg>
+                        <span th:text="#{page.login.capslock}">大写锁定已开启,请注意密码大小写</span>
+                    </p>
+                </div>
+
+                <!-- 验证码:失败达到域策略阈值后由 JS 展开 -->
+                <div class="iam-captcha" id="captcha-block">
+                    <label class="iam-field-label" for="captcha-code">
+                        <span th:text="#{page.login.label.captcha}">验证码</span>
+                        <a href="javascript:void(0)" id="captcha-text-refresh" style="color:var(--gold-deep);text-decoration:none"
+                           th:text="#{page.login.refresh}">刷新</a>
+                    </label>
+                    <div class="iam-captcha-row">
+                        <div class="iam-input-group">
+                            <span class="iam-input-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 10l2.5 2.5L8 15M13.5 15H17"/></svg>
+                            </span>
+                            <input class="iam-input" type="text" id="captcha-code" name="captchaCode"
+                                   autocomplete="off" maxlength="4"
+                                   th:placeholder="#{page.login.placeholder.captcha}" placeholder="请输入验证码">
+                        </div>
+                        <input type="hidden" id="captcha-id" name="captchaId">
+                        <div class="iam-captcha-image" id="captcha-image"
+                             th:attr="title=#{page.login.refreshCaptcha}" title="点击刷新验证码">
+                            <img id="captcha-img" th:attr="alt=#{page.login.captchaAlt}" alt="验证码图片">
+                            <button class="iam-captcha-refresh" type="button"
+                                    th:attr="aria-label=#{page.login.refreshCaptcha}" aria-label="刷新验证码">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="iam-captcha-hint" th:text="#{page.login.captchaHint}">为保障账号安全,连续登录失败后需输入验证码</p>
+                </div>
+
+                <!-- 登录 -->
+                <button class="iam-btn-primary" type="submit" id="submit-btn"
+                        th:text="#{page.login.submit}">登 录</button>
+            </form>
+
+            <!-- 短信验证码登录表单:默认隐藏,Tab 切换显示;
+                 口令表单可见、或本域不支持短信时保持隐藏(不给出点了必然失败的入口) -->
+            <form class="iam-form" id="sms-form" autocomplete="off"
+                  th:style="${passwordLoginVisible or !smsLoginEnabled} ? 'display:none' : ''">
+                <input type="hidden" name="realm" th:value="${realmKey}">
+                <input type="hidden" name="return_to" th:value="${returnTo}">
+                <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}">
+
+                <div>
+                    <label class="iam-field-label" for="sms-phone" th:text="#{page.login.label.phone}">手机号</label>
+                    <div class="iam-input-group">
+                        <span class="iam-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+                        </span>
+                        <input class="iam-input" type="tel" id="sms-phone" name="phone"
+                               maxlength="11" autocomplete="tel"
+                               th:placeholder="#{page.login.placeholder.phone}" placeholder="请输入 11 位手机号" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="iam-field-label" for="sms-code">
+                        <span th:text="#{page.login.label.captcha}">验证码</span>
+                    </label>
+                    <div class="iam-code-row">
+                        <div class="iam-input-group">
+                            <span class="iam-input-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 10l2.5 2.5L8 15M13.5 15H17"/></svg>
+                            </span>
+                            <input class="iam-input" type="text" id="sms-code" name="code"
+                                   maxlength="6" autocomplete="one-time-code" inputmode="numeric"
+                                   th:placeholder="#{page.login.placeholder.smsCode}" placeholder="6 位短信验证码" required>
+                        </div>
+                        <button class="iam-code-btn" type="button" id="sms-code-btn"
+                                th:text="#{page.login.sendCode}">获取验证码</button>
+                    </div>
+                    <p class="iam-captcha-hint" th:text="#{page.login.smsHint}">未注册或未验证的手机号不会收到短信,页面提示与已发送一致</p>
+                </div>
+
+                <button class="iam-btn-primary" type="submit" id="sms-submit-btn"
+                        th:text="#{page.login.submit}">登 录</button>
+            </form>
+
+            <!-- Passkey 登录:依赖方配置完整时才渲染;浏览器不支持 WebAuthn 时由脚本隐藏 -->
+            <div class="iam-form-foot" id="passkey-block" th:if="${passkeyAvailable}" style="display:none">
+                <div class="iam-divider" th:text="#{page.login.divider.passkey}">免密登录</div>
+                <button class="iam-btn-secondary" type="button" id="passkey-btn"
+                        style="width:100%;margin-top:12px"
+                        th:text="#{page.login.passkey.button}">
+                    使用 Passkey 登录
+                </button>
+                <p class="iam-captcha-hint" id="passkey-msg" style="margin-top:8px"
+                   th:text="#{page.login.passkey.hint}">
+                    用设备上的指纹、人脸或 PIN 完成验证,无需输入口令
+                </p>
+            </div>
+
+            <!-- 三方登录入口:未接入提供方时不显示(容器默认隐藏) -->
+            <div class="iam-form-foot" id="idp-block" style="display:none">
+                <div class="iam-divider" th:text="#{page.login.divider.other}">其他登录方式</div>
+                <div id="idp-list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px"></div>
+            </div>
+
+            <footer class="iam-form-foot">
+                <div class="iam-divider" th:text="#{page.common.divider.security}">安全登录</div>
+                <p style="margin:14px 0 0">
+                    <span th:text="#{page.login.footer.forgotPrefix}">忘记口令可</span><a th:href="@{/forgot-password(realm=${realmKey})}"
+                       th:text="#{page.login.footer.selfService}">自助找回</a><span
+                       th:text="#{page.login.footer.problem}">,其它登录问题请联系企业管理员或</span>
+                    <a href="javascript:void(0)" th:text="#{page.login.footer.helpdesk}">IT 服务台</a>
+                </p>
+            </footer>
+
+            <div class="iam-lang-row">
+                <a th:replace="~{(${themeName} + '/fragments/lang-switch') :: switch}"></a>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    (function () {
+        /* ===== 域标识(服务端渲染注入) ===== */
+        var realmKey = /*[[${realmKey}]]*/ 'default';
+        var clientId = /*[[${clientId}]]*/ '';
+        var lastUsername = /*[[${lastUsername}]]*/ '';
+        var returnTo = /*[[${returnTo}]]*/ '';
+        var loginFailed = /*[[${loginFailed}]]*/ false;
+
+        /* 脚本文案由服务端按请求语言注入,未启用模板内联时回落到注释后的字面量 */
+        var MSG = {
+            serverError: /*[[#{page.login.js.serverError}]]*/ '服务端返回异常',
+            passkeyRequesting: /*[[#{page.login.js.passkeyRequesting}]]*/ '正在请求验证…',
+            passkeyStartFailed: /*[[#{page.login.js.passkeyStartFailed}]]*/ '无法发起 Passkey 登录',
+            passkeyNotChosen: /*[[#{page.login.js.passkeyNotChosen}]]*/ '未选择可用的 Passkey',
+            passkeyFailed: /*[[#{page.login.js.passkeyFailed}]]*/ 'Passkey 验证失败,请重试',
+            passkeyLoginFailed: /*[[#{page.login.js.passkeyLoginFailed}]]*/ 'Passkey 登录失败,请重试',
+            ssoButton: /*[[#{page.login.js.ssoButton}]]*/ '使用 {0} 登录',
+            resend: /*[[#{page.login.js.resend}]]*/ '重新获取',
+            resendIn: /*[[#{page.login.js.resendIn}]]*/ '{0}s 后重发',
+            phoneInvalid: /*[[#{page.login.js.phoneInvalid}]]*/ '请输入正确的 11 位手机号',
+            sending: /*[[#{page.login.js.sending}]]*/ '发送中…',
+            sendFailed: /*[[#{page.login.js.sendFailed}]]*/ '验证码发送失败,请稍后重试',
+            smsSendFailed: /*[[#{page.login.js.smsSendFailed}]]*/ '网络异常,验证码发送失败',
+            smsCodeRequired: /*[[#{page.login.js.smsCodeRequired}]]*/ '请输入 6 位短信验证码',
+            smsCodeInvalid: /*[[#{page.login.js.smsCodeInvalid}]]*/ '验证码错误或已过期,请重试',
+            networkError: /*[[#{page.common.networkError}]]*/ '网络异常,请稍后重试',
+            sendCode: /*[[#{page.login.sendCode}]]*/ '获取验证码'
+        };
+
+        /* 模板占位:把 {0} 换成实际值,与服务端 MessageFormat 的写法保持一致 */
+        function fmt(template, value) {
+            return template.replace('{0}', value);
+        }
+
+        var form = document.getElementById('login-form');
+        var usernameInput = document.getElementById('username');
+        var passwordInput = document.getElementById('password');
+        var submitBtn = document.getElementById('submit-btn');
+        var capslockHint = document.getElementById('capslock-hint');
+
+        /* ===== 密码显隐切换 ===== */
+        var toggleBtn = document.getElementById('toggle-password');
+        var eyeOpen = document.getElementById('eye-open');
+        var eyeClosed = document.getElementById('eye-closed');
+        toggleBtn.addEventListener('click', function () {
+            var show = passwordInput.type === 'password';
+            passwordInput.type = show ? 'text' : 'password';
+            eyeOpen.style.display = show ? 'none' : 'block';
+            eyeClosed.style.display = show ? 'block' : 'none';
+        });
+
+        /* ===== CapsLock 检测(仅密码框) ===== */
+        function capsLockCheck(e) {
+            var on = false;
+            try { on = e.getModifierState && e.getModifierState('CapsLock'); } catch (err) { /* 旧浏览器忽略 */ }
+            capslockHint.classList.toggle('is-on', !!on);
+        }
+        passwordInput.addEventListener('keyup', capsLockCheck);
+        passwordInput.addEventListener('keydown', capsLockCheck);
+        passwordInput.addEventListener('blur', function () {
+            capslockHint.classList.remove('is-on');
+        });
+
+        /* ===== 验证码 ===== */
+        var captchaBlock = document.getElementById('captcha-block');
+        var captchaIdField = document.getElementById('captcha-id');
+        var captchaImg = document.getElementById('captcha-img');
+        var captchaCodeInput = document.getElementById('captcha-code');
+        var captchaRequired = false;
+
+        function loadCaptcha() {
+            fetch('/api/v1/auth/captcha', {credentials: 'same-origin'})
+                .then(function (r) { return r.json(); })
+                .then(function (body) {
+                    if (body && body.code === 0 && body.data) {
+                        captchaIdField.value = body.data.captchaId || '';
+                        captchaImg.src = body.data.imageBase64 || '';
+                    }
+                })
+                .catch(function () { /* 网络异常时保持静默,提交时服务端会拦截 */ });
+        }
+
+        function openCaptcha(forceRefresh) {
+            captchaRequired = true;
+            captchaBlock.classList.add('is-open');
+            if (forceRefresh || !captchaIdField.value) {
+                loadCaptcha();
+            }
+        }
+
+        function refreshCaptcha() {
+            captchaCodeInput.value = '';
+            loadCaptcha();
+            captchaCodeInput.focus();
+        }
+
+        document.getElementById('captcha-image').addEventListener('click', refreshCaptcha);
+        document.getElementById('captcha-text-refresh').addEventListener('click', refreshCaptcha);
+
+        /* 查询账号当前是否已触发验证码阈值(防抖,避免频繁请求) */
+        var captchaQueryTimer = null;
+        function checkCaptchaRequired() {
+            var username = usernameInput.value.trim();
+            if (!username) {
+                return;
+            }
+            clearTimeout(captchaQueryTimer);
+            captchaQueryTimer = setTimeout(function () {
+                fetch('/api/v1/auth/captcha-required?username=' + encodeURIComponent(username) + '&realm=' + encodeURIComponent(realmKey),
+                    {credentials: 'same-origin'})
+                    .then(function (r) { return r.json(); })
+                    .then(function (body) {
+                        if (body && body.code === 0 && body.data === true) {
+                            openCaptcha(true);
+                        }
+                    })
+                    .catch(function () { /* 查询失败不阻塞登录 */ });
+            }, 300);
+        }
+
+        usernameInput.addEventListener('blur', checkCaptchaRequired);
+        usernameInput.addEventListener('change', checkCaptchaRequired);
+
+        /* 登录失败回显:若已达阈值,直接展开验证码框并加载图片 */
+        if (loginFailed) {
+            var prefill = lastUsername || usernameInput.value.trim();
+            if (prefill) {
+                checkCaptchaRequired();
+            }
+        }
+
+        /* ===== 提交防重复 ===== */
+        form.addEventListener('submit', function () {
+            if (captchaRequired && !captchaCodeInput.value.trim()) {
+                captchaCodeInput.focus();
+                captchaBlock.classList.add('is-open');
+                return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.classList.add('is-loading');
+        });
+
+        /* ===== 三方登录入口 ===== */
+        /* 未接入任何提供方时整块隐藏:登录页不出现空的分隔线 */
+        (function loadIdpEntries() {
+            var block = document.getElementById('idp-block');
+            var list = document.getElementById('idp-list');
+            /* 带 client_id:服务端据此只列出该客户端接受且本域可用的提供方 */
+            var idpUrl = '/api/v1/auth/idps?realm=' + encodeURIComponent(realmKey)
+                + (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
+            fetch(idpUrl, {credentials: 'same-origin'})
+                .then(function (r) { return r.json(); })
+                .then(function (body) {
+                    if (!body || body.code !== 0 || !body.data || body.data.length === 0) {
+                        return;
+                    }
+                    body.data.forEach(function (entry) {
+                        /* 凭据类提供方没有浏览器跳转入口(例如小程序用 code 直连),
+                           在登录页渲染按钮只会给出一个点了必然失败的入口 */
+                        if (entry.browserLogin === false) {
+                            return;
+                        }
+                        var button = document.createElement('a');
+                        button.className = 'iam-btn-primary';
+                        button.style.display = 'block';
+                        button.style.textAlign = 'center';
+                        button.style.textDecoration = 'none';
+                        button.textContent = fmt(MSG.ssoButton, entry.displayName || entry.alias);
+                        /* 回跳地址随跳转带过去:三方登录完成后回到用户原本要去的页面 */
+                        button.href = entry.loginUrl + '?target=' + encodeURIComponent(returnTo || '/portal');
+                        list.appendChild(button);
+                    });
+                    if (!list.children.length) {
+                        return;
+                    }
+                    block.style.display = '';
+                })
+                .catch(function () { /* 拉取失败不阻塞密码登录 */ });
+        })();
+
+        /* ===== 初始焦点 ===== */
+        /* 口令表单被客户端收窄掉时不要往隐藏元素里塞焦点:那会让光标凭空消失 */
+        var passwordFormVisible = form.style.display !== 'none';
+        if (!passwordFormVisible) {
+            var smsPhoneForFocus = document.getElementById('sms-phone');
+            /* offsetParent 为 null 说明短信表单也被隐藏(本域没开短信),不硬塞焦点 */
+            if (smsPhoneForFocus && smsPhoneForFocus.offsetParent !== null) {
+                smsPhoneForFocus.focus();
+            }
+        } else if (!usernameInput.value) {
+            usernameInput.focus();
+        } else {
+            passwordInput.focus();
+        }
+
+        /* ===== Passkey 登录 ===== */
+        /* 服务端已确认依赖方配置完整;这里再按浏览器能力兜底:
+           不支持 WebAuthn 的浏览器不展示入口,而不是让用户点了报错 */
+        (function initPasskeyLogin() {
+            var block = document.getElementById('passkey-block');
+            if (!block) {
+                return; // 服务端未启用 Passkey
+            }
+            if (!window.PublicKeyCredential || !navigator.credentials) {
+                return; // 浏览器不支持
+            }
+            block.style.display = '';
+
+            var button = document.getElementById('passkey-btn');
+            var message = document.getElementById('passkey-msg');
+            var hint = message.textContent;
+
+            function setMessage(text, isError) {
+                message.textContent = text;
+                message.style.color = isError ? '#c53030' : '';
+            }
+
+            /* Base64URL → ArrayBuffer:WebAuthn 的二进制字段一律走这个编码 */
+            function toBuffer(value) {
+                var base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+                while (base64.length % 4 !== 0) {
+                    base64 += '=';
+                }
+                var binary = atob(base64);
+                var bytes = new Uint8Array(binary.length);
+                for (var i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return bytes.buffer;
+            }
+
+            /* ArrayBuffer → Base64URL(无填充) */
+            function toBase64Url(buffer) {
+                var bytes = new Uint8Array(buffer);
+                var binary = '';
+                for (var i = 0; i < bytes.length; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            }
+
+            function post(url, payload) {
+                return fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                }).then(function (response) {
+                    return response.json().catch(function () {
+                        return {code: -1, message: MSG.serverError};
+                    });
+                });
+            }
+
+            button.addEventListener('click', function () {
+                /* 填了账号就按该账号取密钥;留空则走无用户名登录 */
+                var account = usernameInput.value.trim();
+                var challenge = '';
+                button.disabled = true;
+                setMessage(MSG.passkeyRequesting, false);
+
+                post('/api/v1/auth/webauthn/options?realm=' + encodeURIComponent(realmKey),
+                    {account: account})
+                    .then(function (body) {
+                        if (!body || body.code !== 0 || !body.data) {
+                            throw new Error((body && body.message) || MSG.passkeyStartFailed);
+                        }
+                        var options = body.data;
+                        challenge = options.challenge;
+                        var publicKey = {
+                            challenge: toBuffer(options.challenge),
+                            rpId: options.rpId,
+                            timeout: options.timeout,
+                            userVerification: options.userVerification
+                        };
+                        if (options.allowCredentials && options.allowCredentials.length > 0) {
+                            publicKey.allowCredentials = options.allowCredentials.map(function (item) {
+                                return {
+                                    type: item.type,
+                                    id: toBuffer(item.id),
+                                    transports: item.transports
+                                };
+                            });
+                        }
+                        return navigator.credentials.get({publicKey: publicKey});
+                    })
+                    .then(function (credential) {
+                        if (!credential) {
+                            throw new Error(MSG.passkeyNotChosen);
+                        }
+                        var response = credential.response;
+                        return post('/api/v1/auth/webauthn/authenticate?realm=' + encodeURIComponent(realmKey), {
+                            challenge: challenge,
+                            id: credential.id,
+                            rawId: toBase64Url(credential.rawId),
+                            clientDataJSON: toBase64Url(response.clientDataJSON),
+                            authenticatorData: toBase64Url(response.authenticatorData),
+                            signature: toBase64Url(response.signature),
+                            userHandle: response.userHandle ? toBase64Url(response.userHandle) : null
+                        });
+                    })
+                    .then(function (body) {
+                        if (body && body.code === 0) {
+                            window.location.href = returnTo || '/portal';
+                            return;
+                        }
+                        button.disabled = false;
+                        setMessage((body && body.message) || MSG.passkeyFailed, true);
+                    })
+                    .catch(function (error) {
+                        button.disabled = false;
+                        /* 用户在系统弹窗里点了取消:不必当成错误刷红 */
+                        if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
+                            setMessage(hint, false);
+                            return;
+                        }
+                        setMessage((error && error.message) || MSG.passkeyLoginFailed, true);
+                    });
+            });
+        })();
+
+        /* ===== 短信验证码登录(仅域策略开启时 Tab 才存在) ===== */
+        (function initSmsLogin() {
+            /* 以短信 Tab 是否存在为闸门:口令 Tab 可能因客户端不收口令而不渲染 */
+            var tabSms = document.getElementById('tab-sms');
+            if (!tabSms) {
+                return; // 域未开启短信登录:整块不渲染
+            }
+            var tabPassword = document.getElementById('tab-password');
+            var smsForm = document.getElementById('sms-form');
+            var phoneInput = document.getElementById('sms-phone');
+            var codeInput = document.getElementById('sms-code');
+            var codeBtn = document.getElementById('sms-code-btn');
+            var smsSubmit = document.getElementById('sms-submit-btn');
+            var alertBox = document.getElementById('sms-alert');
+            var alertText = document.getElementById('sms-alert-text');
+            var countdown = 0;
+            var countdownTimer = null;
+
+            function showAlert(message) {
+                alertText.textContent = message;
+                alertBox.style.display = '';
+            }
+
+            function hideAlert() {
+                alertBox.style.display = 'none';
+            }
+
+            function switchTab(toSms) {
+                /* 口令 Tab 不渲染说明客户端不收口令:切回去会把受限表单重新露出来 */
+                if (!toSms && !tabPassword) {
+                    return;
+                }
+                tabSms.classList.toggle('is-active', toSms);
+                tabSms.setAttribute('aria-selected', toSms ? 'true' : 'false');
+                if (tabPassword) {
+                    tabPassword.classList.toggle('is-active', !toSms);
+                    tabPassword.setAttribute('aria-selected', toSms ? 'false' : 'true');
+                }
+                form.style.display = toSms ? 'none' : '';
+                smsForm.style.display = toSms ? '' : 'none';
+                hideAlert();
+                if (toSms) {
+                    phoneInput.focus();
+                } else {
+                    usernameInput.focus();
+                }
+            }
+
+            tabSms.addEventListener('click', function () { switchTab(true); });
+            if (tabPassword) {
+                tabPassword.addEventListener('click', function () { switchTab(false); });
+            }
+
+            /* 发码倒计时:60 秒内不可重复获取(与服务端限制对齐的前置提示) */
+            function startCountdown(seconds) {
+                countdown = seconds;
+                codeBtn.disabled = true;
+                countdownTimer = setInterval(function () {
+                    countdown -= 1;
+                    if (countdown <= 0) {
+                        clearInterval(countdownTimer);
+                        codeBtn.disabled = false;
+                        codeBtn.textContent = MSG.resend;
+                        return;
+                    }
+                    codeBtn.textContent = fmt(MSG.resendIn, countdown);
+                }, 1000);
+            }
+
+            codeBtn.addEventListener('click', function () {
+                var phone = phoneInput.value.trim();
+                if (!/^1[3-9]\d{9}$/.test(phone)) {
+                    showAlert(MSG.phoneInvalid);
+                    phoneInput.focus();
+                    return;
+                }
+                hideAlert();
+                codeBtn.disabled = true;
+                codeBtn.textContent = MSG.sending;
+                fetch('/api/v1/auth/sms-code?realm=' + encodeURIComponent(realmKey), {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: phone })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (body) {
+                        // 无论手机号是否已注册,服务端都返回成功:不泄露号码存在性
+                        if (body && body.code === 0) {
+                            startCountdown(60);
+                            codeInput.focus();
+                            return;
+                        }
+                        codeBtn.disabled = false;
+                        codeBtn.textContent = MSG.sendCode;
+                        showAlert((body && body.message) || MSG.sendFailed);
+                    })
+                    .catch(function () {
+                        codeBtn.disabled = false;
+                        codeBtn.textContent = MSG.sendCode;
+                        showAlert(MSG.smsSendFailed);
+                    });
+            });
+
+            smsForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var phone = phoneInput.value.trim();
+                var code = codeInput.value.trim();
+                if (!/^1[3-9]\d{9}$/.test(phone)) {
+                    showAlert(MSG.phoneInvalid);
+                    return;
+                }
+                if (!/^\d{6}$/.test(code)) {
+                    showAlert(MSG.smsCodeRequired);
+                    return;
+                }
+                hideAlert();
+                smsSubmit.disabled = true;
+                smsSubmit.classList.add('is-loading');
+                fetch('/api/v1/auth/login-sms?realm=' + encodeURIComponent(realmKey), {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: phone, code: code })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (body) {
+                        if (body && body.code === 0) {
+                            // 登录态已建立:回到登录前想去的页面,与密码登录一致
+                            window.location.href = returnTo || '/portal';
+                            return;
+                        }
+                        smsSubmit.disabled = false;
+                        smsSubmit.classList.remove('is-loading');
+                        showAlert((body && body.message) || MSG.smsCodeInvalid);
+                    })
+                    .catch(function () {
+                        smsSubmit.disabled = false;
+                        smsSubmit.classList.remove('is-loading');
+                        showAlert(MSG.networkError);
+                    });
+            });
+        })();
+    })();
+</script>
+</body>
+</html>

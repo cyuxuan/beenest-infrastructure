@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.RolePermissionMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, role_id, permission_id, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRoleId" resultType="RolePermission">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role_permission
+        WHERE role_id = #{roleId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRoleIds" resultType="RolePermission">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role_permission
+        WHERE deleted = FALSE
+        <choose>
+            <when test="roleIds != null and roleIds.size() > 0">
+                AND role_id IN
+                <foreach collection="roleIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <select id="selectByPermissionIds" resultType="RolePermission">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role_permission
+        WHERE deleted = FALSE
+        <choose>
+            <when test="permissionIds != null and permissionIds.size() > 0">
+                AND permission_id IN
+                <foreach collection="permissionIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <select id="countByPermissionId" resultType="int">
+        SELECT COUNT(1)
+        FROM iam_role_permission rp
+        JOIN iam_role r ON r.id = rp.role_id AND r.deleted = FALSE
+        WHERE rp.permission_id = #{permissionId} AND rp.deleted = FALSE
+    </select>
+
+    <update id="updatePermissionIdById">
+        UPDATE iam_role_permission
+        SET permission_id = #{permissionId},
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_role_permission
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteByRoleId">
+        UPDATE iam_role_permission
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE role_id = #{roleId} AND deleted = FALSE
+    </update>
+
+    <insert id="insertBatch">
+        INSERT INTO iam_role_permission(realm_id, role_id, permission_id)
+        VALUES
+        <foreach collection="permissionIds" item="item" separator=",">
+            (#{realmId}, #{roleId}, #{item})
+        </foreach>
+    </insert>
+</mapper>

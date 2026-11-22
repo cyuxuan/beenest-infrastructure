@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.UserFederatedIdentityMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, user_id, idp_id, external_id, external_username,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByIdpAndExternalId" resultType="UserFederatedIdentity">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_federated_identity
+        WHERE idp_id = #{idpId} AND external_id = #{externalId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByUserIdAndIdpId" resultType="UserFederatedIdentity">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_federated_identity
+        WHERE user_id = #{userId} AND idp_id = #{idpId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByUserId" resultType="UserFederatedIdentity">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_federated_identity
+        WHERE user_id = #{userId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="UserFederatedIdentity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_user_federated_identity(realm_id, user_id, idp_id, external_id, external_username, deleted)
+        VALUES (#{realmId}, #{userId}, #{idpId}, #{externalId}, #{externalUsername}, FALSE)
+    </insert>
+
+    <!-- 按提供方批量解绑:删除提供方时让该来源的外部身份不再能登录 -->
+    <update id="softDeleteByIdpId">
+        UPDATE iam_user_federated_identity
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE idp_id = #{idpId} AND deleted = FALSE
+    </update>
+</mapper>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.RealmMapper">
+
+    <sql id="baseColumns">
+        id, realm_key, realm_name, enabled, is_default, access_token_ttl, refresh_token_ttl,
+        sso_session_idle, sso_session_max, subject_mode, theme, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRealmKey" resultType="Realm">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm
+        WHERE realm_key = #{realmKey} AND deleted = FALSE
+    </select>
+
+    <select id="selectById" resultType="Realm">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectEnabled" resultType="Realm">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm
+        WHERE enabled = TRUE AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <select id="selectByCondition" resultType="Realm"
+            parameterType="club.beenest.iam.persistence.entity.Realm">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm
+        <where>
+            deleted = FALSE
+            <if test="realm.realmKey != null and realm.realmKey != ''">AND realm_key = #{realm.realmKey}</if>
+            <if test="realm.realmName != null and realm.realmName != ''">AND realm_name LIKE '%' || #{realm.realmName} || '%'</if>
+        </where>
+        ORDER BY id
+    </select>
+
+    <!-- 省略未赋值列:保证显式 null 不覆盖列默认值(域级超时等参数在 DDL 中已有默认) -->
+    <insert id="insert" parameterType="Realm" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_realm
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_key, realm_name, deleted,
+            <if test="enabled != null">enabled,</if>
+            <if test="isDefault != null">is_default,</if>
+            <if test="accessTokenTtl != null">access_token_ttl,</if>
+            <if test="refreshTokenTtl != null">refresh_token_ttl,</if>
+            <if test="ssoSessionIdle != null">sso_session_idle,</if>
+            <if test="ssoSessionMax != null">sso_session_max,</if>
+            <if test="subjectMode != null">subject_mode,</if>
+            <if test="theme != null">theme,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmKey}, #{realmName}, FALSE,
+            <if test="enabled != null">#{enabled},</if>
+            <if test="isDefault != null">#{isDefault},</if>
+            <if test="accessTokenTtl != null">#{accessTokenTtl},</if>
+            <if test="refreshTokenTtl != null">#{refreshTokenTtl},</if>
+            <if test="ssoSessionIdle != null">#{ssoSessionIdle},</if>
+            <if test="ssoSessionMax != null">#{ssoSessionMax},</if>
+            <if test="subjectMode != null">#{subjectMode},</if>
+            <if test="theme != null">#{theme},</if>
+        </trim>
+    </insert>
+
+    <update id="updateById" parameterType="Realm">
+        UPDATE iam_realm
+        <set>
+            <if test="realmName != null">realm_name = #{realmName},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="isDefault != null">is_default = #{isDefault},</if>
+            <if test="accessTokenTtl != null">access_token_ttl = #{accessTokenTtl},</if>
+            <if test="refreshTokenTtl != null">refresh_token_ttl = #{refreshTokenTtl},</if>
+            <if test="ssoSessionIdle != null">sso_session_idle = #{ssoSessionIdle},</if>
+            <if test="ssoSessionMax != null">sso_session_max = #{ssoSessionMax},</if>
+            <if test="subjectMode != null">subject_mode = #{subjectMode},</if>
+            <!-- theme 允许"显式清空"回落到跟随全局:空串写 NULL,非空写目录名,null 表示不更新 -->
+            <if test="theme != null and theme.length() > 0">theme = #{theme},</if>
+            <if test="theme != null and theme.length() == 0">theme = NULL,</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_realm
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="selectDefaultRealm" resultType="Realm">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm
+        WHERE is_default = TRUE AND deleted = FALSE
+        ORDER BY id
+        LIMIT 1
+    </select>
+</mapper>

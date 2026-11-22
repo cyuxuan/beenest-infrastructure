@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>club.beenest</groupId>
+        <artifactId>beenest-iam-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>beenest-iam-authz</artifactId>
+    <name>beenest-iam-authz</name>
+    <description>认证授权内核:Spring Authorization Server 多租户接线、密码认证、令牌定制、Redis 存储</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-persistence</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-federation</artifactId>
+        </dependency>
+        <!-- OAuth2 授权服务器 (SAS 7) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-authorization-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- 邮件通道:找回口令、邮箱验证等通知能力 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!-- Passkey/WebAuthn:attestation 与 assertion 的解析、签名与计数器校验 -->
+        <dependency>
+            <groupId>com.webauthn4j</groupId>
+            <artifactId>webauthn4j-core</artifactId>
+        </dependency>
+        <!-- SAML 2.0 身份提供方(IdP)模式:断言编组、签名与元数据生成。
+             与 provider-saml(SP 方向,按需装载的扩展包)方向相反、共用同一份 OpenSAML;
+             放在 authz 里是因为 IdP 模式与授权服务器同级,属于核心能力 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-saml2-service-provider</artifactId>
+        </dependency>
+        <!-- 域密钥派生自签证书:JDK 没有证书构造器,只解析不生成 -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
+        <!-- 操作审计切面 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+        <!-- Redis 序列化保留 Jackson 2 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-authorization-server-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

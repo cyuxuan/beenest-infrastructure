@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.MailTemplateMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, template_code, content, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRealmAndCode" resultType="MailTemplateOverride">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_mail_template
+        WHERE realm_id = #{realmId} AND template_code = #{templateCode} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealm" resultType="MailTemplateOverride">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_mail_template
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY template_code
+    </select>
+
+    <insert id="insert" parameterType="MailTemplateOverride" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_mail_template(realm_id, template_code, content, deleted)
+        VALUES (#{realmId}, #{templateCode}, #{content}, FALSE)
+    </insert>
+
+    <update id="updateContent" parameterType="MailTemplateOverride">
+        UPDATE iam_mail_template
+        SET content = #{content}, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="deleteByRealmAndCode">
+        UPDATE iam_mail_template
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE realm_id = #{realmId} AND template_code = #{templateCode} AND deleted = FALSE
+    </update>
+</mapper>

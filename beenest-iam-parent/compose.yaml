@@ -1,0 +1,127 @@
+# ===== 蜂巢 IAM 本地容器化部署 =====
+# 一条命令起全栈:PostgreSQL + Redis + 应用本体。
+#   docker compose up -d --build
+# 停止:docker compose down            保留数据
+#       docker compose down -v         连同数据卷一起删除
+#
+# 本文件面向**本地部署与验收**。生产环境的差异只有三处:
+#   1. 主密钥与数据库口令必须由部署侧注入(此处给了本地默认值,仅便于开箱验证)
+#   2. 数据库与 Redis 不应发布到宿主端口,由 compose 内网直连即可
+#   3. 业务端口前置反向代理并启用 HTTPS,同时把 SESSION_COOKIE_SECURE 改回 true
+name: beenest-iam
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: beenest
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret123}
+      POSTGRES_DB: beenest_iam
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # 只绑回环地址:数据库不对外暴露。容器之间走服务名 postgres,不依赖这条映射
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      # 应用启动时 Flyway 会立即建表,必须等到真正可接受连接,而不是容器进程已起
+      test: ["CMD-SHELL", "pg_isready -U beenest -d beenest_iam"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # 会话与授权状态都在 Redis:开 AOF 才能在容器重启后保留已登录状态
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  iam:
+    build:
+      context: .
+      # 默认走自包含的多阶段构建。离线/内网环境可改用运行镜像定义,
+      # 由宿主先打包再构建:
+      #   IAM_DOCKERFILE=Dockerfile.runtime docker compose up -d --build
+      dockerfile: ${IAM_DOCKERFILE:-Dockerfile}
+    image: beenest-iam:1.0.0
+    depends_on:
+      # service_healthy 而非 service_started:数据库进程起来时还没准备好接受连接,
+      # 抢跑会让 Flyway 在启动瞬间报连接拒绝,表现为"第一次起必失败、重启才好"
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # 走 prod 档(默认安全基线),不用 dev 档:
+      # 本地要验证的是与生产同一套配置路径,只在 HTTP 相关的几项上做必要放宽
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/beenest_iam
+      DB_USERNAME: beenest
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-secret123}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      # 机密加密主密钥:保护域签名私钥、IdP 客户端密钥、LDAP/SMTP 口令。
+      # 默认值仅供本地验证,生产必须由部署侧注入(openssl rand -base64 32)
+      IAM_REALM_KEY_SECRET: ${IAM_REALM_KEY_SECRET:-local-only-insecure-master-secret-change-me}
+      # 本地是 HTTP:会话 Cookie 不能带 Secure,否则浏览器不回传,
+      # 表现为"登录成功但下一个请求又变未登录"
+      SESSION_COOKIE_SECURE: "false"
+      # 引导管理员:口令为空时不会创建账号(平台不以任何默认口令启动)
+      IAM_BOOTSTRAP_ENABLED: "true"
+      IAM_BOOTSTRAP_ADMIN_USERNAME: ${IAM_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      IAM_BOOTSTRAP_ADMIN_PASSWORD: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:-Admin@12345}
+      # Passkey:浏览器把 localhost 视为安全上下文,本地可完整走通注册与登录
+      IAM_WEBAUTHN_ENABLED: "true"
+      IAM_WEBAUTHN_RP_ID: localhost
+      IAM_WEBAUTHN_ORIGIN: http://localhost:${IAM_PORT:-8090}
+      IAM_LOG_LEVEL: ${IAM_LOG_LEVEL:-INFO}
+      # 本地访问同一台机器既可能用 localhost 也可能用 127.0.0.1,两者在浏览器眼里是
+      # 不同的源,只靠"本站判定"覆盖不到对方;这里把常见形式都登记上。
+      # 生产按实际前端地址配置,不要照抄
+      IAM_CORS_ALLOWED_ORIGINS: ${IAM_CORS_ALLOWED_ORIGINS:-http://localhost:${IAM_PORT:-8090},http://127.0.0.1:${IAM_PORT:-8090},http://localhost,http://127.0.0.1}
+      # 容器默认 UTC。审计与登录事件按应用时区落库,多实例必须统一,
+      # 否则同一张表里混着两种时间,审计排序与留存期计算都会失真
+      TZ: ${TZ:-Asia/Shanghai}
+      # 容器内存上限内取 75%,并启用低延迟 GC
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+UseZGC}
+    ports:
+      # 宿主 8090 → 容器 8080。8080 在本机被其他服务占用(会持续打它自己的接口),
+      # 换宿主端口避免相互干扰;依赖方 issuer 需同步为同一地址
+      - "${IAM_PORT:-8090}:8080"
+      # 管理端口(9090)不发布:actuator 的 health/metrics 不做认证,
+      # 暴露到宿主等于把依赖拓扑与运行指标交出去。
+      # 健康检查在容器内自探,采集指标走 `docker compose exec iam curl 127.0.0.1:9090/...`
+      # 或由同一网络内的 Prometheus 直连
+    # 以下四项与 docs/deployment.md 第 10 节的容器安全基线一一对应:
+    # 只读根文件系统阻止落地 webshell、丢弃全部 capability、阻断 setuid 提权,
+    # /tmp 单独给 tmpfs 是因为内嵌 Tomcat 要在临时目录解包
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # 探管理端口的就绪探针:业务端口要过安全过滤链,未登录会被重定向,
+      # 拿它做健康检查会把"正常"判成"异常"
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9090/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      # 启动要跑 28 个 Flyway 迁移,首次启动给足 120 秒
+      start_period: 120s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>club.beenest</groupId>
+        <artifactId>beenest-iam-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>beenest-iam-provider-saml</artifactId>
+    <name>beenest-iam-provider-saml</name>
+    <description>第三方登录扩展包:SAML 2.0 服务方(SP),对接 AD FS / Shibboleth / Azure AD 等企业 IdP</description>
+
+    <dependencies>
+        <!-- 扩展包只依赖联邦运行时与核心 SPI,不触碰持久层 -->
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-federation</artifactId>
+        </dependency>
+        <!-- SAML 2.0 报文解析、签名校验与元数据生成:OpenSAML 由该模块传递引入。
+             放在扩展包里而不是 federation 里,是为了让不用 SAML 的部署不背 OpenSAML 这棵树 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-saml2-service-provider</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 测试用自签证书:真实 IdP 的证书由管理员导入,测试得自己造一张 -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{page.mfa.docTitle(${realmKey})}">二步验证 · 蜂巢身份</title>
+    <!-- 设计令牌先于页面样式:主题包改令牌即可换肤,三端共用 -->
+    <link rel="stylesheet" th:href="@{/theme-static/css/tokens.css}">
+    <link rel="stylesheet" th:href="@{/theme-static/css/iam.css}">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12.5 7.2v14.6L16 30 3.5 23.8V9.2z' fill='%23f5b32d'/%3E%3Cpath d='M16 8l6.8 3.9v7.8L16 23.6 9.2 19.7v-7.8z' fill='%230e1626'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="iam-shell">
+
+    <!-- ============ 左侧:品牌叙事区 ============ -->
+    <aside class="iam-aside">
+        <div class="iam-aside-content">
+            <div class="iam-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="lg-gold-mfa" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#ffd777"/>
+                            <stop offset="1" stop-color="#e09a12"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="url(#lg-gold-mfa)"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#0e1626"/>
+                    <circle cx="16" cy="16" r="2.6" fill="url(#lg-gold-mfa)"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+
+            <div class="iam-aside-hero">
+                <h1><span th:text="#{page.mfa.hero.line1}">二次验证</span><br><em th:text="#{page.mfa.hero.line2}">纵深防御</em></h1>
+                <p th:text="#{page.mfa.hero.desc}">口令只是第一道屏障。动态口令为账号加上第二把锁,即使密码泄露,攻击者也无法登录。</p>
+            </div>
+
+            <ul class="iam-aside-features">
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.mfa.feature1.title}">兼容主流 Authenticator</strong>
+                        <span th:text="#{page.mfa.feature1.desc}">基于 RFC 6238 标准,支持各类身份验证器 App 扫码绑定</span>
+                    </span>
+                </li>
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.mfa.feature2.title}">一次性票据 + 防重放</strong>
+                        <span th:text="#{page.mfa.feature2.desc}">口令校验通过后签发一次性票据,动态口令仅可成功使用一次</span>
+                    </span>
+                </li>
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.mfa.feature3.title}">恢复码兜底</strong>
+                        <span th:text="#{page.mfa.feature3.desc}">遗失验证器时,可使用一次性恢复码安全登录</span>
+                    </span>
+                </li>
+            </ul>
+
+            <div class="iam-aside-footer" th:text="|© 2026 Beenest IAM · #{page.brand.footer}|">© 2026 Beenest IAM · 统一身份认证中心</div>
+        </div>
+    </aside>
+
+    <!-- ============ 右侧:二步验证表单 ============ -->
+    <main class="iam-main">
+        <div class="iam-form-wrap">
+
+            <div class="iam-mobile-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="#f5b32d"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#fff"/>
+                    <circle cx="16" cy="16" r="2.6" fill="#e09a12"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+
+            <header class="iam-form-head">
+                <h2 th:text="#{page.mfa.heading}">二步验证</h2>
+                <p>
+                    <span th:text="#{page.mfa.subtitle}">请输入验证器生成的 6 位动态口令</span>
+                    <span class="iam-realm-tag" th:text="${realmKey}">default</span>
+                </p>
+            </header>
+
+            <!-- 强制绑定提示 -->
+            <div class="iam-alert iam-alert-info" th:if="${enrollMode}" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span th:text="#{page.mfa.enrollRequired}">当前身份域要求全员启用动态口令,请先在用户中心完成绑定后再登录</span>
+            </div>
+
+            <div class="iam-alert" id="mfa-error" role="alert" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span id="mfa-error-text" th:text="#{page.mfa.codeInvalid}">动态口令错误,请重试</span>
+            </div>
+
+            <form class="iam-form" id="mfa-form" onsubmit="return false;">
+                <input type="hidden" id="mfa-token" th:value="${mfaToken}">
+                <input type="hidden" id="realm-key" th:value="${realmKey}">
+                <input type="hidden" id="csrf-parameter" th:value="${_csrf?.parameterName}">
+                <input type="hidden" id="csrf-token" th:value="${_csrf?.token}">
+
+                <div>
+                    <label class="iam-field-label">
+                        <span th:text="#{page.mfa.label.code}">动态口令</span>
+                        <span style="color:var(--muted);font-weight:400" th:text="#{page.mfa.label.recovery}">或输入恢复码</span>
+                    </label>
+                    <div class="iam-otp-input" id="otp-input">
+                        <input class="iam-otp-cell" type="text" inputmode="numeric" autocomplete="one-time-code"
+                               maxlength="1" data-index="0" th:attr="aria-label=#{page.mfa.digitAria(1)}" aria-label="第 1 位">
+                        <input class="iam-otp-cell" type="text" inputmode="numeric" autocomplete="one-time-code"
+                               maxlength="1" data-index="1" th:attr="aria-label=#{page.mfa.digitAria(2)}" aria-label="第 2 位">
+                        <input class="iam-otp-cell" type="text" inputmode="numeric" autocomplete="one-time-code"
+                               maxlength="1" data-index="2" th:attr="aria-label=#{page.mfa.digitAria(3)}" aria-label="第 3 位">
+                        <input class="iam-otp-cell" type="text" inputmode="numeric" autocomplete="one-time-code"
+                               maxlength="1" data-index="3" th:attr="aria-label=#{page.mfa.digitAria(4)}" aria-label="第 4 位">
+                        <input class="iam-otp-cell" type="text" inputmode="numeric" autocomplete="one-time-code"
+                               maxlength="1" data-index="4" th:attr="aria-label=#{page.mfa.digitAria(5)}" aria-label="第 5 位">
+                        <input class="iam-otp-cell" type="text" inputmode="numeric" autocomplete="one-time-code"
+                               maxlength="1" data-index="5" th:attr="aria-label=#{page.mfa.digitAria(6)}" aria-label="第 6 位">
+                    </div>
+                    <input type="hidden" id="mfa-code">
+                </div>
+
+                <button class="iam-btn-primary" type="submit" id="mfa-submit"
+                        th:text="#{page.mfa.submit}">验 证</button>
+            </form>
+
+            <footer class="iam-form-foot">
+                <div class="iam-divider" th:text="#{page.common.divider.security}">安全登录</div>
+                <p style="margin:14px 0 0">
+                    <a th:href="@{'/login(realm=' + ${realmKey} + ')'}" th:text="#{page.common.backToLogin}">返回登录</a>
+                    <span style="margin:0 8px;color:var(--line-strong)">|</span>
+                    <a href="javascript:void(0)" th:text="#{page.mfa.contactHelpdesk}">无法验证?联系 IT 服务台</a>
+                </p>
+            </footer>
+
+            <div class="iam-lang-row">
+                <a th:replace="~{(${themeName} + '/fragments/lang-switch') :: switch}"></a>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    (function () {
+        var form = document.getElementById('mfa-form');
+        var token = document.getElementById('mfa-token').value;
+        var realm = document.getElementById('realm-key').value;
+        var cells = Array.prototype.slice.call(document.querySelectorAll('.iam-otp-cell'));
+        var codeField = document.getElementById('mfa-code');
+        var errorBox = document.getElementById('mfa-error');
+        var errorText = document.getElementById('mfa-error-text');
+        var submitBtn = document.getElementById('mfa-submit');
+        var csrfParam = document.getElementById('csrf-parameter').value;
+        var csrfToken = document.getElementById('csrf-token').value;
+        var isRecoveryCode = false;
+
+        /* 脚本文案由服务端按请求语言注入,未启用模板内联时回落到注释后的字面量 */
+        var MSG = {
+            codeRequired: /*[[#{page.mfa.js.codeRequired}]]*/ '请输入动态口令',
+            verified: /*[[#{page.mfa.js.verified}]]*/ '验证通过',
+            codeInvalid: /*[[#{page.mfa.codeInvalid}]]*/ '动态口令错误,请重试',
+            networkError: /*[[#{page.common.networkError}]]*/ '网络异常,请稍后重试'
+        };
+
+        function readCookie(name) {
+            var match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        }
+
+        function syncCode() {
+            codeField.value = cells.map(function (c) { return c.value; }).join('');
+        }
+
+        function refreshFilled() {
+            cells.forEach(function (c) {
+                c.classList.toggle('is-filled', !!c.value);
+            });
+        }
+
+        /* ---- 分格输入:自动前移 / 退格回退 / 粘贴填充 ---- */
+        cells.forEach(function (cell, index) {
+            cell.addEventListener('input', function () {
+                // 恢复码格式含字母,检测到非数字即切换为恢复码模式(整段填入首格)
+                var v = cell.value;
+                if (!/^\d*$/.test(v)) {
+                    isRecoveryCode = true;
+                }
+                cell.value = v.replace(/[^0-9A-Za-z]/g, '').toUpperCase().slice(0, isRecoveryCode ? 20 : 1);
+                refreshFilled();
+                syncCode();
+                if (!isRecoveryCode && cell.value && index < cells.length - 1) {
+                    cells[index + 1].focus();
+                }
+                // 填满且为 6 位数字:自动提交
+                if (!isRecoveryCode && codeField.value.length === 6 && cells.every(function (c) { return c.value; })) {
+                    submit();
+                }
+            });
+
+            cell.addEventListener('keydown', function (e) {
+                if (e.key === 'Backspace' && !cell.value && index > 0) {
+                    cells[index - 1].focus();
+                    cells[index - 1].value = '';
+                    refreshFilled();
+                    syncCode();
+                }
+            });
+
+            cell.addEventListener('paste', function (e) {
+                e.preventDefault();
+                var text = (e.clipboardData || window.clipboardData).getData('text').trim();
+                if (!/^\d+$/.test(text)) {
+                    // 恢复码:整段放入首格
+                    isRecoveryCode = true;
+                    cells.forEach(function (c, i) { c.value = i === 0 ? text.toUpperCase().slice(0, 20) : ''; });
+                } else {
+                    isRecoveryCode = false;
+                    text.split('').slice(0, 6).forEach(function (ch, i) {
+                        if (cells[i]) { cells[i].value = ch; }
+                    });
+                }
+                refreshFilled();
+                syncCode();
+                if (!isRecoveryCode && codeField.value.length === 6) {
+                    submit();
+                } else {
+                    cells[Math.min(codeField.value.length, cells.length - 1)].focus();
+                }
+            });
+        });
+
+        /* ---- 提交 ---- */
+        function submit() {
+            var code = codeField.value.trim();
+            if (!code) {
+                showError(MSG.codeRequired);
+                cells[0].focus();
+                return;
+            }
+            errorBox.style.display = 'none';
+            cells.forEach(function (c) { c.classList.remove('is-invalid'); });
+            submitBtn.disabled = true;
+            submitBtn.classList.add('is-loading');
+
+            var headers = {'Content-Type': 'application/json'};
+            headers['X-XSRF-TOKEN'] = readCookie('XSRF-TOKEN') || csrfToken;
+
+            fetch('/api/v1/auth/login-mfa?realm=' + encodeURIComponent(realm), {
+                method: 'POST',
+                headers: headers,
+                credentials: 'same-origin',
+                body: JSON.stringify({mfaToken: token, code: code})
+            }).then(function (resp) {
+                return resp.json();
+            }).then(function (body) {
+                if (body && body.code === 0) {
+                    submitBtn.textContent = MSG.verified;
+                    var target = (body.data && body.data.redirectUrl) ? body.data.redirectUrl : '/';
+                    window.location.href = target;
+                } else {
+                    showError((body && body.message) || MSG.codeInvalid);
+                    resetCells();
+                }
+            }).catch(function () {
+                showError(MSG.networkError);
+                resetCells();
+            }).finally(function () {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('is-loading');
+            });
+        }
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorBox.style.display = 'flex';
+            cells.forEach(function (c) { c.classList.add('is-invalid'); });
+        }
+
+        function resetCells() {
+            cells.forEach(function (c) { c.value = ''; c.classList.remove('is-filled'); });
+            isRecoveryCode = false;
+            syncCode();
+            cells[0].focus();
+        }
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            submit();
+        });
+
+        /* 初始聚焦首个输入格 */
+        cells[0].focus();
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.UserMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, username, nickname, email, phone, phone_verified, status, user_type, email_verified,
+        token_version, required_actions, attributes, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRealmIdAndUsername" resultType="User">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user
+        WHERE realm_id = #{realmId} AND username = #{username} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmIdAndPhone" resultType="User">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user
+        WHERE realm_id = #{realmId} AND phone = #{phone} AND phone_verified = TRUE AND deleted = FALSE
+    </select>
+
+    <select id="selectById" resultType="User">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByIds" resultType="User">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        AND deleted = FALSE
+    </select>
+
+    <select id="selectByCondition" resultType="User">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user
+        <where>
+            realm_id = #{realmId} AND deleted = FALSE
+            <if test="user.username != null and user.username != ''">AND username LIKE '%' || #{user.username} || '%'</if>
+            <if test="user.nickname != null and user.nickname != ''">AND nickname LIKE '%' || #{user.nickname} || '%'</if>
+            <if test="user.email != null and user.email != ''">AND email LIKE '%' || #{user.email} || '%'</if>
+            <if test="user.status != null">AND status = #{user.status}</if>
+            <if test="user.userType != null and user.userType != ''">AND user_type = #{user.userType}</if>
+        </where>
+        ORDER BY id
+    </select>
+
+    <!-- 省略未赋值列:状态/类型/令牌版本/扩展属性在 DDL 中已有默认值 -->
+    <insert id="insert" parameterType="User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_id, username, deleted,
+            <if test="nickname != null">nickname,</if>
+            <if test="email != null">email,</if>
+            <if test="phone != null">phone,</if>
+            <if test="phoneVerified != null">phone_verified,</if>
+            <if test="status != null">status,</if>
+            <if test="userType != null">user_type,</if>
+            <if test="emailVerified != null">email_verified,</if>
+            <if test="tokenVersion != null">token_version,</if>
+            <if test="requiredActions != null">required_actions,</if>
+            <if test="attributes != null">attributes,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmId}, #{username}, FALSE,
+            <if test="nickname != null">#{nickname},</if>
+            <if test="email != null">#{email},</if>
+            <if test="phone != null">#{phone},</if>
+            <if test="phoneVerified != null">#{phoneVerified},</if>
+            <if test="status != null">#{status},</if>
+            <if test="userType != null">#{userType},</if>
+            <if test="emailVerified != null">#{emailVerified},</if>
+            <if test="tokenVersion != null">#{tokenVersion},</if>
+            <if test="requiredActions != null">#{requiredActions},</if>
+            <if test="attributes != null">#{attributes}::jsonb,</if>
+        </trim>
+    </insert>
+
+    <update id="updateById" parameterType="User">
+        UPDATE iam_user
+        <set>
+            <if test="nickname != null">nickname = #{nickname},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="phoneVerified != null">phone_verified = #{phoneVerified},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="emailVerified != null">email_verified = #{emailVerified},</if>
+            <if test="requiredActions != null">required_actions = #{requiredActions},</if>
+            <if test="attributes != null">attributes = #{attributes}::jsonb,</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="updateStatusByIds">
+        UPDATE iam_user
+        SET status = #{status}, updated_time = CURRENT_TIMESTAMP
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        AND deleted = FALSE
+    </update>
+
+    <select id="countByStatusGroup" resultType="java.util.Map">
+        SELECT status AS status, COUNT(*) AS total
+        FROM iam_user
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        GROUP BY status
+    </select>
+
+    <update id="incrementTokenVersion">
+        UPDATE iam_user
+        SET token_version = token_version + 1, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="updateRequiredActions">
+        UPDATE iam_user
+        SET required_actions = #{requiredActions}, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <!-- 邮箱验证:置已验证标记并同步摘掉 VERIFY_EMAIL 待办 -->
+    <update id="markEmailVerified">
+        UPDATE iam_user
+        SET email_verified = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="selectByRealmIdAndEmail" resultType="User">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user
+        WHERE realm_id = #{realmId} AND LOWER(email) = LOWER(#{email}) AND deleted = FALSE
+        ORDER BY id
+        LIMIT 1
+    </select>
+
+    <update id="softDeleteById">
+        UPDATE iam_user
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

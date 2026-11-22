@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.UserPermissionMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, user_id, permission_id, grant_type, reason, expired_time, granted_by,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="UserPermission">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_permission
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByUserId" resultType="UserPermission">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_permission
+        WHERE user_id = #{userId} AND deleted = FALSE
+        ORDER BY created_time DESC, id DESC
+    </select>
+
+    <select id="selectByUserAndPermission" resultType="UserPermission">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_permission
+        WHERE user_id = #{userId}
+          AND permission_id = #{permissionId}
+          AND deleted = FALSE
+    </select>
+
+    <select id="countByPermissionId" resultType="int">
+        SELECT COUNT(1) FROM iam_user_permission
+        WHERE permission_id = #{permissionId} AND deleted = FALSE
+    </select>
+
+    <insert id="upsert" parameterType="UserPermission">
+        INSERT INTO iam_user_permission(realm_id, user_id, permission_id, grant_type, reason,
+                                        expired_time, granted_by, deleted)
+        VALUES (#{realmId}, #{userId}, #{permissionId}, #{grantType}, #{reason},
+                #{expiredTime}, #{grantedBy}, FALSE)
+        ON CONFLICT (user_id, permission_id) WHERE deleted = FALSE
+        DO UPDATE SET realm_id = EXCLUDED.realm_id,
+                      grant_type = EXCLUDED.grant_type,
+                      reason = EXCLUDED.reason,
+                      expired_time = EXCLUDED.expired_time,
+                      granted_by = EXCLUDED.granted_by,
+                      updated_time = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="softDeleteById">
+        UPDATE iam_user_permission
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

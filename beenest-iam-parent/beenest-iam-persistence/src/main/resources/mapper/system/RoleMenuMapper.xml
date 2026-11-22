@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.RoleMenuMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, role_id, menu_id, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRoleId" resultType="RoleMenu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role_menu
+        WHERE role_id = #{roleId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRoleIds" resultType="RoleMenu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role_menu
+        WHERE deleted = FALSE
+        <choose>
+            <when test="roleIds != null and roleIds.size() > 0">
+                AND role_id IN
+                <foreach collection="roleIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <select id="selectByMenuIds" resultType="RoleMenu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role_menu
+        WHERE deleted = FALSE
+        <choose>
+            <when test="menuIds != null and menuIds.size() > 0">
+                AND menu_id IN
+                <foreach collection="menuIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO iam_role_menu(realm_id, role_id, menu_id)
+        VALUES
+        <foreach collection="menuIds" item="item" separator=",">
+            (#{realmId}, #{roleId}, #{item})
+        </foreach>
+    </insert>
+
+    <update id="updateMenuIdById">
+        UPDATE iam_role_menu
+        SET menu_id = #{menuId},
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_role_menu
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteByRoleId">
+        UPDATE iam_role_menu
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE role_id = #{roleId} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteByMenuIds">
+        UPDATE iam_role_menu
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE deleted = FALSE
+        <choose>
+            <when test="menuIds != null and menuIds.size() > 0">
+                AND menu_id IN
+                <foreach collection="menuIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </update>
+</mapper>

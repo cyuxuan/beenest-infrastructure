@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.ClientMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, client_key, client_name, client_type, client_secret, redirect_uris,
+        post_logout_redirect_uris, backchannel_logout_uri, reuse_refresh_tokens, subject_mode,
+        scopes, require_pkce, require_consent, access_token_ttl, refresh_token_ttl,
+        grant_types, allowed_login_types, require_mfa, service_account_user_id, enabled, description,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRealmIdAndClientKey" resultType="Client">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client
+        WHERE realm_id = #{realmId} AND client_key = #{clientKey} AND deleted = FALSE
+    </select>
+
+    <select id="selectById" resultType="Client">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmId" resultType="Client">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <select id="selectByCondition" resultType="Client">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client
+        <where>
+            realm_id = #{realmId} AND deleted = FALSE
+            <if test="client.clientKey != null and client.clientKey != ''">AND client_key LIKE '%' || #{client.clientKey} || '%'</if>
+            <if test="client.clientName != null and client.clientName != ''">AND client_name LIKE '%' || #{client.clientName} || '%'</if>
+            <if test="client.clientType != null and client.clientType != ''">AND client_type = #{client.clientType}</if>
+            <if test="client.enabled != null">AND enabled = #{client.enabled}</if>
+        </where>
+        ORDER BY id
+    </select>
+
+    <!-- 省略未赋值列:scope/PKCE/启用等列在 DDL 中已有默认值,显式 null 会覆盖默认并触发非空约束 -->
+    <insert id="insert" parameterType="Client" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_client
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_id, client_key, client_name, redirect_uris, deleted,
+            <if test="clientType != null">client_type,</if>
+            <if test="clientSecret != null">client_secret,</if>
+            <if test="postLogoutRedirectUris != null">post_logout_redirect_uris,</if>
+            <if test="backchannelLogoutUri != null">backchannel_logout_uri,</if>
+            <if test="reuseRefreshTokens != null">reuse_refresh_tokens,</if>
+            <if test="subjectMode != null">subject_mode,</if>
+            <if test="scopes != null">scopes,</if>
+            <if test="requirePkce != null">require_pkce,</if>
+            <if test="requireConsent != null">require_consent,</if>
+            <if test="accessTokenTtl != null">access_token_ttl,</if>
+            <if test="refreshTokenTtl != null">refresh_token_ttl,</if>
+            <if test="grantTypes != null">grant_types,</if>
+            <if test="allowedLoginTypes != null">allowed_login_types,</if>
+            <if test="requireMfa != null">require_mfa,</if>
+            <if test="serviceAccountUserId != null">service_account_user_id,</if>
+            <if test="enabled != null">enabled,</if>
+            <if test="description != null">description,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmId}, #{clientKey}, #{clientName}, #{redirectUris}, FALSE,
+            <if test="clientType != null">#{clientType},</if>
+            <if test="clientSecret != null">#{clientSecret},</if>
+            <if test="postLogoutRedirectUris != null">#{postLogoutRedirectUris},</if>
+            <if test="backchannelLogoutUri != null">#{backchannelLogoutUri},</if>
+            <if test="reuseRefreshTokens != null">#{reuseRefreshTokens},</if>
+            <if test="subjectMode != null">#{subjectMode},</if>
+            <if test="scopes != null">#{scopes},</if>
+            <if test="requirePkce != null">#{requirePkce},</if>
+            <if test="requireConsent != null">#{requireConsent},</if>
+            <if test="accessTokenTtl != null">#{accessTokenTtl},</if>
+            <if test="refreshTokenTtl != null">#{refreshTokenTtl},</if>
+            <if test="grantTypes != null">#{grantTypes},</if>
+            <if test="allowedLoginTypes != null">#{allowedLoginTypes},</if>
+            <if test="requireMfa != null">#{requireMfa},</if>
+            <if test="serviceAccountUserId != null">#{serviceAccountUserId},</if>
+            <if test="enabled != null">#{enabled},</if>
+            <if test="description != null">#{description},</if>
+        </trim>
+    </insert>
+
+    <update id="updateById" parameterType="Client">
+        UPDATE iam_client
+        <set>
+            <if test="clientName != null">client_name = #{clientName},</if>
+            <if test="clientSecret != null">client_secret = #{clientSecret},</if>
+            <if test="redirectUris != null">redirect_uris = #{redirectUris},</if>
+            <if test="postLogoutRedirectUris != null">post_logout_redirect_uris = #{postLogoutRedirectUris},</if>
+            <if test="backchannelLogoutUri != null">backchannel_logout_uri = #{backchannelLogoutUri},</if>
+            <if test="reuseRefreshTokens != null">reuse_refresh_tokens = #{reuseRefreshTokens},</if>
+            <!-- subject_mode 允许"显式清空"回落到继承域:空串写 NULL,非空写枚举名,null 表示不更新 -->
+            <if test="subjectMode != null and subjectMode.length() > 0">subject_mode = #{subjectMode},</if>
+            <if test="subjectMode != null and subjectMode.length() == 0">subject_mode = NULL,</if>
+            <if test="scopes != null">scopes = #{scopes},</if>
+            <if test="requirePkce != null">require_pkce = #{requirePkce},</if>
+            <if test="requireConsent != null">require_consent = #{requireConsent},</if>
+            <if test="accessTokenTtl != null">access_token_ttl = #{accessTokenTtl},</if>
+            <if test="refreshTokenTtl != null">refresh_token_ttl = #{refreshTokenTtl},</if>
+            <if test="grantTypes != null">grant_types = #{grantTypes},</if>
+            <if test="allowedLoginTypes != null">allowed_login_types = #{allowedLoginTypes},</if>
+            <if test="requireMfa != null">require_mfa = #{requireMfa},</if>
+            <if test="serviceAccountUserId != null">service_account_user_id = #{serviceAccountUserId},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="description != null">description = #{description},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <!-- 类型是客户端的协议身份,不参与通用更新:这条语句显式写三列,
+         clientSecret 传 null 即清空密钥(公共客户端) -->
+    <update id="updateTypeById">
+        UPDATE iam_client
+        SET client_type = #{clientType},
+            client_secret = #{clientSecret,jdbcType=VARCHAR},
+            require_pkce = #{requirePkce},
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_client
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="countByRealm" resultType="long">
+        SELECT COUNT(*) FROM iam_client
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+    </select>
+
+    <!-- 只统计"必须先解除才能删除"的引用。作用域分配是客户端自身配置,不在此列;
+         ever_session_count 连已注销的会话一起数,用于判断客户端是否已经投入使用。
+
+         session_count 必须连用户会话一起看:iam_client_session 是"该会话访问过这个客户端"
+         的留痕,会话注销后行还在。只数留痕会把"已下线"报成"在线",于是删除时的提示
+         「请先在会话页强制下线」成了死循环——照做之后计数不变,客户端永远删不掉。 -->
+    <select id="countReferences" resultType="ClientReferenceCount">
+        SELECT (SELECT COUNT(*) FROM iam_consent
+                WHERE client_id = #{clientId} AND deleted = FALSE) AS consent_count,
+               (SELECT COUNT(*) FROM iam_client_session cs
+                JOIN iam_user_session us ON us.id = cs.user_session_id
+                WHERE cs.client_id = #{clientId} AND cs.deleted = FALSE
+                  AND us.deleted = FALSE AND us.state = 'ACTIVE'
+                  AND (us.expired_time IS NULL OR us.expired_time > CURRENT_TIMESTAMP)) AS session_count,
+               (SELECT COUNT(*) FROM iam_role
+                WHERE client_id = #{clientId} AND deleted = FALSE) AS role_count,
+               (SELECT COUNT(*) FROM iam_application_service
+                WHERE sso_client_pk = #{clientId} AND deleted = FALSE) AS app_count,
+               (SELECT COUNT(*) FROM iam_client_session
+                WHERE client_id = #{clientId}) AS ever_session_count
+    </select>
+</mapper>

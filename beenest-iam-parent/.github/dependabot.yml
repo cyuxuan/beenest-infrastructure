@@ -1,0 +1,29 @@
+# 依赖安全:由 GitHub 漏洞库驱动升级
+#
+# Spring Boot 的 BOM 统一管理传递依赖版本,升级 Boot 即可带上修复后的传递依赖;
+# 但直接依赖的库(以及基础镜像的系统包)不在 BOM 范围内,需要独立跟踪。
+# Dependabot 依据 GitHub Advisory Database 推送带已知漏洞的版本升级 PR。
+version: 2
+updates:
+  # Maven 直接依赖
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependency
+  # GitHub Actions 自身的依赖
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependency
+  # 运行镜像的系统包(基础镜像里的 CVEs)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependency

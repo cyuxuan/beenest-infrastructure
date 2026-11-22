@@ -1,0 +1,62 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### 前端(beenest-iam-web/frontend) ###
+# 依赖目录体积大且可由 package-lock.json 完整还原,绝不入库
+node_modules/
+# Vite 构建输出:仅 console/static 下的产物需要保留(后端未接前端构建链),
+# frontend/dist 属中间产物
+frontend/dist/
+*.tsbuildinfo
+.DS_Store
+
+### 本地工具产物 ###
+# Remember 插件的会话记忆:本机工作记录,不入库
+.remember/
+# Playwright MCP 的浏览器产物
+.playwright-mcp/
+# SDD 任务的基线快照:与仓库源码重复,体积大且会随实现漂移
+.superpowers
+.workbuddy
+.workbuddy-ai
+.claude
+# 运行镜像构建用的宿主产物(87MB jar,每次打包都会变)
+.docker-runtime/
+# 外置扩展包目录里的 jar 由构建产出,进程装载,不入库
+providers/*.jar
+# 生产部署的真实配置:含口令与主密钥,只留 .env.example 模板
+deploy/.env
+# 父仓库 beenest-infrastructure/.gitignore 的 ".env.*" 会一并忽略模板文件,
+# 子目录规则优先级更高,此处显式放行(模板不含真实口令)
+!deploy/.env.example

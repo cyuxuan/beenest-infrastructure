@@ -1,0 +1,27 @@
+{
+  "name": "beenest-iam-console",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "蜂巢身份 · 管理控制台(Vue 3 + Vite)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build && vite build --config vite.config.portal.ts",
+    "build:console": "vue-tsc --noEmit && vite build",
+    "build:portal": "vue-tsc --noEmit && vite build --config vite.config.portal.ts",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts src/portal/*.test.ts"
+  },
+  "dependencies": {
+    "vue": "3.5.44",
+    "vue-router": "4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@vitejs/plugin-vue": "6.0.10",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vue-tsc": "3.3.13"
+  }
+}

@@ -1,0 +1,76 @@
+/* ============================================================
+ * 蜂巢身份 · 设计令牌(唯一事实源)
+ * 三端共用:登录/同意/错误页(SSR 主题模板)· 门户(SPA)· 控制台(SPA)
+ *
+ * 定制一套主题 = 复制本文件改值,三端同时生效,无需重新构建前端产物。
+ * 命名规范:语义优先(canvas/surface/ink/line/gold/navy),不带端前缀;
+ * 控制台/门户样式表只保留"默认值",运行时被本文件覆盖。
+ * 布局度量(侧栏宽、顶栏高)不属于主题,不在此文件。
+ * ============================================================ */
+
+:root {
+    /* ---- 画布与表面 ---- */
+    --canvas: #f4f1e8;
+    --canvas-deep: #ece5d6;
+    --surface: #fffdf8;
+    --surface-2: #faf6ec;
+    --surface-3: #f3eddd;
+
+    /* ---- 文本 ---- */
+    --ink: #121a2b;
+    --ink-2: #2b3547;
+    --muted: #6e7686;
+    --faint: #9aa1ad;
+
+    /* ---- 线条 ---- */
+    --line: #e4dccb;
+    --line-soft: #eee8da;
+    --line-strong: #d3c9b4;
+
+    /* ---- 品牌金 ---- */
+    --gold: #f2b52e;
+    --gold-bright: #ffd268;
+    --gold-deep: #8c6208;
+    --gold-soft: #fdf1cf;
+    --gold-wash: rgba(242, 181, 46, 0.12);
+
+    /* ---- 深色区(登录品牌面板等) ---- */
+    --navy: #101828;
+    --navy-2: #1c2b46;
+    --navy-3: #2a3d5f;
+    --navy-line: rgba(148, 163, 190, 0.16);
+    --on-navy: #eef1f8;
+    --on-navy-2: #aab3c5;
+
+    /* ---- 语义色 ---- */
+    --success: #2f8f68;
+    --success-soft: #e7f4ed;
+    --danger: #c04a52;
+    --danger-soft: #fbecec;
+    --warn: #a96c12;
+    --warn-soft: #fcf2df;
+    --info: #3d6da8;
+    --info-soft: #eaf1f9;
+
+    /* ---- 圆角 ---- */
+    --radius-xl: 20px;
+    --radius-lg: 16px;
+    --radius-md: 11px;
+    --radius-sm: 8px;
+
+    /* ---- 阴影 ---- */
+    --shadow-card: 0 1px 2px rgba(18, 26, 43, 0.04), 0 26px 48px -42px rgba(18, 26, 43, 0.4);
+    --shadow-pop: 0 24px 64px -24px rgba(18, 26, 43, 0.4), 0 3px 10px rgba(18, 26, 43, 0.06);
+    --shadow-modal: 0 40px 100px -32px rgba(16, 24, 40, 0.55), 0 6px 18px rgba(16, 24, 40, 0.08);
+    --shadow-lift: 0 18px 34px -22px rgba(18, 26, 43, 0.35), 0 2px 6px rgba(18, 26, 43, 0.04);
+    --shadow-btn: 0 6px 16px rgba(224, 154, 18, 0.32);
+
+    /* ---- 字体与动效 ---- */
+    --font-sans: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-mono: "SFMono-Regular", "JetBrains Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* ---- 蜂巢格纹(控制台/门户装饰底纹) ---- */
+    --hive-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cpath fill='%23b9a678' fill-opacity='.13' d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/svg%3E");
+}

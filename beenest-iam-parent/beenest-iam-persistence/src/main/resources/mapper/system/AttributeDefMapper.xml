@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.AttributeDefMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, attr_key, attr_name, attr_type, required, searchable, unique_flag,
+        enum_options, validation_regex, description, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="AttributeDef">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_attribute_def
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmIdAndKey" resultType="AttributeDef">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_attribute_def
+        WHERE realm_id = #{realmId} AND attr_key = #{attrKey} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmId" resultType="AttributeDef">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_attribute_def
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="AttributeDef" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_attribute_def(realm_id, attr_key, attr_name, attr_type, required, searchable,
+                                      unique_flag, enum_options, validation_regex, description, deleted)
+        VALUES (#{realmId}, #{attrKey}, #{attrName}, #{attrType}, COALESCE(#{required}, FALSE),
+                COALESCE(#{searchable}, FALSE), COALESCE(#{uniqueFlag}, FALSE),
+                #{enumOptions}, #{validationRegex}, #{description}, FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="AttributeDef">
+        UPDATE iam_attribute_def
+        <set>
+            <if test="attrName != null">attr_name = #{attrName},</if>
+            <if test="attrType != null">attr_type = #{attrType},</if>
+            <if test="required != null">required = #{required},</if>
+            <if test="searchable != null">searchable = #{searchable},</if>
+            <if test="uniqueFlag != null">unique_flag = #{uniqueFlag},</if>
+            <if test="enumOptions != null">enum_options = #{enumOptions},</if>
+            <if test="validationRegex != null">validation_regex = #{validationRegex},</if>
+            <if test="description != null">description = #{description},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_attribute_def
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

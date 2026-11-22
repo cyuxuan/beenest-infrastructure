@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{page.challenge.docTitle(${realmKey})}">补充验证 · 蜂巢身份</title>
+    <!-- 设计令牌先于页面样式:主题包改令牌即可换肤,三端共用 -->
+    <link rel="stylesheet" th:href="@{/theme-static/css/tokens.css}">
+    <link rel="stylesheet" th:href="@{/theme-static/css/iam.css}">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12.5 7.2v14.6L16 30 3.5 23.8V9.2z' fill='%23f5b32d'/%3E%3Cpath d='M16 8l6.8 3.9v7.8L16 23.6 9.2 19.7v-7.8z' fill='%230e1626'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="iam-shell">
+
+    <!-- ============ 左侧:品牌叙事区 ============ -->
+    <aside class="iam-aside">
+        <div class="iam-aside-content">
+            <div class="iam-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="lg-gold-challenge" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#ffd777"/>
+                            <stop offset="1" stop-color="#e09a12"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="url(#lg-gold-challenge)"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#0e1626"/>
+                    <circle cx="16" cy="16" r="2.6" fill="url(#lg-gold-challenge)"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+
+            <div class="iam-aside-hero">
+                <h1><span th:text="#{page.challenge.hero.line1}">补充验证</span><br><em th:text="#{page.challenge.hero.line2}">按需放行</em></h1>
+                <p th:text="#{page.challenge.hero.desc}">目标应用对登录方式有要求。请用被接受的方式再证明一次身份,验证通过后会回到原流程。</p>
+            </div>
+
+            <ul class="iam-aside-features">
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.challenge.feature1.title}">准入策略按客户端生效</strong>
+                        <span th:text="#{page.challenge.feature1.desc}">只有目标应用接受的登录方式才会出现在本页</span>
+                    </span>
+                </li>
+                <li>
+                    <span class="iam-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#f5b32d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    </span>
+                    <span class="iam-feature-text">
+                        <strong th:text="#{page.challenge.feature2.title}">限时有效</strong>
+                        <span th:text="#{page.challenge.feature2.desc}">验证请求 5 分钟内有效,过期后请重新发起登录</span>
+                    </span>
+                </li>
+            </ul>
+
+            <div class="iam-aside-footer" th:text="|© 2026 Beenest IAM · #{page.brand.footer}|">© 2026 Beenest IAM · 统一身份认证中心</div>
+        </div>
+    </aside>
+
+    <!-- ============ 右侧:补验操作区 ============ -->
+    <main class="iam-main">
+        <div class="iam-form-wrap">
+
+            <div class="iam-mobile-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="#f5b32d"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#fff"/>
+                    <circle cx="16" cy="16" r="2.6" fill="#e09a12"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+
+            <header class="iam-form-head">
+                <h2 th:text="#{page.challenge.heading}">补充验证</h2>
+                <p>
+                    <span th:text="#{page.challenge.subtitle}">目标应用对登录方式有要求</span>
+                    <span class="iam-realm-tag" th:text="${realmKey}">default</span>
+                </p>
+            </header>
+
+            <!-- MFA 挑战:只展示二步验证,不再展示第一因素(用户已经登录过了)。
+                 已绑定 TOTP 的用户即使客户端不强制 MFA 也会带着票据回来,
+                 此时同样只渲染二步表单——否则票据无处可用,用户会在两页之间打转 -->
+            <th:block th:if="${requireMfa or mfaToken != ''}">
+                <div class="iam-alert iam-alert-info" role="alert">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                    <span th:text="#{page.challenge.mfaNotice}">需要进行二次验证,请输入验证器生成的动态口令。</span>
+                </div>
+                <form class="iam-form" method="post" th:action="@{/login-challenge}">
+                    <input type="hidden" name="realm" th:value="${realmKey}">
+                    <input type="hidden" name="token" th:value="${challengeToken}">
+                    <input type="hidden" name="mfaToken" th:value="${mfaToken}">
+                    <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}">
+
+                    <div>
+                        <label class="iam-field-label" for="challengeCode"><span th:text="#{page.challenge.label.code}">动态口令</span></label>
+                        <div class="iam-input-group">
+                            <span class="iam-input-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+                            </span>
+                            <input class="iam-input" id="challengeCode" name="code" inputmode="numeric"
+                                   autocomplete="one-time-code" maxlength="6"
+                                   th:placeholder="#{page.challenge.placeholder.code}" placeholder="6 位动态口令" autofocus>
+                        </div>
+                    </div>
+
+                    <button class="iam-btn-primary" type="submit"
+                            th:text="#{page.challenge.submit}">完成验证</button>
+                </form>
+            </th:block>
+
+            <!-- 第一因素挑战 -->
+            <th:block th:unless="${requireMfa or mfaToken != ''}">
+                <!-- 凭据补验:只有白名单含 PASSWORD / LDAP 时才展示 -->
+                <form class="iam-form" method="post" th:action="@{/login-challenge}"
+                      th:if="${allowedMethods.contains('PASSWORD') or allowedMethods.contains('LDAP')}">
+                    <input type="hidden" name="realm" th:value="${realmKey}">
+                    <input type="hidden" name="token" th:value="${challengeToken}">
+                    <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}">
+
+                    <div>
+                        <label class="iam-field-label" for="challengeUsername" th:text="#{page.challenge.label.username}">账号</label>
+                        <div class="iam-input-group">
+                            <span class="iam-input-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+                            </span>
+                            <input class="iam-input" id="challengeUsername" name="username" type="text"
+                                   autocomplete="username" th:placeholder="#{page.challenge.placeholder.username}"
+                                   placeholder="用户名 / 手机号 / 邮箱" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="iam-field-label" for="challengePassword" th:text="#{page.challenge.label.password}">口令</label>
+                        <div class="iam-input-group">
+                            <span class="iam-input-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 018 0v3.5"/></svg>
+                            </span>
+                            <input class="iam-input" id="challengePassword" name="password" type="password"
+                                   autocomplete="current-password" th:placeholder="#{page.challenge.placeholder.password}"
+                                   placeholder="请输入口令" required>
+                        </div>
+                    </div>
+
+                    <button class="iam-btn-primary" type="submit"
+                            th:text="#{page.challenge.submit}">完成验证</button>
+                </form>
+
+                <!-- 短信:同站流程,回到登录页完成即可;会话在,登录成功后按 sid 升级 -->
+                <p class="iam-form-foot" th:if="${smsAllowed}" style="margin-top:18px">
+                    <a th:href="@{/login(realm=${realmKey}, client_id=${clientId})}"
+                       th:text="#{page.challenge.useSms}">改用短信验证码登录</a>
+                </p>
+
+                <!-- 联邦:必须带 challengeToken,跨站回跳时 Cookie 带不回来 -->
+                <div class="iam-form-foot" th:if="${!idps.isEmpty()}" style="margin-top:18px">
+                    <div class="iam-divider" th:text="#{page.challenge.divider.other}">其他验证方式</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+                        <a th:each="idp : ${idps}"
+                           th:href="@{|/broker/${realmKey}/${idp.alias}/login?challengeToken=${challengeToken}|}"
+                           class="iam-btn-primary"
+                           style="display:block;text-align:center;text-decoration:none"
+                           th:text="#{page.challenge.idpVerify(${idp.displayName})}">使用第三方账号验证</a>
+                    </div>
+                </div>
+            </th:block>
+
+            <div class="iam-alert" th:if="${allowedMethods.isEmpty() and !requireMfa and mfaToken == ''}" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span th:text="#{page.challenge.noneAvailable}">当前没有可用于该应用的验证方式,请联系管理员。</span>
+            </div>
+
+            <footer class="iam-form-foot">
+                <div class="iam-divider" th:text="#{page.common.divider.security}">安全登录</div>
+                <p style="margin:14px 0 0">
+                    <a th:href="@{/login(realm=${realmKey}, client_id=${clientId})}"
+                       th:text="#{page.common.backToLogin}">返回登录</a>
+                    <span style="margin:0 8px;color:var(--line-strong)">|</span>
+                    <a href="javascript:void(0)"
+                       th:text="#{page.challenge.contactHelpdesk}">遇到问题?联系 IT 服务台</a>
+                </p>
+            </footer>
+
+            <div class="iam-lang-row">
+                <a th:replace="~{(${themeName} + '/fragments/lang-switch') :: switch}"></a>
+            </div>
+        </div>
+    </main>
+</div>
+</body>
+</html>

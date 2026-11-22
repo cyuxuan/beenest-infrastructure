@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账号已开通</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+                <tr>
+                    <td style="background:#1f2d3d;padding:24px 32px;">
+                        <span style="color:#ffffff;font-size:17px;font-weight:600;">{{appName}}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px;">
+                        <p style="margin:0 0 16px;font-size:16px;color:#1f2d3d;">{{username}}，你好：</p>
+                        <p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#4a5568;">
+                            管理员已为你开通 {{appName}} 账号，登录名如下：
+                        </p>
+                        <p style="margin:0 0 24px;padding:12px 16px;background:#f7fafc;border-radius:6px;font-size:14px;color:#1f2d3d;font-weight:600;">
+                            {{username}}
+                        </p>
+                        <p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#4a5568;">
+                            为安全起见，初始口令不会通过邮件发送。请到登录页使用“忘记口令”自助设置口令：
+                            填写本邮箱收取重置链接，链接短期内有效且只能使用一次。
+                        </p>
+                        <p style="margin:0;font-size:13px;line-height:1.7;color:#718096;">
+                            如果你不清楚这个账号的用途，请联系系统管理员核实，不要点击任何链接。
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:20px 32px;background:#f7fafc;border-top:1px solid #e2e8f0;">
+                        <p style="margin:0;font-size:12px;line-height:1.6;color:#a0aec0;">
+                            本邮件由系统自动发送，请勿直接回复。<br>
+                            © {{year}} {{appName}}
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

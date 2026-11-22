@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>club.beenest</groupId>
+        <artifactId>beenest-iam-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>beenest-iam-server</artifactId>
+    <name>beenest-iam-server</name>
+    <description>唯一可执行进程:承载协议端点 /api/v1/** 与全部库模块</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-persistence</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-federation</artifactId>
+        </dependency>
+        <!-- 第三方登录扩展包:引入即启用,移除即下线 -->
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-provider-oidc</artifactId>
+        </dependency>
+        <!-- SAML 2.0 服务方:企业 IdP(AD FS / Shibboleth / Azure AD)接入是基线能力,
+             默认随服务端发布;不需要的部署可移除本依赖,SAML 配置项随之消失 -->
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-provider-saml</artifactId>
+        </dependency>
+        <!-- 微信扩展包:仅测试期引入。生产环境由外置扩展包目录加载(见 iam.provider.dir),
+             服务端产物不依赖它,换扩展包不必重新打包服务端 -->
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-provider-wechat</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-authz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-admin</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>club.beenest</groupId>
+            <artifactId>beenest-iam-console</artifactId>
+        </dependency>
+        <!-- 生产运维 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- OpenAPI 文档:按 springdoc.api-docs.enabled 可整组关闭(生产缺省关闭) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-docker-compose</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 集成测试:起真实的 PostgreSQL 与 Redis,不依赖外部服务,CI 上可直接跑 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-resttestclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

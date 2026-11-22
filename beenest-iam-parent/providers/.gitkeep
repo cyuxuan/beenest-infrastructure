@@ -1,0 +1,2 @@
+# 外置身份提供方扩展包目录:交付 jar 放这里,容器构建时整体复制到 /app/providers。
+# jar 不入库(.gitignore 已排除 providers/*.jar),本文件只用于保留目录。

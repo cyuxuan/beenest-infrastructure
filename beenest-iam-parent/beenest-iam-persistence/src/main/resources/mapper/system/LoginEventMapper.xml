@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.LoginEventMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, user_id, username, event_type, login_type, ip, user_agent,
+        fail_reason, occurred_time, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByCondition" resultType="LoginEvent">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_login_event
+        <where>
+            realm_id = #{realmId} AND deleted = FALSE
+            <if test="username != null and username != ''">AND username LIKE '%' || #{username} || '%'</if>
+            <if test="eventType != null and eventType != ''">AND event_type = #{eventType}</if>
+            <if test="ip != null and ip != ''">AND ip = #{ip}</if>
+            <if test="fromTime != null">AND occurred_time &gt;= #{fromTime}</if>
+            <if test="toTime != null">AND occurred_time &lt;= #{toTime}</if>
+        </where>
+        ORDER BY occurred_time DESC, id DESC
+    </select>
+
+    <select id="countByTypeSince" resultType="java.util.Map">
+        SELECT event_type AS eventType, COUNT(*) AS total
+        FROM iam_login_event
+        WHERE realm_id = #{realmId} AND deleted = FALSE AND occurred_time &gt;= #{since}
+        GROUP BY event_type
+    </select>
+
+    <!-- 省略未赋值列:发生时间在 DDL 中已有默认值 -->
+    <insert id="insert" parameterType="LoginEvent" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_login_event
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_id, username, event_type, deleted,
+            <if test="userId != null">user_id,</if>
+            <if test="loginType != null">login_type,</if>
+            <if test="ip != null">ip,</if>
+            <if test="userAgent != null">user_agent,</if>
+            <if test="failReason != null">fail_reason,</if>
+            <if test="occurredTime != null">occurred_time,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmId}, #{username}, #{eventType}, FALSE,
+            <if test="userId != null">#{userId},</if>
+            <if test="loginType != null">#{loginType},</if>
+            <if test="ip != null">#{ip},</if>
+            <if test="userAgent != null">#{userAgent},</if>
+            <if test="failReason != null">#{failReason},</if>
+            <if test="occurredTime != null">#{occurredTime},</if>
+        </trim>
+    </insert>
+</mapper>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.LdapConfigMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, enabled, server_url, bind_dn, bind_password, user_base_dn, user_filter,
+        uuid_attribute, username_attribute, email_attribute, display_name_attribute,
+        connect_timeout_ms, read_timeout_ms, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRealmId" resultType="LdapConfig">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm_ldap_config
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="LdapConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_realm_ldap_config(realm_id, enabled, server_url, bind_dn, bind_password,
+                                          user_base_dn, user_filter, uuid_attribute,
+                                          username_attribute, email_attribute,
+                                          display_name_attribute, connect_timeout_ms,
+                                          read_timeout_ms, deleted)
+        VALUES (#{realmId}, COALESCE(#{enabled}, FALSE), COALESCE(#{serverUrl}, ''),
+                COALESCE(#{bindDn}, ''), COALESCE(#{bindPassword}, ''),
+                COALESCE(#{userBaseDn}, ''), COALESCE(#{userFilter}, '(sAMAccountName={0})'),
+                COALESCE(#{uuidAttribute}, 'objectGUID'), COALESCE(#{usernameAttribute}, 'sAMAccountName'),
+                COALESCE(#{emailAttribute}, 'mail'), COALESCE(#{displayNameAttribute}, 'displayName'),
+                COALESCE(#{connectTimeoutMs}, 3000), COALESCE(#{readTimeoutMs}, 5000), FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="LdapConfig">
+        UPDATE iam_realm_ldap_config
+        <set>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="serverUrl != null">server_url = #{serverUrl},</if>
+            <if test="bindDn != null">bind_dn = #{bindDn},</if>
+            <!-- bindPassword 空串视为"不修改":密文不回显,留空提交即保持原值 -->
+            <if test="bindPassword != null and bindPassword != ''">bind_password = #{bindPassword},</if>
+            <if test="userBaseDn != null">user_base_dn = #{userBaseDn},</if>
+            <if test="userFilter != null">user_filter = #{userFilter},</if>
+            <if test="uuidAttribute != null">uuid_attribute = #{uuidAttribute},</if>
+            <if test="usernameAttribute != null">username_attribute = #{usernameAttribute},</if>
+            <if test="emailAttribute != null">email_attribute = #{emailAttribute},</if>
+            <if test="displayNameAttribute != null">display_name_attribute = #{displayNameAttribute},</if>
+            <if test="connectTimeoutMs != null">connect_timeout_ms = #{connectTimeoutMs},</if>
+            <if test="readTimeoutMs != null">read_timeout_ms = #{readTimeoutMs},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

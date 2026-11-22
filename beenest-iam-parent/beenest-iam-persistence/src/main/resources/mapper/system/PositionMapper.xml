@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.PositionMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, position_code, position_name, position_level, sort_order,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="Position">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmIdAndCode" resultType="Position">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position
+        WHERE realm_id = #{realmId} AND position_code = #{positionCode} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmId" resultType="Position">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY sort_order, id
+    </select>
+
+    <select id="selectByCondition" resultType="Position">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position
+        <where>
+            realm_id = #{realmId} AND deleted = FALSE
+            <if test="position.positionCode != null and position.positionCode != ''">
+                AND position_code LIKE '%' || #{position.positionCode} || '%'
+            </if>
+            <if test="position.positionName != null and position.positionName != ''">
+                AND position_name LIKE '%' || #{position.positionName} || '%'
+            </if>
+        </where>
+        ORDER BY sort_order, id
+    </select>
+
+    <select id="selectByIds" resultType="Position">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="Position" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_position(realm_id, position_code, position_name, position_level, sort_order, deleted)
+        VALUES (#{realmId}, #{positionCode}, #{positionName},
+                COALESCE(#{positionLevel}, ''), COALESCE(#{sortOrder}, 0), FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="Position">
+        UPDATE iam_position
+        <set>
+            <if test="positionCode != null">position_code = #{positionCode},</if>
+            <if test="positionName != null">position_name = #{positionName},</if>
+            <if test="positionLevel != null">position_level = #{positionLevel},</if>
+            <if test="sortOrder != null">sort_order = #{sortOrder},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_position
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="countByRealm" resultType="long">
+        SELECT COUNT(*) FROM iam_position
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+    </select>
+</mapper>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.PositionRoleMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, position_id, role_id, granted_by, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByPositionId" resultType="PositionRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position_role
+        WHERE position_id = #{positionId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByPositionIds" resultType="PositionRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position_role
+        WHERE position_id IN
+        <foreach collection="positionIds" item="positionId" open="(" separator="," close=")">#{positionId}</foreach>
+        AND deleted = FALSE
+    </select>
+
+    <select id="selectByRoleId" resultType="PositionRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_position_role
+        WHERE role_id = #{roleId} AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="PositionRole" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_position_role(realm_id, position_id, role_id, granted_by, deleted)
+        VALUES (#{realmId}, #{positionId}, #{roleId}, #{grantedBy}, FALSE)
+    </insert>
+
+    <update id="deleteByPositionIdAndRoleId">
+        UPDATE iam_position_role
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE position_id = #{positionId} AND role_id = #{roleId} AND deleted = FALSE
+    </update>
+
+    <update id="deleteByPositionId">
+        UPDATE iam_position_role
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE position_id = #{positionId} AND deleted = FALSE
+    </update>
+</mapper>

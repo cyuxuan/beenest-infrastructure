@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.GroupRoleMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, group_id, role_id, granted_by, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByGroupId" resultType="GroupRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group_role
+        WHERE group_id = #{groupId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRoleId" resultType="GroupRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group_role
+        WHERE role_id = #{roleId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByGroupIds" resultType="GroupRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group_role
+        WHERE group_id IN
+        <foreach collection="groupIds" item="groupId" open="(" separator="," close=")">#{groupId}</foreach>
+        AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="GroupRole" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_group_role(realm_id, group_id, role_id, granted_by, deleted)
+        VALUES (#{realmId}, #{groupId}, #{roleId}, #{grantedBy}, FALSE)
+    </insert>
+
+    <update id="deleteByGroupIdAndRoleId">
+        UPDATE iam_group_role
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE group_id = #{groupId} AND role_id = #{roleId} AND deleted = FALSE
+    </update>
+
+    <update id="deleteByGroupId">
+        UPDATE iam_group_role
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE group_id = #{groupId} AND deleted = FALSE
+    </update>
+</mapper>

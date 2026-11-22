@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.8</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>club.beenest</groupId>
+    <artifactId>beenest-iam-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>beenest-iam-parent</name>
+    <description>蜂巢身份 (beenest IAM) — 统一身份认证平台</description>
+    <url>https://iam.beenest.club</url>
+    <licenses>
+        <license>
+            <name>Proprietary</name>
+            <url>https://iam.beenest.club/license</url>
+            <distribution>repo</distribution>
+            <comments>组织内部使用;未经书面许可不得复制、分发或用于第三方项目。</comments>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>beenest-iam</id>
+            <name>蜂巢身份平台组</name>
+            <email>iam@beenest.club</email>
+            <organization>Beenest</organization>
+            <organizationUrl>https://beenest.club</organizationUrl>
+            <roles>
+                <role>architect</role>
+                <role>developer</role>
+            </roles>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:git@github.com:beenest/beenest-iam.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/beenest/beenest-iam.git</developerConnection>
+        <url>https://github.com/beenest/beenest-iam</url>
+        <tag>v1.0.0</tag>
+    </scm>
+
+    <modules>
+        <module>beenest-iam-common</module>
+        <module>beenest-iam-core</module>
+        <module>beenest-iam-persistence</module>
+        <module>beenest-iam-federation</module>
+        <module>beenest-iam-provider-oidc</module>
+        <module>beenest-iam-provider-wechat</module>
+        <module>beenest-iam-provider-saml</module>
+        <module>beenest-iam-authz</module>
+        <module>beenest-iam-web</module>
+        <module>beenest-iam-admin</module>
+        <module>beenest-iam-console</module>
+        <module>beenest-iam-server</module>
+    </modules>
+
+    <!-- OpenSAML 5.x 未发布到 Maven Central,只托管在 Shibboleth 官方仓库。
+         必须声明在父 POM 而不是 provider-saml 里:仓库列表不沿依赖链传播,
+         只写在 provider-saml 中时,依赖它的 authz/server 在解析传递依赖时
+         仍然只查 central,表现为"jar 已下载却 present but unavailable" -->
+    <repositories>
+        <repository>
+            <id>shibboleth-releases</id>
+            <name>Shibboleth Releases</name>
+            <url>https://build.shibboleth.net/maven/releases/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- 内部模块版本统一走 ${project.version} -->
+        <mybatis-spring-boot.version>4.0.1</mybatis-spring-boot.version>
+        <pagehelper-spring-boot.version>2.1.1</pagehelper-spring-boot.version>
+        <!-- springdoc 3.x 是首个支持 Spring Boot 4 / Spring Framework 7 的线 -->
+        <springdoc.version>3.0.1</springdoc.version>
+        <!-- WebAuthn 协议实现:attestation/assertion 的 CBOR 解析与签名校验 -->
+        <webauthn4j.version>0.31.11.RELEASE</webauthn4j.version>
+        <!-- 证书构造:SAML IdP 从域密钥派生自签证书,JDK 只提供解析不提供构造。
+             1.85 修复名称约束绕过(CVE-2026-8763)与 ASN.1 解析拒绝服务(CVE-2026-13506) -->
+        <bouncycastle.version>1.85</bouncycastle.version>
+        <!-- ===== 以下属性覆盖 Spring Boot 4.0.8 的管理版本 =====
+             这些 CVE 修复版本只在依赖侧生效,不改动任何平台自身代码;
+             升级后由集成测试与漏洞复扫把关,不保留旧版本兼容分支 -->
+        <!-- Tomcat 11.0.25 修复 FORM 认证绕过等 4 项严重漏洞 -->
+        <tomcat.version>11.0.25</tomcat.version>
+        <!-- Jackson 2/3 修复多处反序列化与数值解析拒绝服务 -->
+        <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+        <jackson-bom.version>3.1.7</jackson-bom.version>
+        <!-- httpcore5 修复 HTTP/1.1 与 HTTP/2 协议处理问题 -->
+        <httpcore5.version>5.4.3</httpcore5.version>
+        <!-- Velocity 2.3 内嵌了带 CVE-2024-47554 的 commons-io 2.8.0;2.4.1 起不再内嵌 -->
+        <velocity.version>2.4.1</velocity.version>
+        <!-- Guava 修复 CVE-2026-102554(SAML 依赖链引入) -->
+        <guava.version>33.7.2-jre</guava.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ==================== 内部模块 ==================== -->
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-persistence</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-federation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-provider-oidc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-provider-wechat</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-provider-saml</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-authz</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-admin</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-console</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>club.beenest</groupId>
+                <artifactId>beenest-iam-server</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ==================== MyBatis / PageHelper ==================== -->
+            <dependency>
+                <groupId>org.mybatis.spring.boot</groupId>
+                <artifactId>mybatis-spring-boot-starter</artifactId>
+                <version>${mybatis-spring-boot.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mybatis.spring.boot</groupId>
+                <artifactId>mybatis-spring-boot-starter-test</artifactId>
+                <version>${mybatis-spring-boot.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.github.pagehelper</groupId>
+                <artifactId>pagehelper-spring-boot-starter</artifactId>
+                <version>${pagehelper-spring-boot.version}</version>
+            </dependency>
+
+            <!-- ==================== OpenAPI 文档 ==================== -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+
+            <!-- ==================== 安全版本覆盖 ==================== -->
+            <!-- 这两个坐标不在 Spring Boot 的版本管理范围内,只能显式钉版本 -->
+            <dependency>
+                <groupId>org.apache.velocity</groupId>
+                <artifactId>velocity-engine-core</artifactId>
+                <version>${velocity.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+
+            <!-- ==================== WebAuthn ==================== -->
+            <dependency>
+                <groupId>com.webauthn4j</groupId>
+                <artifactId>webauthn4j-core</artifactId>
+                <version>${webauthn4j.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <!-- 注解处理器必须显式声明:JDK 23+ 起 javac 不再从编译 classpath
+                 自动发现处理器,仅靠 lombok 依赖声明会导致 @Data 等不生效。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

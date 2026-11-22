@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.AuditLogMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, operator_id, operator_name, action, description,
+        target_type, target_id, ip, occurred_time
+    </sql>
+
+    <insert id="insert" parameterType="AuditLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_audit_log(realm_id, operator_id, operator_name, action, description,
+                                  target_type, target_id, ip, occurred_time)
+        VALUES (#{realmId}, #{operatorId}, #{operatorName}, #{action}, #{description},
+                #{targetType}, #{targetId}, #{ip}, COALESCE(#{occurredTime}, CURRENT_TIMESTAMP))
+    </insert>
+
+    <select id="selectByCondition" resultType="AuditLog">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_audit_log
+        <where>
+            <if test="realmId != null">realm_id = #{realmId}</if>
+            <if test="action != null and action != ''">AND action = #{action}</if>
+            <if test="operatorName != null and operatorName != ''">AND operator_name LIKE '%' || #{operatorName} || '%'</if>
+            <if test="targetType != null and targetType != ''">AND target_type = #{targetType}</if>
+            <if test="fromTime != null">AND occurred_time &gt;= #{fromTime}</if>
+            <if test="toTime != null">AND occurred_time &lt;= #{toTime}</if>
+        </where>
+        ORDER BY occurred_time DESC, id DESC
+    </select>
+
+    <!-- 留存期清理通道:仅在事务内用 SET LOCAL 打开,事务结束自动失效 -->
+    <update id="enablePurge">
+        SET LOCAL iam.audit_purge = 'on'
+    </update>
+
+    <!-- 存在超期记录的身份域:清理按域进行,留痕才落得到各域自己的审计轨迹里 -->
+    <select id="listRealmsWithExpired" resultType="long">
+        SELECT DISTINCT realm_id
+        FROM iam_audit_log
+        WHERE occurred_time &lt; #{cutoff} AND realm_id IS NOT NULL
+        ORDER BY realm_id
+        LIMIT #{limit}
+    </select>
+
+    <select id="countExpired" resultType="long">
+        SELECT COUNT(*) FROM iam_audit_log
+        WHERE realm_id = #{realmId} AND occurred_time &lt; #{cutoff}
+    </select>
+
+    <!-- 留存期到期清理;需先执行 enablePurge,否则被只追加触发器拒绝 -->
+    <delete id="deleteExpired">
+        DELETE FROM iam_audit_log
+        WHERE realm_id = #{realmId} AND occurred_time &lt; #{cutoff}
+    </delete>
+</mapper>

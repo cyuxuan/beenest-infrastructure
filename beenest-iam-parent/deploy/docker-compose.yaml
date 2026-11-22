@@ -1,0 +1,123 @@
+# ===== 蜂巢 IAM 生产部署编排 =====
+# 与根目录 compose.yaml 的区别:那份面向本地验收(自带 PostgreSQL/Redis、给本地默认值);
+# 这份面向生产,只跑应用本体,数据库与 Redis 由外部提供,且不含任何可用的默认口令。
+#
+# 用法:
+#   cp deploy/.env.example deploy/.env && chmod 600 deploy/.env
+#   vi deploy/.env
+#   docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d
+#   docker compose -f deploy/docker-compose.yaml --env-file deploy/.env logs -f iam
+#
+# 必填项缺失时 compose 会在解析阶段直接报错退出(见 ${VAR:?} 语法),
+# 不会出现"容器起来了但连不上库"的半启动状态。
+name: beenest-iam
+
+services:
+  iam:
+    image: ${IAM_IMAGE:?请先设置 IAM_IMAGE(镜像仓库地址)}
+    # 镜像内已带微信扩展包;追加第三方提供方时把 jar 挂到该目录
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+      # --- 数据库 ---
+      DB_URL: ${DB_URL:?请先设置 DB_URL}
+      DB_USERNAME: ${DB_USERNAME:?请先设置 DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD:?请先设置 DB_PASSWORD}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-20}
+      DB_POOL_MIN_IDLE: ${DB_POOL_MIN_IDLE:-5}
+      DB_POOL_CONNECTION_TIMEOUT_MS: ${DB_POOL_CONNECTION_TIMEOUT_MS:-3000}
+      DB_POOL_LEAK_DETECTION_MS: ${DB_POOL_LEAK_DETECTION_MS:-60000}
+      DB_STATEMENT_TIMEOUT_SECONDS: ${DB_STATEMENT_TIMEOUT_SECONDS:-30}
+
+      # --- Redis:会话与授权状态都在这里,是强依赖 ---
+      REDIS_HOST: ${REDIS_HOST:?请先设置 REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_POOL_MAX_ACTIVE: ${REDIS_POOL_MAX_ACTIVE:-32}
+
+      # --- 安全核心 ---
+      # 机密加密主密钥:保护域签名私钥、IdP 客户端密钥、LDAP/SMTP 口令
+      IAM_REALM_KEY_SECRET: ${IAM_REALM_KEY_SECRET:?请先设置 IAM_REALM_KEY_SECRET(openssl rand -base64 32)}
+      # 会话与 CSRF 令牌 Cookie 是否只走 HTTPS。
+      # 用 http://IP:端口 直连时必须设 false,否则 Cookie 被浏览器丢弃,
+      # 登录提交因 CSRF 令牌缺失返回 403「页面出错了 / 无访问权限」
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      SESSION_TIMEOUT: ${SESSION_TIMEOUT:-30m}
+      # 对外基础地址:回调地址与邮件链接用。令牌 iss 按请求域名生成,
+      # 这里必须与用户实际访问的域名一致,多实例本身不影响它
+      IAM_ISSUER_BASE_URL: ${IAM_ISSUER_BASE_URL:-}
+      # 本站来源始终放行,这里只登记部署在别的主机名上的前端页面
+      IAM_CORS_ALLOWED_ORIGINS: ${IAM_CORS_ALLOWED_ORIGINS:-}
+
+      # --- 引导管理员:口令为空则不创建账号,平台不以默认口令启动 ---
+      IAM_BOOTSTRAP_ENABLED: ${IAM_BOOTSTRAP_ENABLED:-true}
+      IAM_BOOTSTRAP_ADMIN_USERNAME: ${IAM_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      IAM_BOOTSTRAP_ADMIN_PASSWORD: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:-}
+
+      # --- Passkey ---
+      IAM_WEBAUTHN_ENABLED: ${IAM_WEBAUTHN_ENABLED:-false}
+      IAM_WEBAUTHN_RP_ID: ${IAM_WEBAUTHN_RP_ID:-}
+      IAM_WEBAUTHN_ORIGIN: ${IAM_WEBAUTHN_ORIGIN:-}
+      IAM_WEBAUTHN_RP_NAME: ${IAM_WEBAUTHN_RP_NAME:-统一身份认证}
+      IAM_WEBAUTHN_UV_REQUIRED: ${IAM_WEBAUTHN_UV_REQUIRED:-true}
+      IAM_WEBAUTHN_ALLOW_USERNAMELESS: ${IAM_WEBAUTHN_ALLOW_USERNAMELESS:-true}
+      IAM_WEBAUTHN_TIMEOUT_MILLIS: ${IAM_WEBAUTHN_TIMEOUT_MILLIS:-60000}
+      IAM_WEBAUTHN_CHALLENGE_TTL_SECONDS: ${IAM_WEBAUTHN_CHALLENGE_TTL_SECONDS:-300}
+      IAM_WEBAUTHN_MAX_CREDENTIALS: ${IAM_WEBAUTHN_MAX_CREDENTIALS:-10}
+
+      # --- 邮件通道:channel 留空表示未启用 ---
+      IAM_MAIL_CHANNEL: ${IAM_MAIL_CHANNEL:-}
+      IAM_MAIL_HOST: ${IAM_MAIL_HOST:-}
+      IAM_MAIL_PORT: ${IAM_MAIL_PORT:-587}
+      IAM_MAIL_USERNAME: ${IAM_MAIL_USERNAME:-}
+      IAM_MAIL_PASSWORD: ${IAM_MAIL_PASSWORD:-}
+      IAM_MAIL_FROM: ${IAM_MAIL_FROM:-}
+      IAM_MAIL_FROM_NAME: ${IAM_MAIL_FROM_NAME:-统一身份认证}
+      IAM_MAIL_STARTTLS: ${IAM_MAIL_STARTTLS:-true}
+      IAM_MAIL_SSL: ${IAM_MAIL_SSL:-false}
+      IAM_MAIL_TIMEOUT_MILLIS: ${IAM_MAIL_TIMEOUT_MILLIS:-10000}
+
+      # --- 账户自助 ---
+      IAM_PASSWORD_RESET_TTL_MINUTES: ${IAM_PASSWORD_RESET_TTL_MINUTES:-30}
+      IAM_EMAIL_VERIFY_TTL_MINUTES: ${IAM_EMAIL_VERIFY_TTL_MINUTES:-60}
+
+      # --- 审计:合规要求至少保留 180 天 ---
+      IAM_AUDIT_RETENTION_DAYS: ${IAM_AUDIT_RETENTION_DAYS:-180}
+      IAM_AUDIT_CLEANUP_CRON: ${IAM_AUDIT_CLEANUP_CRON:-0 30 3 * * *}
+
+      # --- 运行参数 ---
+      IAM_PROVIDER_DIR: ${IAM_PROVIDER_DIR:-/app/providers}
+      MANAGEMENT_PORT: ${MANAGEMENT_PORT:-9090}
+      IAM_LOG_LEVEL: ${IAM_LOG_LEVEL:-INFO}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+UseZGC}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      # 只绑业务端口。管理端口(9090)不发布:actuator 的 health/metrics 不做认证,
+      # 暴露到宿主等于把依赖拓扑与运行指标交出去;
+      # 采集指标走同网络内的 Prometheus,或 `docker compose exec iam curl 127.0.0.1:9090/...`
+      - "${SERVER_PORT:-8080}:8080"
+    # 以下四项与 docs/deployment.md 第 10 节的容器安全基线一一对应:
+    # 只读根文件系统阻止落地 webshell、丢弃全部 capability、阻断 setuid 提权,
+    # /tmp 单独给 tmpfs 是因为内嵌 Tomcat 要在临时目录解包
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # 探管理端口的就绪探针:业务端口要过安全过滤链,未登录会被重定向
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9090/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      # 启动要跑 32 个 Flyway 迁移,首次启动给足 120 秒
+      start_period: 120s
+    restart: unless-stopped
+    # 资源上限按单实例 2C4G 基线给;扩容优先加实例数而不是抬单实例内存
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g

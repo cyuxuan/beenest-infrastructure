@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.ProtocolMapperMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, client_id, name, claim_name, claim_type, user_attribute, claim_template,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="ProtocolMapper">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_protocol_mapper
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectRealmLevel" resultType="ProtocolMapper">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_protocol_mapper
+        WHERE realm_id = #{realmId} AND client_id IS NULL AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <select id="selectEffectiveByClientId" resultType="ProtocolMapper">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_protocol_mapper
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+          AND (client_id IS NULL OR client_id = #{clientId})
+        ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="ProtocolMapper" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_protocol_mapper(realm_id, client_id, name, claim_name, claim_type,
+                                        user_attribute, claim_template, deleted)
+        VALUES (#{realmId}, #{clientId}, #{name}, #{claimName}, COALESCE(#{claimType}, 'STRING'),
+                #{userAttribute}, #{claimTemplate}, FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="ProtocolMapper">
+        UPDATE iam_protocol_mapper
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="claimName != null">claim_name = #{claimName},</if>
+            <if test="claimType != null">claim_type = #{claimType},</if>
+            <if test="userAttribute != null">user_attribute = #{userAttribute},</if>
+            <if test="claimTemplate != null">claim_template = #{claimTemplate},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_protocol_mapper
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

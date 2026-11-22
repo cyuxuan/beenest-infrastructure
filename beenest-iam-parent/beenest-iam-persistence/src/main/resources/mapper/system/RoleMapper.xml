@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.RoleMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, role_code, role_name, container_type, client_id, app_service_id,
+        is_system, is_active, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="Role">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByIds" resultType="Role">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role
+        WHERE deleted = FALSE
+        <choose>
+            <when test="ids != null and ids.size() > 0">
+                AND id IN
+                <foreach collection="ids" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <select id="selectByCondition" resultType="Role">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role
+        <where>
+            realm_id = #{realmId} AND deleted = FALSE
+            <if test="role.roleCode != null and role.roleCode != ''">AND role_code LIKE '%' || #{role.roleCode} || '%'</if>
+            <if test="role.roleName != null and role.roleName != ''">AND role_name LIKE '%' || #{role.roleName} || '%'</if>
+            <choose>
+                <when test="role.containerType != null and role.containerType != ''">
+                    AND container_type = #{role.containerType}
+                </when>
+                <!-- 指定应用时只取该应用的角色;未指定时返回全部容器类型,
+                     APP 角色由前端按所属应用分组展示,不再默认隐藏 -->
+                <when test="role.appServiceId != null">
+                    AND container_type IN ('APP', 'CLIENT')
+                </when>
+            </choose>
+            <if test="role.clientId != null">AND client_id = #{role.clientId}</if>
+            <if test="role.appServiceId != null">AND app_service_id = #{role.appServiceId}</if>
+        </where>
+        ORDER BY id
+    </select>
+
+    <select id="selectAllByRealmId" resultType="Role">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <!-- 省略未赋值列:容器类型/内置标记/启用状态在 DDL 中已有默认值 -->
+    <insert id="insert" parameterType="Role" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_role
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_id, role_code, role_name, deleted,
+            <if test="containerType != null">container_type,</if>
+            <if test="clientId != null">client_id,</if>
+            <if test="appServiceId != null">app_service_id,</if>
+            <if test="isSystem != null">is_system,</if>
+            <if test="isActive != null">is_active,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmId}, #{roleCode}, #{roleName}, FALSE,
+            <if test="containerType != null">#{containerType},</if>
+            <if test="clientId != null">#{clientId},</if>
+            <if test="appServiceId != null">#{appServiceId},</if>
+            <if test="isSystem != null">#{isSystem},</if>
+            <if test="isActive != null">#{isActive},</if>
+        </trim>
+    </insert>
+
+    <update id="updateById" parameterType="Role">
+        UPDATE iam_role
+        <set>
+            <if test="roleName != null">role_name = #{roleName},</if>
+            <if test="isActive != null">is_active = #{isActive},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="updateContainerById">
+        UPDATE iam_role
+        SET container_type = #{containerType},
+            client_id = #{clientId,jdbcType=BIGINT},
+            app_service_id = #{appServiceId,jdbcType=BIGINT},
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <!-- 使用条数:分配(用户/组/岗位) + 授予(直接权限/菜单) + 应用授权 -->
+    <select id="countUsage" resultType="long">
+        SELECT (SELECT COUNT(*) FROM iam_user_role
+                WHERE role_id = #{roleId} AND deleted = FALSE)
+             + (SELECT COUNT(*) FROM iam_group_role
+                WHERE role_id = #{roleId} AND deleted = FALSE)
+             + (SELECT COUNT(*) FROM iam_position_role
+                WHERE role_id = #{roleId} AND deleted = FALSE)
+             + (SELECT COUNT(*) FROM iam_role_permission
+                WHERE role_id = #{roleId} AND deleted = FALSE)
+             + (SELECT COUNT(*) FROM iam_role_menu
+                WHERE role_id = #{roleId} AND deleted = FALSE)
+             + (SELECT COUNT(*) FROM iam_app_service_grant
+                WHERE subject_type = 'ROLE' AND subject_id = #{roleId} AND deleted = FALSE)
+    </select>
+
+    <update id="softDeleteById">
+        UPDATE iam_role
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="selectByAppAndCode" resultType="Role">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role
+        WHERE realm_id = #{realmId}
+          AND app_service_id = #{appServiceId}
+          AND role_code = #{roleCode}
+          AND deleted = FALSE
+        LIMIT 1
+    </select>
+
+    <select id="selectByScope" resultType="Role">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_role
+        WHERE realm_id = #{realmId}
+          AND container_type = #{containerType}
+          AND role_code = #{roleCode}
+          AND deleted = FALSE
+        <choose>
+            <when test="clientId != null">AND client_id = #{clientId}</when>
+            <otherwise>AND client_id IS NULL</otherwise>
+        </choose>
+        <choose>
+            <when test="appServiceId != null">AND app_service_id = #{appServiceId}</when>
+            <otherwise>AND app_service_id IS NULL</otherwise>
+        </choose>
+        LIMIT 1
+    </select>
+</mapper>

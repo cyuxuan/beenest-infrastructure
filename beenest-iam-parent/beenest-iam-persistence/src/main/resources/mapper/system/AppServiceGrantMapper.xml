@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.AppServiceGrantMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, app_service_id, subject_type, subject_id, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByAppServiceId" resultType="AppServiceGrant">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_service_grant
+        WHERE app_service_id = #{appServiceId} AND deleted = FALSE
+    </select>
+
+    <select id="selectBySubject" resultType="AppServiceGrant">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_service_grant
+        WHERE subject_type = #{subjectType} AND deleted = FALSE
+        <choose>
+            <when test="subjectIds != null and subjectIds.size() > 0">
+                AND subject_id IN
+                <foreach collection="subjectIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO iam_app_service_grant(realm_id, app_service_id, subject_type, subject_id)
+        VALUES
+        <foreach collection="subjectIds" item="item" separator=",">
+            (#{realmId}, #{appServiceId}, #{subjectType}, #{item})
+        </foreach>
+    </insert>
+
+    <update id="softDeleteByAppServiceId">
+        UPDATE iam_app_service_grant
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE app_service_id = #{appServiceId}
+          AND subject_type = #{subjectType}
+          AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteBySubject">
+        UPDATE iam_app_service_grant
+        SET deleted = TRUE,
+            updated_time = CURRENT_TIMESTAMP
+        WHERE subject_type = #{subjectType}
+          AND subject_id = #{subjectId}
+          AND deleted = FALSE
+    </update>
+</mapper>

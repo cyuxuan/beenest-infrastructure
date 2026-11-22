@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.IdentityProviderMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, alias, provider_id, display_name, enabled, config,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="IdentityProvider">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_identity_provider
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmIdAndAlias" resultType="IdentityProvider">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_identity_provider
+        WHERE realm_id = #{realmId} AND alias = #{alias} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmId" resultType="IdentityProvider">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_identity_provider
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="IdentityProvider" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_identity_provider(realm_id, alias, provider_id, display_name, enabled, config, deleted)
+        VALUES (#{realmId}, #{alias}, #{providerId}, #{displayName},
+                COALESCE(#{enabled}, TRUE), COALESCE(#{config}::jsonb, '{}'::jsonb), FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="IdentityProvider">
+        UPDATE iam_identity_provider
+        <set>
+            <if test="alias != null">alias = #{alias},</if>
+            <if test="displayName != null">display_name = #{displayName},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="config != null">config = #{config}::jsonb,</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_identity_provider
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

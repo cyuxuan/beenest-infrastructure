@@ -1,0 +1,50 @@
+# ===== 本地开发环境 =====
+# 面向 compose.yaml 起的本地 PostgreSQL/Redis;默认值仅供本机使用,
+# 生产请使用 prod 档(SPRING_PROFILES_ACTIVE=prod)。
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/beenest_iam}
+    username: ${DB_USERNAME:beenest}
+    password: ${DB_PASSWORD:secret123}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  docker:
+    compose:
+      enabled: ${SPRING_DOCKER_COMPOSE_ENABLED:true}
+
+server:
+  servlet:
+    session:
+      # 本地走 HTTP,Cookie 不能带 secure,否则浏览器根本不回传会话
+      cookie:
+        secure: false
+
+iam:
+  realm-key:
+    # 开发档固定主密钥:本机重启后仍能解开已落库的私钥。
+    # 该值仅用于本地,严禁用于生产
+    master-secret: ${IAM_REALM_KEY_SECRET:dev-only-insecure-master-secret-change-me}
+  session:
+    # 本地走 HTTP,会话 Cookie 不能带 secure,否则浏览器根本不回传会话标识,
+    # 表现为"登录成功但下一个请求又变成未登录"
+    cookie-secure: false
+  webauthn:
+    # 本地默认开启:Passkey 只能在 http://localhost 或 HTTPS 下工作,
+    # 浏览器把 localhost 视为安全上下文,因此本地可以完整走通注册与登录
+    enabled: ${IAM_WEBAUTHN_ENABLED:true}
+    rp-id: ${IAM_WEBAUTHN_RP_ID:localhost}
+    origin: ${IAM_WEBAUTHN_ORIGIN:http://localhost:8080}
+
+# 本地开发开放 API 文档,便于接口联调;生产档缺省关闭
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    club.beenest.iam: ${IAM_LOG_LEVEL:INFO}

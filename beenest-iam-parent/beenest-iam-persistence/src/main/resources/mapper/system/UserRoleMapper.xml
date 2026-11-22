@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.UserRoleMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, user_id, role_id, granted_by, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByUserId" resultType="UserRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_role
+        WHERE user_id = #{userId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRoleId" resultType="UserRole">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_role
+        WHERE role_id = #{roleId} AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="UserRole" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_user_role(realm_id, user_id, role_id, granted_by, deleted)
+        VALUES (#{realmId}, #{userId}, #{roleId}, #{grantedBy}, FALSE)
+    </insert>
+
+    <update id="deleteByUserIdAndRoleId">
+        UPDATE iam_user_role
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND role_id = #{roleId} AND deleted = FALSE
+    </update>
+</mapper>

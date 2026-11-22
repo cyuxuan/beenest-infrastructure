@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.UserSessionMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, sid, user_id, login_type, ip, user_agent, state, last_active_time,
+        expired_time, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectBySid" resultType="UserSession">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_session
+        WHERE sid = #{sid} AND deleted = FALSE
+    </select>
+
+    <select id="selectByUserId" resultType="UserSession">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_session
+        WHERE realm_id = #{realmId} AND user_id = #{userId} AND deleted = FALSE
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectActiveByUserId" resultType="UserSession">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_session
+        WHERE realm_id = #{realmId} AND user_id = #{userId} AND state = 'ACTIVE' AND deleted = FALSE
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectByCondition" resultType="UserSession">
+        SELECT s.<include refid="baseColumns"/>
+        FROM iam_user_session s
+        <where>
+            s.realm_id = #{realmId} AND s.deleted = FALSE
+            <if test="state != null and state != ''">AND s.state = #{state}</if>
+            <if test="username != null and username != ''">
+                AND s.user_id IN (SELECT u.id FROM iam_user u
+                                  WHERE u.realm_id = #{realmId} AND u.username LIKE '%' || #{username} || '%'
+                                    AND u.deleted = FALSE)
+            </if>
+        </where>
+        ORDER BY s.id DESC
+    </select>
+
+    <!-- 省略未赋值列:登录方式/状态在 DDL 中已有默认值 -->
+    <insert id="insert" parameterType="UserSession" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_user_session
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_id, sid, user_id, deleted,
+            <if test="loginType != null">login_type,</if>
+            <if test="ip != null">ip,</if>
+            <if test="userAgent != null">user_agent,</if>
+            <if test="state != null">state,</if>
+            <if test="lastActiveTime != null">last_active_time,</if>
+            <if test="expiredTime != null">expired_time,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmId}, #{sid}, #{userId}, FALSE,
+            <if test="loginType != null">#{loginType},</if>
+            <if test="ip != null">#{ip},</if>
+            <if test="userAgent != null">#{userAgent},</if>
+            <if test="state != null">#{state},</if>
+            <if test="lastActiveTime != null">#{lastActiveTime},</if>
+            <if test="expiredTime != null">#{expiredTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateById" parameterType="UserSession">
+        UPDATE iam_user_session
+        <set>
+            <if test="state != null">state = #{state},</if>
+            <if test="lastActiveTime != null">last_active_time = #{lastActiveTime},</if>
+            <if test="expiredTime != null">expired_time = #{expiredTime},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="updateStateBySid">
+        UPDATE iam_user_session
+        SET state = #{state}, updated_time = CURRENT_TIMESTAMP
+        WHERE sid = #{sid} AND deleted = FALSE
+    </update>
+
+    <update id="expireIfActive">
+        UPDATE iam_user_session
+        SET state = 'EXPIRED', updated_time = CURRENT_TIMESTAMP
+        WHERE sid = #{sid} AND state = 'ACTIVE' AND deleted = FALSE
+    </update>
+
+    <update id="touchBySid">
+        UPDATE iam_user_session
+        SET last_active_time = #{lastActiveTime}, updated_time = CURRENT_TIMESTAMP
+        WHERE sid = #{sid} AND deleted = FALSE
+    </update>
+
+    <update id="updateLoginTypeBySid">
+        UPDATE iam_user_session
+        SET login_type = #{loginType}, updated_time = CURRENT_TIMESTAMP
+        WHERE sid = #{sid} AND deleted = FALSE
+    </update>
+
+    <select id="selectActive" resultType="UserSession">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_session
+        WHERE state = 'ACTIVE' AND deleted = FALSE
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <select id="countActiveByRealm" resultType="long">
+        SELECT COUNT(*) FROM iam_user_session
+        WHERE realm_id = #{realmId} AND state = 'ACTIVE' AND deleted = FALSE
+    </select>
+</mapper>

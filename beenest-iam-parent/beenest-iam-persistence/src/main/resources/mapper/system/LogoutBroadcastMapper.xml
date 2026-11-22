@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.LogoutBroadcastMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, sid, user_id, client_id, client_key, target_uri, state, http_status,
+        error_message, deleted, created_time, updated_time
+    </sql>
+
+    <insert id="insert" parameterType="LogoutBroadcast" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_logout_broadcast
+        (realm_id, sid, user_id, client_id, client_key, target_uri, state, deleted)
+        VALUES (#{realmId}, #{sid}, #{userId}, #{clientId}, #{clientKey}, #{targetUri},
+                <choose>
+                    <when test="state != null">#{state},</when>
+                    <otherwise>'PENDING',</otherwise>
+                </choose>
+                FALSE)
+    </insert>
+
+    <update id="updateResult">
+        UPDATE iam_logout_broadcast
+        SET state = #{state},
+            http_status = #{httpStatus},
+            error_message = #{errorMessage},
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="selectBySid" resultType="LogoutBroadcast">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_logout_broadcast
+        WHERE realm_id = #{realmId} AND sid = #{sid} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <select id="selectRecent" resultType="LogoutBroadcast">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_logout_broadcast
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

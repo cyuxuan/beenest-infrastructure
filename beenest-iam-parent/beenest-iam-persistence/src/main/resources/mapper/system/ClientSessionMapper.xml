@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.ClientSessionMapper">
+
+    <sql id="baseColumns">
+        cs.id, cs.realm_id, cs.user_session_id, cs.client_id, cs.deleted, cs.created_time, cs.updated_time
+    </sql>
+
+    <select id="selectBySessionAndClient" resultType="ClientSession">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client_session cs
+        WHERE cs.user_session_id = #{userSessionId}
+          AND cs.client_id = #{clientId}
+          AND cs.deleted = FALSE
+    </select>
+
+    <!-- 联查会话表取 sid 与 userId、联查客户端取 clientKey:
+         广播令牌需要 sid 与 client_id,调用方不需要再查一轮 -->
+    <select id="selectBySid" resultType="ClientSession">
+        SELECT cs.id, cs.realm_id, cs.user_session_id, cs.client_id,
+               cs.deleted, cs.created_time, cs.updated_time,
+               us.sid AS sid, us.user_id AS user_id, c.client_key AS client_key
+        FROM iam_client_session cs
+                 JOIN iam_user_session us ON us.id = cs.user_session_id
+                 LEFT JOIN iam_client c ON c.id = cs.client_id
+        WHERE us.sid = #{sid}
+          AND us.realm_id = #{realmId}
+          AND cs.deleted = FALSE
+        ORDER BY cs.id
+    </select>
+
+    <select id="selectByUserAndClient" resultType="ClientSession">
+        SELECT cs.id, cs.realm_id, cs.user_session_id, cs.client_id,
+               cs.deleted, cs.created_time, cs.updated_time,
+               us.sid AS sid, us.user_id AS user_id, c.client_key AS client_key
+        FROM iam_client_session cs
+                 JOIN iam_user_session us ON us.id = cs.user_session_id
+                 LEFT JOIN iam_client c ON c.id = cs.client_id
+        WHERE us.user_id = #{userId}
+          AND us.realm_id = #{realmId}
+          AND cs.client_id = #{clientId}
+          AND cs.deleted = FALSE
+        ORDER BY cs.id
+    </select>
+
+    <insert id="insert" parameterType="ClientSession" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_client_session (realm_id, user_session_id, client_id, deleted)
+        VALUES (#{realmId}, #{userSessionId}, #{clientId}, FALSE)
+    </insert>
+
+    <update id="softDeleteByUserAndClient">
+        UPDATE iam_client_session cs
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        FROM iam_user_session us
+        WHERE us.id = cs.user_session_id
+          AND us.user_id = #{userId}
+          AND us.realm_id = #{realmId}
+          AND cs.client_id = #{clientId}
+          AND cs.deleted = FALSE
+    </update>
+
+    <update id="softDeleteBySidAndClient">
+        UPDATE iam_client_session cs
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        FROM iam_user_session us
+        WHERE us.id = cs.user_session_id
+          AND us.sid = #{sid}
+          AND cs.client_id = #{clientId}
+          AND cs.deleted = FALSE
+    </update>
+
+    <update id="softDeleteBySid">
+        UPDATE iam_client_session cs
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        FROM iam_user_session us
+        WHERE us.id = cs.user_session_id
+          AND us.sid = #{sid}
+          AND cs.deleted = FALSE
+    </update>
+</mapper>

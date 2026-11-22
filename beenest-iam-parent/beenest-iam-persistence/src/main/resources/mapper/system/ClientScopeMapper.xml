@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.ClientScopeMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, scope_key, scope_name, is_default, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="ClientScope">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client_scope
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmIdAndKey" resultType="ClientScope">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client_scope
+        WHERE realm_id = #{realmId} AND scope_key = #{scopeKey} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmId" resultType="ClientScope">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_client_scope
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="ClientScope" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_client_scope(realm_id, scope_key, scope_name, is_default, deleted)
+        VALUES (#{realmId}, #{scopeKey}, #{scopeName}, COALESCE(#{isDefault}, FALSE), FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="ClientScope">
+        UPDATE iam_client_scope
+        <set>
+            <if test="scopeName != null">scope_name = #{scopeName},</if>
+            <if test="isDefault != null">is_default = #{isDefault},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_client_scope
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

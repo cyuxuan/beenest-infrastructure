@@ -1,0 +1,154 @@
+# ===== 蜂巢 IAM 基础配置 =====
+# 配置分环境:prod(默认,安全基线) / dev(本地开发)。
+# 通过 SPRING_PROFILES_ACTIVE 切换;未设置时按 prod 处理——
+# 默认必须是安全的那一档,不能靠运维记得改。
+spring:
+  application:
+    name: beenest-iam-server
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  # 对象序列化:只收本项目与 Spring Security 的类型
+  jackson:
+    default-property-inclusion: non_null
+  docker:
+    compose:
+      # 本地开发可用 compose 起依赖;生产一律关闭,避免误连开发库
+      enabled: ${SPRING_DOCKER_COMPOSE_ENABLED:false}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    # 不容忍"库里有、本地解析不到"的迁移:默认的 *:future 会静默跳过,
+    # 结果是全新库少建几张表,应用启动后才在运行期报"表不存在"。
+    # 宁可启动失败,也不要带着残缺的结构上线
+    ignore-migration-patterns: []
+  # 连接池显式配置:不依赖 Hikari 默认值。
+  # 默认最大 10 连接在多租户下会先撞连接数再撞 CPU——每次登录要读用户、策略、角色、
+  # 组、权限五类数据,并发 50 就会排队。按 20 起步,再按 Prometheus 的
+  # hikaricp_connections_pending 调整
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:3000}
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      # 连接泄漏检测:超过 60 秒未归还即打印持有栈,便于定位忘记关闭的事务
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:60000}
+
+server:
+  port: ${SERVER_PORT:8080}
+  # 反向代理后按转发头取真实协议与地址(issuer 推导依赖它)
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      # 容器会话空闲超时兜底值;身份域策略(ssoSessionIdle)会在登录时逐会话覆盖
+      timeout: ${SESSION_TIMEOUT:30m}
+      cookie:
+        http-only: true
+        same-site: lax
+        # 生产走 HTTPS;开发用 HTTP,需显式关闭 secure
+        secure: ${SESSION_COOKIE_SECURE:true}
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: club.beenest.iam.persistence.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    # 慢查询阈值:单条语句超过 1 秒打 WARN。平台没有内置 APM,
+    # 这条日志是"哪个 SQL 拖慢了登录"的第一手线索
+    default-statement-timeout: ${DB_STATEMENT_TIMEOUT_SECONDS:30}
+
+# OpenAPI 文档:生产缺省整组关闭(端点 404,不暴露 API 结构)。
+# 接入方联调环境显式置 true;dev 档已开启
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# 跨源访问白名单(逗号分隔);凭据模式下不允许通配,留空表示不放行跨源
+iam:
+  cors:
+    allowed-origins: ${IAM_CORS_ALLOWED_ORIGINS:}
+  session:
+    # 浏览器会话由平台签发标识并存于共享 Redis,任何实例都能服务同一个会话。
+    # Cookie 是否只走 HTTPS:生产强制 true,本地 HTTP 调试需显式关闭
+    cookie-secure: ${SESSION_COOKIE_SECURE:true}
+  bootstrap:
+    enabled: ${IAM_BOOTSTRAP_ENABLED:true}
+    admin-username: ${IAM_BOOTSTRAP_ADMIN_USERNAME:admin}
+    # 口令只从环境变量读取,不落在任何配置文件里
+    admin-password: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:}
+  # 多租户 Realm 外部访问基础地址;留空表示按请求推导(与令牌 issuer 保持一致),
+  # 仅在反向代理后需要对外固定域名时才设置
+  issuer-base-url: ${IAM_ISSUER_BASE_URL:}
+  # 第三方身份提供方扩展包目录:把独立交付的 jar 放进该目录,重启后即被装载,
+  # 不必改本项目的 Maven 依赖、也不必重新打包服务端。目录不存在表示不启用
+  provider:
+    dir: ${IAM_PROVIDER_DIR:./providers}
+  # 邮件通道:找回口令、邮箱验证、安全通知的投递出口。
+  # channel 留空表示未启用——依赖邮件的入口在页面上不展示,接口明确报错,
+  # 而不是让用户点了按钮才发现发不出去
+  mail:
+    channel: ${IAM_MAIL_CHANNEL:}
+    host: ${IAM_MAIL_HOST:}
+    port: ${IAM_MAIL_PORT:587}
+    username: ${IAM_MAIL_USERNAME:}
+    # 口令只从环境变量读取,不落在任何配置文件里
+    password: ${IAM_MAIL_PASSWORD:}
+    from: ${IAM_MAIL_FROM:}
+    from-name: ${IAM_MAIL_FROM_NAME:统一身份认证}
+    starttls: ${IAM_MAIL_STARTTLS:true}
+    ssl: ${IAM_MAIL_SSL:false}
+    timeout-millis: ${IAM_MAIL_TIMEOUT_MILLIS:10000}
+  # 账户自助
+  account:
+    # 口令重置链接有效期(分钟):票据一次性消费,过期即作废
+    reset-ttl-minutes: ${IAM_PASSWORD_RESET_TTL_MINUTES:30}
+    # 邮箱验证链接有效期(分钟)
+    email-verify-ttl-minutes: ${IAM_EMAIL_VERIFY_TTL_MINUTES:60}
+  # Passkey(WebAuthn)登录:设备本地私钥 + 指纹/人脸,可单独作为登录凭据。
+  # 三项缺一不可:未启用或没配好依赖方标识与来源时,登录页不展示入口,
+  # 接口明确报"未启用",而不是让用户点进去才在浏览器里失败。
+  # rp-id 必须是 origin 的注册域或其父域,配错时认证器直接拒绝创建凭证
+  webauthn:
+    enabled: ${IAM_WEBAUTHN_ENABLED:false}
+    rp-id: ${IAM_WEBAUTHN_RP_ID:}
+    rp-name: ${IAM_WEBAUTHN_RP_NAME:统一身份认证}
+    origin: ${IAM_WEBAUTHN_ORIGIN:}
+    timeout-millis: ${IAM_WEBAUTHN_TIMEOUT_MILLIS:60000}
+    # 要求用户验证(指纹/人脸/PIN):关闭后 Passkey 只能作为第二因素
+    user-verification-required: ${IAM_WEBAUTHN_UV_REQUIRED:true}
+    # 允许无用户名登录(发现式凭证):关闭后登录页必须先填账号
+    allow-usernameless: ${IAM_WEBAUTHN_ALLOW_USERNAMELESS:true}
+    challenge-ttl-seconds: ${IAM_WEBAUTHN_CHALLENGE_TTL_SECONDS:300}
+    max-credentials-per-user: ${IAM_WEBAUTHN_MAX_CREDENTIALS:10}
+
+management:
+  server:
+    # 独立管理端口:actuator 不走业务端口的安全过滤链,
+    # 指标才能被采集器直接拉取(放在业务端口上会被登录页拦截成 302)。
+    # 该端口不得对公网开放,由网络策略/防火墙限制在运维网段内
+    port: ${MANAGEMENT_PORT:9090}
+  endpoints:
+    web:
+      exposure:
+        # 指标与健康检查:生产可观测性的最低要求
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      # 管理端口不对公网开放,细节信息(依赖连通性等)对运维有直接价值
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    # 链路标识:一次请求内的所有日志共用同一个 id,便于跨服务串联
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+  level:
+    club.beenest.iam: ${IAM_LOG_LEVEL:INFO}

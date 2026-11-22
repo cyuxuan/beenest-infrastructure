@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{page.action.docTitle}">完善账户信息 · 蜂巢身份</title>
+    <link rel="stylesheet" th:href="@{/theme-static/css/tokens.css}">
+    <link rel="stylesheet" th:href="@{/theme-static/css/iam.css}">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12.5 7.2v14.6L16 30 3.5 23.8V9.2z' fill='%23f5b32d'/%3E%3Cpath d='M16 8l6.8 3.9v7.8L16 23.6 9.2 19.7v-7.8z' fill='%230e1626'/%3E%3C/svg%3E">
+    <style>
+        .action-card {
+            border: 1px solid var(--line, #e2e8f0);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+            background: #fff;
+        }
+        .action-card h3 {
+            margin: 0 0 6px;
+            font-size: 15px;
+            color: var(--ink);
+        }
+        .action-card p {
+            margin: 0 0 14px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #718096;
+        }
+        .action-inline {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="iam-shell">
+    <aside class="iam-aside">
+        <div class="iam-aside-content">
+            <div class="iam-logo">
+                <svg class="iam-logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="#f5b32d"/>
+                    <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#0e1626"/>
+                    <circle cx="16" cy="16" r="2.6" fill="#f5b32d"/>
+                </svg>
+                <div class="iam-logo-text">
+                    <p class="iam-logo-name" th:text="#{page.brand.name}">蜂巢身份</p>
+                    <p class="iam-logo-sub">Beenest IAM</p>
+                </div>
+            </div>
+            <div class="iam-aside-hero">
+                <h1><span th:text="#{page.action.hero.line1}">还差几步</span><br><em th:text="#{page.action.hero.line2}">即可通行</em></h1>
+                <p th:text="#{page.action.hero.desc}">完成下列事项后,你的账号即可正常访问已授权的应用。这些要求由平台安全策略设定。</p>
+            </div>
+            <div class="iam-aside-footer" th:text="|© 2026 Beenest IAM · #{page.brand.footer}|">© 2026 Beenest IAM · 统一身份认证中心</div>
+        </div>
+    </aside>
+
+    <main class="iam-main">
+        <div class="iam-form-wrap">
+            <header class="iam-form-head">
+                <h2 th:text="#{page.action.heading}">完善账户信息</h2>
+                <p><span th:text="#{page.action.subtitle}">请完成以下待办事项</span><span class="iam-realm-tag" th:text="${realmKey}">default</span></p>
+            </header>
+
+            <div class="iam-alert" id="error-box" role="alert" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+                </svg>
+                <span id="error-text"></span>
+            </div>
+
+            <div class="iam-alert iam-alert-info" id="info-box" role="status" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>
+                </svg>
+                <span id="info-text"></span>
+            </div>
+
+            <div th:each="item : ${actions}" class="action-card">
+                <h3 th:text="${item.name()}">待办事项</h3>
+                <p th:text="${item.description()}">说明</p>
+
+                <!-- 更新口令 -->
+                <form class="action-inline" th:if="${item.code() == 'UPDATE_PASSWORD'}"
+                      data-action="password" onsubmit="return false;">
+                    <div class="iam-input-group">
+                        <span class="iam-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 018 0v3.5"/>
+                            </svg>
+                        </span>
+                        <input class="iam-input" type="password" data-field="oldPassword"
+                               autocomplete="current-password" th:placeholder="#{page.action.password.old}" placeholder="当前口令" required>
+                    </div>
+                    <div class="iam-input-group">
+                        <span class="iam-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 018 0v3.5"/>
+                            </svg>
+                        </span>
+                        <input class="iam-input" type="password" data-field="newPassword"
+                               autocomplete="new-password" th:placeholder="#{page.action.password.new}" placeholder="新口令(至少 8 位)" required>
+                    </div>
+                    <div class="iam-input-group">
+                        <span class="iam-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 018 0v3.5"/>
+                            </svg>
+                        </span>
+                        <input class="iam-input" type="password" data-field="confirmPassword"
+                               autocomplete="new-password" th:placeholder="#{page.action.password.confirm}" placeholder="确认新口令" required>
+                    </div>
+                    <button class="iam-btn-primary" type="button" data-submit="password"
+                            th:text="#{page.action.password.submit}">更新口令</button>
+                </form>
+
+                <!-- 验证邮箱 -->
+                <div class="action-inline" th:if="${item.code() == 'VERIFY_EMAIL'}">
+                    <button class="iam-btn-secondary" type="button" data-submit="email"
+                            th:disabled="${!mailAvailable}"
+                            th:text="${mailAvailable} ? ${#messages.msg('page.action.email.send')} : ${#messages.msg('page.action.email.unavailable')}">
+                        发送验证邮件
+                    </button>
+                </div>
+
+                <!-- 绑定二步验证 -->
+                <div class="action-inline" th:if="${item.code() == 'CONFIGURE_TOTP'}">
+                    <a class="iam-btn-secondary" th:href="@{/account}" style="text-align:center;text-decoration:none;"
+                       th:text="#{page.action.totp.goto}">
+                        前往账户中心绑定动态口令
+                    </a>
+                </div>
+
+                <!-- 绑定 Passkey:在待办页直接完成,不必跳走再回来 -->
+                <div class="action-inline" th:if="${item.code() == 'CONFIGURE_PASSKEY'}">
+                    <button class="iam-btn-secondary" type="button" data-submit="passkey"
+                            th:disabled="${!passkeyAvailable}"
+                            th:text="${passkeyAvailable} ? ${#messages.msg('page.action.passkey.bind')} : ${#messages.msg('page.action.passkey.unavailable')}">
+                        立即绑定 Passkey
+                    </button>
+                </div>
+            </div>
+
+            <p class="iam-form-foot">
+                <a th:href="@{/api/v1/auth/logout}" onclick="return false;" id="logout-link"
+                   th:text="#{page.action.logout}">退出登录</a>
+            </p>
+
+            <div class="iam-lang-row">
+                <a th:replace="~{(${themeName} + '/fragments/lang-switch') :: switch}"></a>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    (function () {
+        var realmKey = /*[[${realmKey}]]*/ 'default';
+
+        /* 脚本文案由服务端按请求语言注入 */
+        var MSG = {
+            passwordTooShort: /*[[#{page.action.js.passwordTooShort}]]*/ '新口令长度需在 8 到 128 个字符之间',
+            passwordMismatch: /*[[#{page.action.js.passwordMismatch}]]*/ '两次输入的新口令不一致',
+            passwordUpdated: /*[[#{page.action.js.passwordUpdated}]]*/ '口令已更新,页面即将刷新。',
+            updateFailed: /*[[#{page.action.js.updateFailed}]]*/ '更新失败,请稍后重试',
+            emailSent: /*[[#{page.action.js.emailSent}]]*/ '验证邮件已发送,请查收邮箱并点击邮件中的链接。',
+            emailFailed: /*[[#{page.action.js.emailFailed}]]*/ '发送失败,请稍后重试',
+            passkeyUnsupported: /*[[#{page.action.passkey.unsupported}]]*/ '当前浏览器不支持 Passkey',
+            passkeyStartFailed: /*[[#{page.action.js.passkeyStartFailed}]]*/ '无法开始绑定',
+            passkeyNotCreated: /*[[#{page.action.js.passkeyNotCreated}]]*/ '未创建 Passkey',
+            passkeyBound: /*[[#{page.action.js.passkeyBound}]]*/ 'Passkey 绑定成功,页面即将刷新。',
+            passkeyFailed: /*[[#{page.action.js.passkeyFailed}]]*/ '绑定失败,请稍后重试',
+            networkError: /*[[#{page.common.networkError}]]*/ '网络异常,请稍后重试'
+        };
+        var errorBox = document.getElementById('error-box');
+        var infoBox = document.getElementById('info-box');
+
+        function showError(text) {
+            infoBox.style.display = 'none';
+            errorBox.style.display = '';
+            document.getElementById('error-text').textContent = text;
+        }
+
+        function showInfo(text) {
+            errorBox.style.display = 'none';
+            infoBox.style.display = '';
+            document.getElementById('info-text').textContent = text;
+        }
+
+        function csrfHeader() {
+            var match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : '';
+        }
+
+        function post(url, method, payload) {
+            return fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfHeader()},
+                credentials: 'same-origin',
+                body: payload == null ? undefined : JSON.stringify(payload)
+            }).then(function (response) {
+                return response.json().catch(function () {
+                    return {code: response.status === 200 ? 0 : -1};
+                });
+            });
+        }
+
+        document.querySelectorAll('[data-submit="password"]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var form = button.closest('form');
+                var oldPassword = form.querySelector('[data-field="oldPassword"]').value;
+                var newPassword = form.querySelector('[data-field="newPassword"]').value;
+                var confirmPassword = form.querySelector('[data-field="confirmPassword"]').value;
+                if (newPassword.length < 8) {
+                    showError(MSG.passwordTooShort);
+                    return;
+                }
+                if (newPassword !== confirmPassword) {
+                    showError(MSG.passwordMismatch);
+                    return;
+                }
+                button.disabled = true;
+                post('/api/v1/console/password', 'PUT',
+                    {oldPassword: oldPassword, newPassword: newPassword})
+                    .then(function (body) {
+                        button.disabled = false;
+                        if (body.code === 0) {
+                            showInfo(MSG.passwordUpdated);
+                            setTimeout(function () { location.reload(); }, 1200);
+                        } else {
+                            showError(body.message || MSG.updateFailed);
+                        }
+                    })
+                    .catch(function () {
+                        button.disabled = false;
+                        showError(MSG.networkError);
+                    });
+            });
+        });
+
+        document.querySelectorAll('[data-submit="email"]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                button.disabled = true;
+                post('/api/v1/auth/required-actions/email-verification', 'POST', null)
+                    .then(function (body) {
+                        button.disabled = false;
+                        if (body.code === 0) {
+                            showInfo(MSG.emailSent);
+                        } else {
+                            showError(body.message || MSG.emailFailed);
+                        }
+                    })
+                    .catch(function () {
+                        button.disabled = false;
+                        showError(MSG.networkError);
+                    });
+            });
+        });
+
+        /* ===== 绑定 Passkey ===== */
+        (function initPasskeyBinding() {
+            var buttons = document.querySelectorAll('[data-submit="passkey"]');
+            if (buttons.length === 0) {
+                return; // 没有该待办
+            }
+            if (!window.PublicKeyCredential || !navigator.credentials) {
+                buttons.forEach(function (button) {
+                    button.disabled = true;
+                    button.textContent = MSG.passkeyUnsupported;
+                });
+                return;
+            }
+
+            /* Base64URL → ArrayBuffer */
+            function toBuffer(value) {
+                var base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+                while (base64.length % 4 !== 0) {
+                    base64 += '=';
+                }
+                var binary = atob(base64);
+                var bytes = new Uint8Array(binary.length);
+                for (var i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return bytes.buffer;
+            }
+
+            /* ArrayBuffer → Base64URL(无填充) */
+            function toBase64Url(buffer) {
+                var bytes = new Uint8Array(buffer);
+                var binary = '';
+                for (var i = 0; i < bytes.length; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            }
+
+            buttons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    button.disabled = true;
+                    post('/api/v1/console/webauthn/register/options', 'POST', null)
+                        .then(function (body) {
+                            if (!body || body.code !== 0 || !body.data) {
+                                throw new Error((body && body.message) || MSG.passkeyStartFailed);
+                            }
+                            var options = body.data;
+                            var publicKey = {
+                                challenge: toBuffer(options.challenge),
+                                rp: options.rp,
+                                user: {
+                                    id: toBuffer(options.user.id),
+                                    name: options.user.name,
+                                    displayName: options.user.displayName
+                                },
+                                pubKeyCredParams: options.pubKeyCredParams,
+                                timeout: options.timeout,
+                                attestation: options.attestation,
+                                authenticatorSelection: options.authenticatorSelection
+                            };
+                            if (options.excludeCredentials && options.excludeCredentials.length > 0) {
+                                publicKey.excludeCredentials = options.excludeCredentials.map(function (item) {
+                                    return {
+                                        type: item.type,
+                                        id: toBuffer(item.id),
+                                        transports: item.transports
+                                    };
+                                });
+                            }
+                            return navigator.credentials.create({publicKey: publicKey});
+                        })
+                        .then(function (credential) {
+                            if (!credential) {
+                                throw new Error(MSG.passkeyNotCreated);
+                            }
+                            var response = credential.response;
+                            var transports = typeof response.getTransports === 'function'
+                                ? response.getTransports() : [];
+                            return post('/api/v1/console/webauthn/register', 'POST', {
+                                clientDataJSON: toBase64Url(response.clientDataJSON),
+                                attestationObject: toBase64Url(response.attestationObject),
+                                transports: transports,
+                                displayName: ''
+                            });
+                        })
+                        .then(function (body) {
+                            if (body && body.code === 0) {
+                                showInfo(MSG.passkeyBound);
+                                setTimeout(function () { location.reload(); }, 1200);
+                                return;
+                            }
+                            button.disabled = false;
+                            showError((body && body.message) || MSG.passkeyFailed);
+                        })
+                        .catch(function (error) {
+                            button.disabled = false;
+                            if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
+                                return; // 用户取消:不当作错误
+                            }
+                            showError((error && error.message) || MSG.passkeyFailed);
+                        });
+                });
+            });
+        })();
+
+        document.getElementById('logout-link').addEventListener('click', function (event) {
+            event.preventDefault();
+            post('/api/v1/auth/logout', 'POST', null).then(function () {
+                location.href = '/login?realm=' + encodeURIComponent(realmKey);
+            }).catch(function () {
+                location.href = '/login?realm=' + encodeURIComponent(realmKey);
+            });
+        });
+    })();
+</script>
+</body>
+</html>

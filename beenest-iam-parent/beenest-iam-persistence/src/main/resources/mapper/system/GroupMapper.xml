@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.GroupMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, parent_id, group_code, group_name, group_type, leader_user_id,
+        sort_order, external_id, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="Group">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmIdAndCode" resultType="Group">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group
+        WHERE realm_id = #{realmId} AND group_code = #{groupCode} AND deleted = FALSE
+    </select>
+
+    <select id="selectByIds" resultType="Group">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        AND deleted = FALSE
+    </select>
+
+    <select id="selectByCondition" resultType="Group">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group
+        <where>
+            realm_id = #{realmId} AND deleted = FALSE
+            <if test="group.groupCode != null and group.groupCode != ''">AND group_code LIKE '%' || #{group.groupCode} || '%'</if>
+            <if test="group.groupName != null and group.groupName != ''">AND group_name LIKE '%' || #{group.groupName} || '%'</if>
+            <if test="group.parentId != null">AND parent_id = #{group.parentId}</if>
+            <if test="group.groupType != null and group.groupType != ''">AND group_type = #{group.groupType}</if>
+        </where>
+        ORDER BY sort_order, id
+    </select>
+
+    <select id="selectByRealmId" resultType="Group">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY sort_order, id
+    </select>
+
+    <select id="selectByParentId" resultType="Group">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_group
+        WHERE parent_id = #{parentId} AND deleted = FALSE
+        ORDER BY sort_order, id
+    </select>
+
+    <insert id="insert" parameterType="Group" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_group(realm_id, parent_id, group_code, group_name,
+                              group_type, leader_user_id, sort_order, external_id, deleted)
+        VALUES (#{realmId}, #{parentId}, #{groupCode}, #{groupName},
+                COALESCE(#{groupType}, 'GROUP'), #{leaderUserId},
+                COALESCE(#{sortOrder}, 0), #{externalId}, FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="Group">
+        UPDATE iam_group
+        <set>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="groupCode != null">group_code = #{groupCode},</if>
+            <if test="groupName != null">group_name = #{groupName},</if>
+            <if test="groupType != null">group_type = #{groupType},</if>
+            <!-- 负责人可清空:通用"非空才写"表达不了清空,故单独一条语句 -->
+            <if test="sortOrder != null">sort_order = #{sortOrder},</if>
+            <if test="externalId != null">external_id = #{externalId},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <!-- 更新部门负责人;id 为 null 表示清空负责人 -->
+    <update id="updateLeaderUserId">
+        UPDATE iam_group
+        SET leader_user_id = #{leaderUserId}, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="updateParentId">
+        UPDATE iam_group
+        SET parent_id = #{parentId}, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="reparentChildren">
+        UPDATE iam_group
+        SET parent_id = #{newParentId}, updated_time = CURRENT_TIMESTAMP
+        WHERE parent_id = #{groupId} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteById">
+        UPDATE iam_group
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="countByRealm" resultType="long">
+        SELECT COUNT(*) FROM iam_group
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+    </select>
+</mapper>

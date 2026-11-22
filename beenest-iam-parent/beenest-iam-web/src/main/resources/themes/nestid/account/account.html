@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{page.account.docTitle}">我的账户 · 蜂巢身份</title>
+    <link rel="stylesheet" th:href="@{/theme-static/css/tokens.css}">
+    <link rel="stylesheet" th:href="@{/theme-static/css/iam.css}">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12.5 7.2v14.6L16 30 3.5 23.8V9.2z' fill='%23f5b32d'/%3E%3Cpath d='M16 8l6.8 3.9v7.8L16 23.6 9.2 19.7v-7.8z' fill='%230e1626'/%3E%3C/svg%3E">
+</head>
+<body class="acc-body">
+
+<header class="acc-top">
+    <div class="acc-top-inner">
+        <a class="acc-brand" th:href="@{/portal}">
+            <svg class="acc-brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M16 1.6l12.3 7.1v14.6L16 30.4 3.7 23.3V8.7z" fill="#f5b32d"/>
+                <path d="M16 7.4l7 4v8.2l-7 4-7-4v-8.2z" fill="#0e1626"/>
+                <circle cx="16" cy="16" r="2.6" fill="#f5b32d"/>
+            </svg>
+            <span class="acc-brand-text">
+                <span class="acc-brand-name" th:text="#{page.brand.name}">蜂巢身份</span>
+                <span class="acc-brand-sub">Account Center</span>
+            </span>
+        </a>
+
+        <span class="acc-realm">
+            <span class="acc-realm-dot"></span>
+            <span th:text="#{page.account.realmLabel}">身份域</span>
+            <strong th:text="${overview.profile().realmKey()}">default</strong>
+        </span>
+
+        <span class="acc-top-space"></span>
+
+        <a class="acc-top-link" th:href="@{/portal}" th:text="#{page.account.backToPortal}">返回应用门户</a>
+        <a th:replace="~{(${themeName} + '/fragments/lang-switch') :: switch}"></a>
+        <button class="acc-btn acc-btn--ghost" type="button" id="logout-btn"
+                th:text="#{page.account.logout}">退出登录</button>
+    </div>
+</header>
+
+<main class="acc-main">
+    <div class="acc-hero">
+        <h1 th:text="#{page.account.heading}">我的账户</h1>
+        <p>
+            <span th:text="#{page.account.subtitle}">管理你的登录凭证、已授权应用与登录设备</span>
+            <span class="iam-realm-tag" th:text="${overview.profile().username()}">alice</span>
+        </p>
+    </div>
+
+    <!-- 待办提示:有待办时账号还进不了业务系统,先引导去办理 -->
+    <div class="iam-alert iam-alert-info" th:if="${!#lists.isEmpty(overview.pendingActions())}" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+        </svg>
+        <span>
+            <strong th:text="#{page.account.pending.title}">还有未完成的账户事项</strong>
+            <span th:text="#{page.account.pending.desc}">完成这些事项后,你的账号才能正常访问已授权的应用。</span>
+            <a th:href="@{/required-action}" th:text="#{page.account.pending.goto}">前往办理</a>
+        </span>
+    </div>
+
+    <div class="iam-alert iam-alert-info" th:if="${notice != null}" role="status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>
+        </svg>
+        <span th:text="${notice}">已撤销该应用的授权</span>
+    </div>
+
+    <div class="iam-alert" th:if="${failed}" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+        </svg>
+        <span th:text="#{page.account.notice.failed}">操作未完成,该记录可能已被移除</span>
+    </div>
+
+    <!-- ===== 账号资料 ===== -->
+    <section class="acc-section" id="profile">
+        <header class="acc-section-head">
+            <h2 th:text="#{page.account.profile.title}">账号资料</h2>
+        </header>
+        <dl class="acc-defs" th:with="p=${overview.profile()}">
+            <div class="acc-def">
+                <dt th:text="#{page.account.profile.username}">登录名</dt>
+                <dd th:text="${p.username()}">alice</dd>
+            </div>
+            <div class="acc-def">
+                <dt th:text="#{page.account.profile.nickname}">昵称</dt>
+                <dd th:text="${#strings.isEmpty(p.nickname())} ? ${#messages.msg('page.account.profile.empty')} : ${p.nickname()}">—</dd>
+            </div>
+            <div class="acc-def">
+                <dt th:text="#{page.account.profile.email}">邮箱</dt>
+                <dd>
+                    <span th:text="${#strings.isEmpty(p.email())} ? ${#messages.msg('page.account.profile.empty')} : ${p.email()}">—</span>
+                    <span class="acc-badge acc-badge--on" th:if="${p.emailVerified()}"
+                          th:text="#{page.account.profile.verified}">已验证</span>
+                    <span class="acc-badge" th:if="${!#strings.isEmpty(p.email()) and !p.emailVerified()}"
+                          th:text="#{page.account.profile.unverified}">未验证</span>
+                </dd>
+            </div>
+            <div class="acc-def">
+                <dt th:text="#{page.account.profile.phone}">手机号</dt>
+                <dd>
+                    <span th:text="${#strings.isEmpty(p.phone())} ? ${#messages.msg('page.account.profile.empty')} : ${p.phone()}">—</span>
+                    <span class="acc-badge acc-badge--on" th:if="${p.phoneVerified()}"
+                          th:text="#{page.account.profile.verified}">已验证</span>
+                </dd>
+            </div>
+            <div class="acc-def">
+                <dt th:text="#{page.account.profile.type}">账号类型</dt>
+                <dd th:text="${p.userType()}">INTERNAL</dd>
+            </div>
+        </dl>
+    </section>
+
+    <!-- ===== 登录凭证 ===== -->
+    <section class="acc-section" id="credentials">
+        <header class="acc-section-head">
+            <h2 th:text="#{page.account.credentials.title}">登录凭证</h2>
+            <p th:text="#{page.account.credentials.desc}">建议同时保留口令与另一种凭证。</p>
+        </header>
+
+        <div class="acc-cards" th:with="c=${overview.credentials()}">
+
+            <!-- 口令 -->
+            <article class="acc-card">
+                <div class="acc-card-head">
+                    <h3 th:text="#{page.account.credentials.password}">登录口令</h3>
+                    <span class="acc-badge acc-badge--on" th:if="${c.passwordSet()}"
+                          th:text="#{page.account.credentials.passwordOn}">已设置</span>
+                    <span class="acc-badge acc-badge--warn" th:if="${!c.passwordSet()}"
+                          th:text="#{page.account.credentials.passwordOff}">未设置本地口令</span>
+                </div>
+                <p class="acc-card-note" th:text="#{page.account.credentials.desc}">建议同时保留口令与另一种凭证。</p>
+            </article>
+
+            <!-- 动态口令 -->
+            <article class="acc-card">
+                <div class="acc-card-head">
+                    <h3 th:text="#{page.account.credentials.totp}">动态口令</h3>
+                    <span class="acc-badge acc-badge--on" th:if="${c.totpEnabled()}"
+                          th:text="#{page.account.credentials.totpOn}">已启用</span>
+                    <span class="acc-badge" th:if="${!c.totpEnabled()}"
+                          th:text="#{page.account.credentials.totpOff}">未启用</span>
+                </div>
+                <p class="acc-card-note" th:if="${c.totpEnabled()}">
+                    <span th:text="#{page.account.credentials.recovery}">剩余恢复码</span>
+                    <strong th:text="${c.recoveryCodesRemaining()}">10</strong>
+                </p>
+                <div class="acc-card-actions">
+                    <button class="acc-btn acc-btn--primary" type="button" id="totp-enable-btn"
+                            th:if="${!c.totpEnabled()}"
+                            th:text="#{page.account.credentials.enable}">绑定</button>
+                    <button class="acc-btn" type="button" id="totp-regenerate-btn" th:if="${c.totpEnabled()}"
+                            th:text="#{page.account.credentials.regenerate}">重发恢复码</button>
+                    <button class="acc-btn acc-btn--danger" type="button" id="totp-disable-btn" th:if="${c.totpEnabled()}"
+                            th:text="#{page.account.credentials.disable}">关闭</button>
+                </div>
+            </article>
+
+            <!-- Passkey -->
+            <article class="acc-card">
+                <div class="acc-card-head">
+                    <h3 th:text="#{page.account.credentials.passkey}">Passkey</h3>
+                    <span class="acc-badge acc-badge--on" th:if="${!#lists.isEmpty(c.passkeys())}"
+                          th:text="${#messages.msgWithParams('page.account.credentials.passkeyCount', #lists.size(c.passkeys()))}">2 把</span>
+                    <span class="acc-badge" th:if="${#lists.isEmpty(c.passkeys()) and c.passkeyAvailable()}"
+                          th:text="#{page.account.credentials.passkeyNone}">未绑定</span>
+                    <span class="acc-badge acc-badge--warn" th:if="${!c.passkeyAvailable()}"
+                          th:text="#{page.account.credentials.passkeyUnavailable}">当前环境未启用</span>
+                </div>
+
+                <ul class="acc-passkey-list" th:if="${!#lists.isEmpty(c.passkeys())}">
+                    <li th:each="pk : ${c.passkeys()}">
+                        <span class="acc-passkey-name"
+                              th:text="${#strings.isEmpty(pk.displayName())} ? 'Passkey' : ${pk.displayName()}">Passkey</span>
+                        <span class="acc-passkey-meta">
+                            <span th:text="#{page.account.credentials.createdAt}">绑定于</span>
+                            <span th:text="${fmt.dateTime(pk.createdTime())}">2026-10-27 15:00</span>
+                            <span class="acc-sep">·</span>
+                            <span th:text="#{page.account.credentials.passkeyLastUsed}">最近使用</span>
+                            <span th:text="${pk.lastUsedTime() == null} ? ${#messages.msg('page.account.credentials.never')} : ${fmt.dateTime(pk.lastUsedTime())}">从未使用</span>
+                        </span>
+                        <button class="acc-btn acc-btn--danger acc-btn--sm" type="button"
+                                th:attr="data-passkey-id=${pk.id()},data-confirm=#{page.account.credentials.removeConfirm}"
+                                th:text="#{page.account.credentials.removePasskey}">删除</button>
+                    </li>
+                </ul>
+
+                <div class="acc-card-actions" th:if="${c.passkeyAvailable()}">
+                    <button class="acc-btn acc-btn--primary" type="button" id="passkey-add-btn"
+                            th:text="#{page.account.credentials.addPasskey}">添加 Passkey</button>
+                </div>
+            </article>
+        </div>
+
+        <!-- 绑定动态口令:密钥与恢复码都只在这里出现一次 -->
+        <div class="acc-panel" id="totp-panel" hidden>
+            <h3 th:text="#{page.account.totp.title}">绑定动态口令</h3>
+            <div id="totp-enroll">
+                <p th:text="#{page.account.totp.step1}">在验证器中添加以下密钥</p>
+                <code class="acc-secret" id="totp-secret"></code>
+                <p th:text="#{page.account.totp.step2}">输入验证器生成的 6 位口令完成绑定</p>
+                <div class="acc-panel-row">
+                    <input class="iam-input acc-panel-input" id="totp-code" type="text" inputmode="numeric"
+                           maxlength="6" autocomplete="one-time-code"
+                           th:attr="aria-label=#{page.account.totp.code}">
+                    <button class="acc-btn acc-btn--primary" type="button" id="totp-confirm-btn"
+                            th:text="#{page.account.totp.submit}">确认绑定</button>
+                    <button class="acc-btn" type="button" id="totp-cancel-btn"
+                            th:text="#{page.account.totp.cancel}">取消</button>
+                </div>
+            </div>
+            <div id="totp-recovery" hidden>
+                <h4 th:text="#{page.account.totp.recoveryTitle}">恢复码(仅显示一次)</h4>
+                <ul class="acc-recovery-list" id="recovery-list"></ul>
+                <p class="acc-card-note" th:text="#{page.account.totp.recoveryHint}">请立即保存到安全位置。</p>
+                <button class="acc-btn acc-btn--primary" type="button" id="recovery-done-btn"
+                        th:text="#{page.account.totp.recoveryDone}">我已保存</button>
+            </div>
+        </div>
+
+        <!-- 关闭动态口令 -->
+        <div class="acc-panel" id="totp-disable-panel" hidden>
+            <h3 th:text="#{page.account.credentials.totp}">动态口令</h3>
+            <p th:text="#{page.account.totp.disableHint}">关闭动态口令后,登录将只校验口令。</p>
+            <div class="acc-panel-row">
+                <input class="iam-input acc-panel-input" id="totp-disable-code" type="text" autocomplete="off"
+                       th:attr="aria-label=#{page.account.totp.code}">
+                <button class="acc-btn acc-btn--danger" type="button" id="totp-disable-confirm-btn"
+                        th:text="#{page.account.totp.disableSubmit}">确认关闭</button>
+                <button class="acc-btn" type="button" id="totp-disable-cancel-btn"
+                        th:text="#{page.account.totp.cancel}">取消</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== 我的授权 ===== -->
+    <section class="acc-section" id="consents">
+        <header class="acc-section-head">
+            <h2 th:text="#{page.account.consents.title}">我的授权</h2>
+            <p th:text="#{page.account.consents.desc}">撤销后应用需重新征求同意。</p>
+        </header>
+
+        <div class="acc-empty" th:if="${#lists.isEmpty(overview.consents())}"
+             th:text="#{page.account.consents.empty}">你还没有授权任何应用</div>
+
+        <table class="acc-table" th:if="${!#lists.isEmpty(overview.consents())}">
+            <thead>
+            <tr>
+                <th th:text="#{page.account.consents.app}">应用</th>
+                <th th:text="#{page.account.consents.scopes}">授权范围</th>
+                <th th:text="#{page.account.consents.grantedAt}">授权时间</th>
+                <th class="acc-col-action" th:text="#{page.account.consents.action}">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${overview.consents()}">
+                <td>
+                    <span class="acc-cell-strong"
+                          th:text="${#strings.isEmpty(item.clientName())} ? ${item.clientKey()} : ${item.clientName()}">应用</span>
+                    <span class="acc-cell-sub" th:text="${item.clientKey()}">demo</span>
+                </td>
+                <td>
+                    <span class="acc-tag" th:each="scope : ${item.scopes()}"
+                          th:attr="title=${scope.code()}" th:text="${scope.label()}">身份标识</span>
+                </td>
+                <td th:text="${fmt.dateTime(item.grantedTime())}">2026-10-27 15:00</td>
+                <td class="acc-col-action">
+                    <form th:action="@{/account/consents/revoke}" method="post"
+                          th:attr="data-confirm=#{page.account.consents.revokeConfirm}">
+                        <input type="hidden" name="clientKey" th:value="${item.clientKey()}">
+                        <button class="acc-btn acc-btn--danger acc-btn--sm" type="submit"
+                                th:text="#{page.account.consents.revoke}">撤销</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- ===== 登录设备 ===== -->
+    <section class="acc-section" id="sessions">
+        <header class="acc-section-head">
+            <h2 th:text="#{page.account.sessions.title}">登录设备</h2>
+            <p th:text="#{page.account.sessions.desc}">发现不认识的设备时,立即注销并修改口令。</p>
+        </header>
+
+        <div class="acc-empty" th:if="${#lists.isEmpty(overview.sessions())}"
+             th:text="#{page.account.sessions.empty}">当前没有其它登录设备</div>
+
+        <table class="acc-table" th:if="${!#lists.isEmpty(overview.sessions())}">
+            <thead>
+            <tr>
+                <th th:text="#{page.account.sessions.device}">设备</th>
+                <th th:text="#{page.account.sessions.loginType}">登录方式</th>
+                <th th:text="#{page.account.sessions.ip}">来源 IP</th>
+                <th th:text="#{page.account.sessions.time}">登录时间</th>
+                <th th:text="#{page.account.sessions.active}">最近活跃</th>
+                <th class="acc-col-action" th:text="#{page.account.consents.action}">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${overview.sessions()}">
+                <td>
+                    <span class="acc-cell-strong"
+                          th:text="${fmt.abbreviate(item.userAgent(), 46)}">Mozilla/5.0…</span>
+                    <span class="acc-cell-sub" th:attr="title=${item.userAgent()}"
+                          th:text="${item.current()} ? ${#messages.msg('page.account.sessions.current')} : ${fmt.abbreviate(item.sid(), 14)}">本机</span>
+                </td>
+                <td th:text="${item.loginType()}">PASSWORD</td>
+                <td th:text="${item.ip()}">127.0.0.1</td>
+                <td th:text="${fmt.dateTime(item.createdTime())}">2026-10-27 15:00</td>
+                <td th:text="${fmt.dateTime(item.lastActiveTime())}">2026-10-27 15:00</td>
+                <td class="acc-col-action">
+                    <button class="acc-btn acc-btn--danger acc-btn--sm" type="button"
+                            th:if="${!item.current()}" th:attr="data-session-sid=${item.sid()}"
+                            th:text="#{page.account.sessions.revoke}">注销</button>
+                    <span class="acc-cell-sub" th:if="${item.current()}"
+                          th:text="#{page.account.sessions.current}">本机</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <form id="session-revoke-form" th:action="@{/account/sessions/revoke}" method="post" hidden>
+            <input type="hidden" name="sid" id="session-revoke-sid">
+        </form>
+    </section>
+
+    <!-- ===== 个人数据导出 ===== -->
+    <section class="acc-section" id="export">
+        <header class="acc-section-head">
+            <h2 th:text="#{page.account.export.title}">个人数据</h2>
+            <p th:text="#{page.account.export.desc}">导出你的资料、角色、授权记录与登录历史。</p>
+        </header>
+        <a class="acc-btn acc-btn--primary" th:href="@{/account/export}" download
+           th:text="#{page.account.export.action}">下载数据</a>
+    </section>
+
+    <footer class="acc-foot">
+        <span th:text="|© 2026 Beenest IAM · #{page.brand.footer}|">© 2026 Beenest IAM · 统一身份认证中心</span>
+    </footer>
+</main>
+
+<script th:inline="javascript">
+    (function () {
+        var MSG = {
+            networkError: /*[[#{page.common.networkError}]]*/ '网络异常,请稍后重试',
+            codeRequired: /*[[#{page.account.js.codeRequired}]]*/ '请输入动态口令',
+            totpDisabled: /*[[#{page.account.js.totpDisabled}]]*/ '动态口令已关闭,页面即将刷新',
+            passkeyUnsupported: /*[[#{page.account.js.passkeyUnsupported}]]*/ '当前浏览器不支持 Passkey',
+            passkeyFailed: /*[[#{page.account.js.passkeyFailed}]]*/ '操作失败,请稍后重试',
+            passkeyAdded: /*[[#{page.account.js.passkeyAdded}]]*/ 'Passkey 已绑定,页面即将刷新',
+            passkeyRemoved: /*[[#{page.account.js.passkeyRemoved}]]*/ 'Passkey 已删除,页面即将刷新'
+        };
+
+        function csrfHeader() {
+            var match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : '';
+        }
+
+        function call(url, method, payload) {
+            return fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfHeader()},
+                credentials: 'same-origin',
+                body: payload == null ? undefined : JSON.stringify(payload)
+            }).then(function (response) {
+                return response.json().catch(function () {
+                    return {code: response.ok ? 0 : -1};
+                });
+            });
+        }
+
+        function fail(body) {
+            alert((body && body.message) || MSG.networkError);
+        }
+
+        function reloadSoon() {
+            setTimeout(function () { location.reload(); }, 900);
+        }
+
+        /* ===== 退出登录 ===== */
+        document.getElementById('logout-btn').addEventListener('click', function () {
+            call('/api/v1/auth/logout', 'POST', null).then(function () {
+                location.href = '/login';
+            }).catch(function () {
+                location.href = '/login';
+            });
+        });
+
+        /* ===== 表单类操作二次确认(撤销授权 / 删除 Passkey) ===== */
+        document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!window.confirm(form.getAttribute('data-confirm'))) {
+                    event.preventDefault();
+                }
+            });
+        });
+
+        document.querySelectorAll('button[data-confirm]').forEach(function (button) {
+            button.addEventListener('click', function (event) {
+                if (!window.confirm(button.getAttribute('data-confirm'))) {
+                    event.preventDefault();
+                }
+            });
+        });
+
+        /* ===== 注销设备 ===== */
+        document.querySelectorAll('button[data-session-sid]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                document.getElementById('session-revoke-sid').value = button.getAttribute('data-session-sid');
+                document.getElementById('session-revoke-form').submit();
+            });
+        });
+
+        /* ===== 动态口令 ===== */
+        var totpPanel = document.getElementById('totp-panel');
+        var disablePanel = document.getElementById('totp-disable-panel');
+        var enrollBox = document.getElementById('totp-enroll');
+        var recoveryBox = document.getElementById('totp-recovery');
+
+        function showRecoveryCodes(codes) {
+            var list = document.getElementById('recovery-list');
+            list.innerHTML = '';
+            (codes || []).forEach(function (code) {
+                var item = document.createElement('li');
+                item.textContent = code;
+                list.appendChild(item);
+            });
+            totpPanel.hidden = false;
+            enrollBox.hidden = true;
+            recoveryBox.hidden = false;
+        }
+
+        var enableBtn = document.getElementById('totp-enable-btn');
+        if (enableBtn) {
+            enableBtn.addEventListener('click', function () {
+                enableBtn.disabled = true;
+                call('/api/v1/console/mfa/enroll', 'POST', null).then(function (body) {
+                    enableBtn.disabled = false;
+                    if (!body || body.code !== 0 || !body.data) {
+                        return fail(body);
+                    }
+                    document.getElementById('totp-secret').textContent = body.data.secret;
+                    enrollBox.hidden = false;
+                    recoveryBox.hidden = true;
+                    totpPanel.hidden = false;
+                    document.getElementById('totp-code').focus();
+                }).catch(function () {
+                    enableBtn.disabled = false;
+                    fail(null);
+                });
+            });
+        }
+
+        var confirmBtn = document.getElementById('totp-confirm-btn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function () {
+                var code = document.getElementById('totp-code').value.trim();
+                if (!code) {
+                    return alert(MSG.codeRequired);
+                }
+                confirmBtn.disabled = true;
+                call('/api/v1/console/mfa/confirm', 'POST', {code: code}).then(function (body) {
+                    confirmBtn.disabled = false;
+                    if (body && body.code === 0) {
+                        showRecoveryCodes(body.data);
+                        return;
+                    }
+                    fail(body);
+                }).catch(function () {
+                    confirmBtn.disabled = false;
+                    fail(null);
+                });
+            });
+        }
+
+        var cancelBtn = document.getElementById('totp-cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function () {
+                totpPanel.hidden = true;
+                document.getElementById('totp-code').value = '';
+            });
+        }
+
+        var regenerateBtn = document.getElementById('totp-regenerate-btn');
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', function () {
+                regenerateBtn.disabled = true;
+                call('/api/v1/console/mfa/recovery-codes', 'POST', null).then(function (body) {
+                    regenerateBtn.disabled = false;
+                    if (body && body.code === 0) {
+                        showRecoveryCodes(body.data);
+                        return;
+                    }
+                    fail(body);
+                }).catch(function () {
+                    regenerateBtn.disabled = false;
+                    fail(null);
+                });
+            });
+        }
+
+        var recoveryDoneBtn = document.getElementById('recovery-done-btn');
+        if (recoveryDoneBtn) {
+            recoveryDoneBtn.addEventListener('click', reloadSoon);
+        }
+
+        var disableBtn = document.getElementById('totp-disable-btn');
+        if (disableBtn) {
+            disableBtn.addEventListener('click', function () {
+                disablePanel.hidden = false;
+                document.getElementById('totp-disable-code').focus();
+            });
+        }
+
+        var disableCancelBtn = document.getElementById('totp-disable-cancel-btn');
+        if (disableCancelBtn) {
+            disableCancelBtn.addEventListener('click', function () {
+                disablePanel.hidden = true;
+                document.getElementById('totp-disable-code').value = '';
+            });
+        }
+
+        var disableConfirmBtn = document.getElementById('totp-disable-confirm-btn');
+        if (disableConfirmBtn) {
+            disableConfirmBtn.addEventListener('click', function () {
+                var code = document.getElementById('totp-disable-code').value.trim();
+                if (!code) {
+                    return alert(MSG.codeRequired);
+                }
+                disableConfirmBtn.disabled = true;
+                call('/api/v1/console/mfa/disable', 'POST', {code: code}).then(function (body) {
+                    disableConfirmBtn.disabled = false;
+                    if (body && body.code === 0) {
+                        alert(MSG.totpDisabled);
+                        reloadSoon();
+                        return;
+                    }
+                    fail(body);
+                }).catch(function () {
+                    disableConfirmBtn.disabled = false;
+                    fail(null);
+                });
+            });
+        }
+
+        /* ===== Passkey ===== */
+        function toBuffer(value) {
+            var base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4 !== 0) {
+                base64 += '=';
+            }
+            var binary = atob(base64);
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function toBase64Url(buffer) {
+            var bytes = new Uint8Array(buffer);
+            var binary = '';
+            for (var i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        var addPasskeyBtn = document.getElementById('passkey-add-btn');
+        if (addPasskeyBtn) {
+            if (!window.PublicKeyCredential || !navigator.credentials) {
+                addPasskeyBtn.disabled = true;
+                addPasskeyBtn.textContent = MSG.passkeyUnsupported;
+            } else {
+                addPasskeyBtn.addEventListener('click', function () {
+                    addPasskeyBtn.disabled = true;
+                    call('/api/v1/console/webauthn/register/options', 'POST', null).then(function (body) {
+                        if (!body || body.code !== 0 || !body.data) {
+                            throw new Error((body && body.message) || MSG.passkeyFailed);
+                        }
+                        var options = body.data;
+                        var publicKey = {
+                            challenge: toBuffer(options.challenge),
+                            rp: options.rp,
+                            user: {
+                                id: toBuffer(options.user.id),
+                                name: options.user.name,
+                                displayName: options.user.displayName
+                            },
+                            pubKeyCredParams: options.pubKeyCredParams,
+                            timeout: options.timeout,
+                            attestation: options.attestation,
+                            authenticatorSelection: options.authenticatorSelection
+                        };
+                        if (options.excludeCredentials && options.excludeCredentials.length > 0) {
+                            publicKey.excludeCredentials = options.excludeCredentials.map(function (item) {
+                                return {type: item.type, id: toBuffer(item.id), transports: item.transports};
+                            });
+                        }
+                        return navigator.credentials.create({publicKey: publicKey});
+                    }).then(function (credential) {
+                        if (!credential) {
+                            throw new Error(MSG.passkeyFailed);
+                        }
+                        var response = credential.response;
+                        var transports = typeof response.getTransports === 'function'
+                            ? response.getTransports() : [];
+                        return call('/api/v1/console/webauthn/register', 'POST', {
+                            clientDataJSON: toBase64Url(response.clientDataJSON),
+                            attestationObject: toBase64Url(response.attestationObject),
+                            transports: transports,
+                            displayName: ''
+                        });
+                    }).then(function (body) {
+                        if (body && body.code === 0) {
+                            alert(MSG.passkeyAdded);
+                            reloadSoon();
+                            return;
+                        }
+                        addPasskeyBtn.disabled = false;
+                        fail(body);
+                    }).catch(function (error) {
+                        addPasskeyBtn.disabled = false;
+                        if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
+                            return; // 用户取消:不当作错误
+                        }
+                        fail({message: error && error.message});
+                    });
+                });
+            }
+        }
+
+        document.querySelectorAll('button[data-passkey-id]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                button.disabled = true;
+                call('/api/v1/console/webauthn/credentials/' + encodeURIComponent(button.getAttribute('data-passkey-id')),
+                    'DELETE', null).then(function (body) {
+                    if (body && body.code === 0) {
+                        alert(MSG.passkeyRemoved);
+                        reloadSoon();
+                        return;
+                    }
+                    button.disabled = false;
+                    fail(body);
+                }).catch(function () {
+                    button.disabled = false;
+                    fail(null);
+                });
+            });
+        });
+    })();
+</script>
+</body>
+</html>

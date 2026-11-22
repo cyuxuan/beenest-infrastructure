@@ -1,0 +1,37 @@
+# ===== 生产环境(默认档)=====
+# 原则:凡是安全相关的项,一律没有默认值——缺失就启动失败,
+# 而不是带着一个"能跑但不合规"的配置上线。
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: 10000
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3s
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:32}
+          max-idle: 16
+          min-idle: 4
+
+iam:
+  # 域签名私钥的加密主密钥:生产必须由部署侧注入。
+  # 这里保留空默认值,让应用自己给出"为什么必须配"的明确提示,
+  # 而不是抛一个看不懂的占位符解析异常
+  realm-key:
+    master-secret: ${IAM_REALM_KEY_SECRET:}
+  audit:
+    # 审计日志留存天数:超过的记录由定时任务清理。
+    # 合规要求至少保留 6 个月(180 天),这里默认就是 180;
+    # 调小前请先确认符合本单位的留存与取证要求
+    retention-days: ${IAM_AUDIT_RETENTION_DAYS:180}
+    # 清理任务执行时间(cron,平台默认时区):每天 03:30
+    cleanup-cron: ${IAM_AUDIT_CLEANUP_CRON:0 30 3 * * *}

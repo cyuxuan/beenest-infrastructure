@@ -1,0 +1,30 @@
+# ===== 蜂巢 IAM 运行镜像(复用宿主已构建产物)=====
+# 用途:本地或内网离线环境。jar 由宿主先执行
+#   ./mvnw -o -B -DskipTests package
+#   mkdir -p .docker-runtime && cp beenest-iam-server/target/beenest-iam-server-*.jar .docker-runtime/app.jar
+# 再 docker build -f Dockerfile.runtime 即可,不需要容器内访问 Maven 仓库。
+#
+# 生产构建仍用根目录的 Dockerfile(多阶段、自包含):它能在 CI 里从源码一步出镜像,
+# 代价是首次构建要下载全部依赖。两者运行阶段的约束完全一致,只是"谁来编译"不同。
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+# 打补丁:基础镜像自带的 openssl 等系统库会滞后于安全更新。
+# curl 只为健康检查与进容器排障,基础镜像不带它
+RUN apt-get update \
+    && apt-get -y upgrade \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+# 非 root 运行:容器逃逸时拿到的是无特权账号
+RUN groupadd -r iam && useradd -r -g iam -d /app iam
+# 外置扩展包目录:随镜像带一份微信扩展包,启动时由 ExternalProviderLoader 装载。
+# 目录内没有 jar 时只记日志并跳过,不影响平台启动
+RUN mkdir -p /app/providers && chown iam:iam /app/providers
+COPY --chown=iam:iam providers/ /app/providers/
+COPY --chown=iam:iam .docker-runtime/app.jar /app/beenest-iam-server.jar
+USER iam
+EXPOSE 8080
+# 管理端口(actuator/指标)故意不写 EXPOSE:避免 `docker run -P` 把 9090 一并映射到宿主机
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseZGC"
+ENV IAM_PROVIDER_DIR=/app/providers
+# 以 exec 形式启动:JVM 收到 SIGTERM 能直接退出,不留孤儿进程
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/beenest-iam-server.jar"]

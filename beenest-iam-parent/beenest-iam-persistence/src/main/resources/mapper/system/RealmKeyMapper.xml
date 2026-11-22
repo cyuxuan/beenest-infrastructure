@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.RealmKeyMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, key_type, private_key, public_key, active, activated_time, retired_time,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectActiveByRealmId" resultType="RealmKey">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm_key
+        WHERE realm_id = #{realmId} AND active = TRUE AND deleted = FALSE
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectByRealmId" resultType="RealmKey">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_realm_key
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="RealmKey" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_realm_key(realm_id, key_type, private_key, public_key, active,
+                                  activated_time, retired_time, deleted)
+        VALUES (#{realmId}, #{keyType}, #{privateKey}, #{publicKey}, #{active},
+                #{activatedTime}, #{retiredTime}, FALSE)
+    </insert>
+
+    <update id="deactivateByRealmId">
+        UPDATE iam_realm_key
+        SET active = FALSE, retired_time = CURRENT_TIMESTAMP, updated_time = CURRENT_TIMESTAMP
+        WHERE realm_id = #{realmId} AND active = TRUE AND deleted = FALSE
+    </update>
+
+    <update id="updatePrivateKey" parameterType="RealmKey">
+        UPDATE iam_realm_key
+        SET private_key = #{privateKey}, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

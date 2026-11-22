@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.NotificationLogMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, channel, recipient, template_code, subject, status, error_message,
+        user_id, deleted, created_time, updated_time
+    </sql>
+
+    <insert id="insert" parameterType="NotificationLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_notification_log
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_id, channel, recipient, template_code, status, deleted,
+            <if test="subject != null">subject,</if>
+            <if test="errorMessage != null">error_message,</if>
+            <if test="userId != null">user_id,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmId}, #{channel}, #{recipient}, #{templateCode}, #{status}, FALSE,
+            <if test="subject != null">#{subject},</if>
+            <if test="errorMessage != null">#{errorMessage},</if>
+            <if test="userId != null">#{userId},</if>
+        </trim>
+    </insert>
+
+    <select id="selectRecent" resultType="NotificationLog">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_notification_log
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY created_time DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectByCondition" resultType="NotificationLog">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_notification_log
+        <where>
+            realm_id = #{realmId} AND deleted = FALSE
+            <if test="channel != null and channel != ''">AND channel = #{channel}</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+            <if test="recipient != null and recipient != ''">
+                AND recipient LIKE '%' || #{recipient} || '%'
+            </if>
+            <if test="templateCode != null and templateCode != ''">AND template_code = #{templateCode}</if>
+            <if test="fromTime != null">AND created_time &gt;= #{fromTime}</if>
+            <if test="toTime != null">AND created_time &lt;= #{toTime}</if>
+        </where>
+        ORDER BY created_time DESC, id DESC
+    </select>
+
+    <delete id="deleteBefore">
+        DELETE FROM iam_notification_log
+        WHERE id IN (
+            SELECT id
+            FROM iam_notification_log
+            WHERE created_time &lt; #{cutoff}
+            ORDER BY id
+            LIMIT #{limit}
+        )
+    </delete>
+
+    <select id="countByRecipientSince" resultType="int">
+        SELECT COUNT(*)
+        FROM iam_notification_log
+        WHERE realm_id = #{realmId}
+          AND recipient = #{recipient}
+          AND deleted = FALSE
+          AND created_time &gt;= CURRENT_TIMESTAMP - (#{minutes} * INTERVAL '1 minute')
+    </select>
+</mapper>

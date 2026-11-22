@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.UserGroupMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, user_id, group_id, position_id, is_primary, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByUserId" resultType="UserGroup">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_group
+        WHERE user_id = #{userId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByGroupId" resultType="UserGroup">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_group
+        WHERE group_id = #{groupId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByUserIds" resultType="UserGroup">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_group
+        WHERE user_id IN
+        <foreach collection="userIds" item="userId" open="(" separator="," close=")">#{userId}</foreach>
+        AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="UserGroup" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_user_group(realm_id, user_id, group_id, position_id, is_primary, deleted)
+        VALUES (#{realmId}, #{userId}, #{groupId}, #{positionId},
+                COALESCE(#{isPrimary}, FALSE), FALSE)
+    </insert>
+
+    <update id="updateAssignment">
+        UPDATE iam_user_group
+        SET position_id = #{positionId},
+            is_primary = COALESCE(#{isPrimary}, FALSE),
+            updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND group_id = #{groupId} AND deleted = FALSE
+    </update>
+
+    <update id="clearPrimaryForUser">
+        UPDATE iam_user_group
+        SET is_primary = FALSE, updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND deleted = FALSE AND is_primary = TRUE
+    </update>
+
+    <!-- 含下级的成员关联:递归展开部门子树(深度上限 64 防成环死循环) -->
+    <select id="selectByGroupIdIncludingSubtree" resultType="UserGroup">
+        WITH RECURSIVE sub_tree AS (
+            SELECT id, 1 AS depth
+            FROM iam_group
+            WHERE id = #{groupId} AND deleted = FALSE
+            UNION ALL
+            SELECT g.id, st.depth + 1
+            FROM iam_group g
+            JOIN sub_tree st ON g.parent_id = st.id
+            WHERE g.deleted = FALSE AND st.depth &lt; 64
+        )
+        SELECT ug.id, ug.realm_id, ug.user_id, ug.group_id, ug.position_id, ug.is_primary,
+               ug.deleted, ug.created_time, ug.updated_time
+        FROM iam_user_group ug
+        WHERE ug.deleted = FALSE
+          AND ug.group_id IN (SELECT DISTINCT id FROM sub_tree)
+        ORDER BY ug.group_id, ug.id
+    </select>
+
+    <update id="deleteByUserIdAndGroupId">
+        UPDATE iam_user_group
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND group_id = #{groupId} AND deleted = FALSE
+    </update>
+
+    <select id="countByGroupIds" resultType="GroupMemberCount">
+        SELECT group_id, COUNT(*) AS member_count
+        FROM iam_user_group
+        WHERE group_id IN
+        <foreach collection="groupIds" item="groupId" open="(" separator="," close=")">#{groupId}</foreach>
+        AND deleted = FALSE
+        GROUP BY group_id
+    </select>
+
+    <update id="deleteByGroupId">
+        UPDATE iam_user_group
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE group_id = #{groupId} AND deleted = FALSE
+    </update>
+</mapper>

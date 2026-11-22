@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/*
+  语言切换片段。链接指向当前页(保留原有查询参数),只替换 lang 参数,
+  因此切换语言不会丢失 state、client_id 等协议参数。
+  文案为"目标语言的自称",当前是中文时显示 English,当前是英文时显示中文。
+*/-->
+<a th:fragment="switch" class="iam-lang-switch"
+   th:href="${langSwitch.url}"
+   th:title="#{page.common.lang.switch}"
+   th:text="${langSwitch.label}"
+   th:attr="hreflang=${langSwitch.targetTag},lang=${langSwitch.targetTag}">English</a>
+</body>
+</html>

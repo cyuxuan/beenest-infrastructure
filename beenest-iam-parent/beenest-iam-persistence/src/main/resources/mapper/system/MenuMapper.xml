@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.MenuMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, app_service_id, parent_id, menu_code, menu_name, menu_type, path, icon, permission_id,
+        sort_order, enabled, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="Menu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_menu
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByIds" resultType="Menu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_menu
+        WHERE deleted = FALSE
+        <choose>
+            <when test="ids != null and ids.size() > 0">
+                AND id IN
+                <foreach collection="ids" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <select id="selectByRealmId" resultType="Menu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_menu
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+        ORDER BY sort_order, id
+    </select>
+
+    <select id="selectByAppServiceId" resultType="Menu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_menu
+        WHERE realm_id = #{realmId}
+          AND app_service_id = #{appServiceId}
+          AND deleted = FALSE
+        ORDER BY sort_order, id
+    </select>
+
+    <select id="selectPlatformMenus" resultType="Menu">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_menu
+        WHERE realm_id = #{realmId}
+          AND app_service_id IS NULL
+          AND deleted = FALSE
+        ORDER BY sort_order, id
+    </select>
+
+    <update id="updateAppServiceIdByIds">
+        UPDATE iam_menu
+        SET app_service_id = #{appServiceId},
+            updated_time = CURRENT_TIMESTAMP
+        WHERE realm_id = #{realmId}
+          AND app_service_id IS NULL
+          AND deleted = FALSE
+          AND id IN
+        <foreach collection="ids" item="item" open="(" separator="," close=")">#{item}</foreach>
+    </update>
+
+    <!-- 省略未赋值列:类型/排序/启用等列在 DDL 中已有默认值 -->
+    <insert id="insert" parameterType="Menu" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_menu
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            realm_id, menu_code, menu_name, deleted,
+            <if test="appServiceId != null">app_service_id,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="menuType != null">menu_type,</if>
+            <if test="path != null">path,</if>
+            <if test="icon != null">icon,</if>
+            <if test="permissionId != null">permission_id,</if>
+            <if test="sortOrder != null">sort_order,</if>
+            <if test="enabled != null">enabled,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{realmId}, #{menuCode}, #{menuName}, FALSE,
+            <if test="appServiceId != null">#{appServiceId},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="menuType != null">#{menuType},</if>
+            <if test="path != null">#{path},</if>
+            <if test="icon != null">#{icon},</if>
+            <if test="permissionId != null">#{permissionId},</if>
+            <if test="sortOrder != null">#{sortOrder},</if>
+            <if test="enabled != null">#{enabled},</if>
+        </trim>
+    </insert>
+
+    <update id="updateById" parameterType="Menu">
+        UPDATE iam_menu
+        <set>
+            <if test="menuName != null">menu_name = #{menuName},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="menuType != null">menu_type = #{menuType},</if>
+            <if test="path != null">path = #{path},</if>
+            <if test="icon != null">icon = #{icon},</if>
+            <if test="permissionId != null">permission_id = #{permissionId},</if>
+            <if test="sortOrder != null">sort_order = #{sortOrder},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="updatePermissionIdById">
+        UPDATE iam_menu
+        SET permission_id = #{permissionId},
+            updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <select id="countByPermissionId" resultType="int">
+        SELECT COUNT(1) FROM iam_menu
+        WHERE permission_id = #{permissionId} AND deleted = FALSE
+    </select>
+
+    <update id="softDeleteById">
+        UPDATE iam_menu
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteByIds">
+        UPDATE iam_menu
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE deleted = FALSE
+        <choose>
+            <when test="ids != null and ids.size() > 0">
+                AND id IN
+                <foreach collection="ids" item="item" open="(" separator="," close=")">#{item}</foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </update>
+</mapper>

@@ -1,0 +1,81 @@
+# ===== 蜂巢 IAM 发布镜像(linux/amd64)=====
+# 用途:生产/预发环境交付。jar 由 CI 或本机先行构建,镜像只负责运行,
+# 因此构建不需要容器内访问 Maven 仓库,跨架构构建也不必模拟编译。
+#
+# 构建(在 arm64 机器上产出 amd64 镜像):
+#   ./mvnw -o -B -DskipTests package
+#   cp beenest-iam-server/target/beenest-iam-server-1.0.0.jar .docker-runtime/app.jar
+#   cp beenest-iam-provider-wechat/target/beenest-iam-provider-wechat-1.0.0.jar providers/
+#   java -Djarmode=tools -jar .docker-runtime/app.jar extract --layers --destination .docker-runtime/layers
+#   docker buildx build --platform linux/amd64 -f Dockerfile.release \
+#       -t <registry>/<namespace>/beenest-iam:1.0.0 --push .
+#
+# 基础镜像保留 jammy 而不是 alpine:两者都自带字体、时区数据与 curl,
+# alpine 只小约 75MB,但跨架构构建时要额外拉一份 amd64 的 alpine 镜像,
+# 没有本地缓存时反而更慢。继续压体积该做的是 jlink 裁剪 JRE(可再省约 120MB),
+# 那是另一件事,不该混在发布流程里做。
+#
+# 业务代码与第三方依赖拆成两层:改代码只让最后一层变化,推送时只需上传约 2MB,
+# 而不是 83MB 的整包。分层用 Spring Boot 的 tools 模式在**宿主**完成,
+# 不在构建阶段跑 QEMU 模拟 amd64 的 java——分层产物是纯字节码与资源,与架构无关。
+#
+# 本文件不含任何业务配置:数据库地址、口令、主密钥、域名一律由部署侧注入,
+# 镜像内不保留可用的默认值,避免"忘了注入也能跑起来"的隐性事故。
+FROM eclipse-temurin:21-jre-jammy
+
+# 构建元数据:便于追溯某个运行中的镜像由哪次提交、什么时间构建
+ARG VERSION=1.0.0
+ARG REVISION=unknown
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.title="beenest-iam" \
+      org.opencontainers.image.description="蜂巢统一身份认证平台" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.licenses="Proprietary"
+
+WORKDIR /app
+
+# 这里**故意不装任何包**,包括不再跑 apt-get update/upgrade。
+# Temurin 的 jammy 镜像已经自带运行所需的全部东西(实测确认):
+#   /usr/share/fonts/truetype/dejavu + /etc/fonts/fonts.conf
+#       —— 验证码用 Java2D 画字(CaptchaService 用逻辑字体 SANS_SERIF),
+#          没有字体不会抛异常,只会画出空白图,是最容易被漏掉的故障
+#   /usr/share/zoneinfo  —— TZ=Asia/Shanghai 直接可用
+#   /usr/bin/curl        —— 健康检查用它
+# 原先把 apt-get upgrade 当"打补丁"写进镜像,实际效果是:
+#   多一层约 100MB 的整包替换、构建多花两分钟,而安全补丁的有效期只到下次重建。
+#   真要保持补丁新鲜,正确做法是 CI 定期重建镜像,不是在这里升级。
+RUN groupadd -r iam && useradd -r -g iam -d /app iam
+
+# 分层顺序决定缓存命中率:体积最大且最少变的第三方依赖放最前,业务代码放最后。
+# 每 COPY 一条就是一层,只有前面的层没变,Docker 才会复用后面的缓存
+COPY --chown=iam:iam .docker-runtime/layers/dependencies/lib/ /app/lib/
+COPY --chown=iam:iam .docker-runtime/layers/application/lib/ /app/app-lib/
+COPY --chown=iam:iam .docker-runtime/layers/application/app.jar /app/app.jar
+
+# 外置扩展包目录:镜像内带一份微信扩展包,其余第三方提供方仍可挂 volume 追加
+COPY --chown=iam:iam providers/ /app/providers/
+
+# 非 root 运行:容器逃逸时拿到的是无特权账号
+USER iam
+
+EXPOSE 8080
+# 管理端口(actuator/指标)故意不写 EXPOSE:避免 `docker run -P` 把 9090 一并映射到宿主机。
+# 需要采集指标时显式发布到运维网段,不要发布到公网
+
+# 以下三项是运行姿势而非业务配置,给默认值便于直接 docker run;
+# 部署侧可用 -e 或 compose 覆盖
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseZGC" \
+    IAM_PROVIDER_DIR=/app/providers \
+    SPRING_PROFILES_ACTIVE=prod
+
+# 健康检查探管理端口的就绪探针:业务端口要过安全过滤链,未登录会被重定向,
+# 拿它做健康检查会把"正常"判成"异常"
+HEALTHCHECK --interval=10s --timeout=5s --start-period=120s --retries=12 \
+    CMD curl -fsS http://127.0.0.1:${MANAGEMENT_PORT:-9090}/actuator/health/readiness || exit 1
+
+# 分层后的布局是"普通 jar + 外部 lib",不再是 Spring Boot 可执行 jar,
+# 因此不能用 java -jar(manifest 的 Class-Path 只认相对 lib/,覆盖不到 app-lib)。
+# 用 -cp 显式列出三处路径,lib/* 交给 JVM 自己展开,所以通配符要用单引号挡住 shell
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -cp '/app/app.jar:/app/app-lib/*:/app/lib/*' club.beenest.iam.BeenestIamServerApplication"]

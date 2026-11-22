@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.LoginPolicyMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, max_fail_attempts, failure_window_minutes, lock_duration_minutes,
+        captcha_threshold, force_mfa, ip_max_fail_attempts, ip_lock_duration_minutes,
+        sms_login_enabled, sms_code_ttl_seconds, sms_max_send_per_hour, sms_max_verify_attempts,
+        max_concurrent_sessions,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByRealmId" resultType="LoginPolicy">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_login_policy
+        WHERE realm_id = #{realmId} AND deleted = FALSE
+    </select>
+
+    <insert id="insert" parameterType="LoginPolicy" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_login_policy(realm_id, max_fail_attempts, failure_window_minutes,
+                                     lock_duration_minutes, captcha_threshold, force_mfa,
+                                     ip_max_fail_attempts, ip_lock_duration_minutes,
+                                     sms_login_enabled, sms_code_ttl_seconds,
+                                     sms_max_send_per_hour, sms_max_verify_attempts,
+                                     max_concurrent_sessions, deleted)
+        VALUES (#{realmId}, COALESCE(#{maxFailAttempts}, 5), COALESCE(#{failureWindowMinutes}, 15),
+                COALESCE(#{lockDurationMinutes}, 15), COALESCE(#{captchaThreshold}, 3),
+                COALESCE(#{forceMfa}, FALSE), COALESCE(#{ipMaxFailAttempts}, 20),
+                COALESCE(#{ipLockDurationMinutes}, 15),
+                COALESCE(#{smsLoginEnabled}, FALSE), COALESCE(#{smsCodeTtlSeconds}, 300),
+                COALESCE(#{smsMaxSendPerHour}, 5), COALESCE(#{smsMaxVerifyAttempts}, 5),
+                COALESCE(#{maxConcurrentSessions}, 0), FALSE)
+    </insert>
+
+    <update id="updateById" parameterType="LoginPolicy">
+        UPDATE iam_login_policy
+        <set>
+            <if test="maxFailAttempts != null">max_fail_attempts = #{maxFailAttempts},</if>
+            <if test="failureWindowMinutes != null">failure_window_minutes = #{failureWindowMinutes},</if>
+            <if test="lockDurationMinutes != null">lock_duration_minutes = #{lockDurationMinutes},</if>
+            <if test="captchaThreshold != null">captcha_threshold = #{captchaThreshold},</if>
+            <if test="forceMfa != null">force_mfa = #{forceMfa},</if>
+            <if test="ipMaxFailAttempts != null">ip_max_fail_attempts = #{ipMaxFailAttempts},</if>
+            <if test="ipLockDurationMinutes != null">ip_lock_duration_minutes = #{ipLockDurationMinutes},</if>
+            <if test="smsLoginEnabled != null">sms_login_enabled = #{smsLoginEnabled},</if>
+            <if test="smsCodeTtlSeconds != null">sms_code_ttl_seconds = #{smsCodeTtlSeconds},</if>
+            <if test="smsMaxSendPerHour != null">sms_max_send_per_hour = #{smsMaxSendPerHour},</if>
+            <if test="smsMaxVerifyAttempts != null">sms_max_verify_attempts = #{smsMaxVerifyAttempts},</if>
+            <if test="maxConcurrentSessions != null">max_concurrent_sessions = #{maxConcurrentSessions},</if>
+            updated_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+</mapper>

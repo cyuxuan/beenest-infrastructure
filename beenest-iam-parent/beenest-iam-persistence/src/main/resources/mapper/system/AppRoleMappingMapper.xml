@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.AppRoleMappingMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, app_service_id, source_type, source_id, target_role_code, enabled,
+        deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectById" resultType="AppRoleMapping">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_role_mapping
+        WHERE id = #{id} AND deleted = FALSE
+    </select>
+
+    <select id="selectByAppServiceId" resultType="AppRoleMapping">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_role_mapping
+        WHERE app_service_id = #{appServiceId} AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <select id="selectEnabledByAppServiceId" resultType="AppRoleMapping">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_role_mapping
+        WHERE app_service_id = #{appServiceId} AND enabled = TRUE AND deleted = FALSE
+        ORDER BY id
+    </select>
+
+    <select id="selectByAppAndSource" resultType="AppRoleMapping">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_app_role_mapping
+        WHERE app_service_id = #{appServiceId}
+          AND source_type = #{sourceType}
+          AND source_id = #{sourceId}
+          AND target_role_code = #{targetRoleCode}
+          AND deleted = FALSE
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="AppRoleMapping" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_app_role_mapping(realm_id, app_service_id, source_type, source_id,
+                                         target_role_code, enabled, deleted)
+        VALUES (#{realmId}, #{appServiceId}, #{sourceType}, #{sourceId},
+                #{targetRoleCode}, #{enabled}, FALSE)
+    </insert>
+
+    <update id="softDeleteById">
+        UPDATE iam_app_role_mapping
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND deleted = FALSE
+    </update>
+
+    <update id="softDeleteByAppServiceId">
+        UPDATE iam_app_role_mapping
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE app_service_id = #{appServiceId} AND deleted = FALSE
+    </update>
+</mapper>

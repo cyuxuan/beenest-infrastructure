@@ -1,0 +1,30 @@
+# 构建上下文排除清单。
+# 目的有二:一是把上下文从 ~200MB 压到只含源码,二是避免宿主的构建产物
+# 与容器内编译结果混在一起(宿主 target/ 里的旧 class 会被 COPY 进镜像)。
+
+# 版本库与编辑器
+.git
+.gitignore
+.idea
+.vscode
+*.iml
+**/.DS_Store
+
+# 宿主构建产物:镜像内会重新编译,传进去只会让 COPY 变慢并可能带进旧字节码
+**/target/
+
+# 前端依赖:与 Maven 构建无关(前端产物已提交在 src/main/resources/{console,portal}/static)
+**/node_modules/
+
+# 文档与运维脚本:运行镜像不需要
+docs/
+ops/
+*.md
+
+# 本地工具缓存
+.workbuddy-ai/
+**/*.log
+
+# 部署侧的 .env 含口令与主密钥,绝不能进镜像上下文
+**/.env
+deploy/.env

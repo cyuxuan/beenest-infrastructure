@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="club.beenest.iam.persistence.mapper.UserAttributeIndexMapper">
+
+    <sql id="baseColumns">
+        id, realm_id, user_id, attr_key, attr_value, is_unique, deleted, created_time, updated_time
+    </sql>
+
+    <select id="selectByUserId" resultType="UserAttributeIndex">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_attribute_index
+        WHERE user_id = #{userId} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmKeyValue" resultType="UserAttributeIndex">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_attribute_index
+        WHERE realm_id = #{realmId} AND attr_key = #{attrKey} AND attr_value = #{attrValue} AND deleted = FALSE
+    </select>
+
+    <select id="selectByRealmAndKey" resultType="UserAttributeIndex">
+        SELECT <include refid="baseColumns"/>
+        FROM iam_user_attribute_index
+        WHERE realm_id = #{realmId} AND attr_key = #{attrKey} AND deleted = FALSE
+        <if test="attrValue != null and attrValue != ''">AND attr_value LIKE '%' || #{attrValue} || '%'</if>
+    </select>
+
+    <insert id="insert" parameterType="UserAttributeIndex" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO iam_user_attribute_index(realm_id, user_id, attr_key, attr_value, is_unique, deleted)
+        VALUES (#{realmId}, #{userId}, #{attrKey}, #{attrValue}, COALESCE(#{isUnique}, FALSE), FALSE)
+    </insert>
+
+    <update id="deleteByUserIdAndKey">
+        UPDATE iam_user_attribute_index
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND attr_key = #{attrKey} AND deleted = FALSE
+    </update>
+
+    <update id="deleteByUserId">
+        UPDATE iam_user_attribute_index
+        SET deleted = TRUE, updated_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND deleted = FALSE
+    </update>
+</mapper>
